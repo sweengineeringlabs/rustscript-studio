@@ -5,6 +5,19 @@ use rsc::prelude::*;
 use rsc_flow::prelude::*;
 use super::{FlowNode, FlowEdge};
 
+/// Connection state for edge creation by dragging.
+#[derive(Debug, Clone, Default)]
+pub struct ConnectionState {
+    /// Source node ID (where the connection started)
+    pub source_node: Option<String>,
+    /// Whether connecting from top (true) or bottom (false) handle
+    pub from_top: bool,
+    /// Current mouse position in canvas coordinates
+    pub current_pos: Position,
+    /// Whether a connection drag is active
+    pub is_connecting: bool,
+}
+
 /// Flow canvas component props.
 #[derive(Props)]
 pub struct FlowCanvasProps<N, E>
@@ -19,14 +32,18 @@ where
     pub on_node_move: Option<Callback<(String, Position)>>,
     #[prop(default)]
     pub on_edge_select: Option<Callback<String>>,
+    /// Callback when a new edge should be created (source_id, target_id)
+    #[prop(default)]
+    pub on_edge_create: Option<Callback<(String, String)>>,
 }
 
-/// Flow canvas component with pan/zoom gesture support.
+/// Flow canvas component with pan/zoom gesture support and edge creation.
 ///
 /// ## Gestures
-/// - **Pan**: Middle mouse button drag or Space + Left mouse drag
+/// - **Pan**: Middle mouse button drag
 /// - **Zoom**: Mouse wheel (zooms towards cursor position)
 /// - **Keyboard**: +/= to zoom in, - to zoom out, 0 to reset view
+/// - **Connect**: Drag from node handle to another node to create edge
 #[component]
 pub fn FlowCanvasView<N, E>(props: FlowCanvasProps<N, E>) -> Element
 where
@@ -38,6 +55,9 @@ where
     let is_panning = use_signal(|| false);
     let pan_start = use_signal(|| Position::zero());
     let viewport_start = use_signal(|| (0.0f64, 0.0f64));
+
+    // Connection state for edge creation
+    let connection = use_signal(|| ConnectionState::default());
 
     // Handle mouse down for panning (middle mouse button)
     let on_mouse_down = move |e: MouseEvent| {
@@ -51,26 +71,62 @@ where
         }
     };
 
-    let on_mouse_move = move |e: MouseEvent| {
-        if is_panning.get() {
-            let dx = e.client_x() as f64 - pan_start.get().x;
-            let dy = e.client_y() as f64 - pan_start.get().y;
-            let (start_x, start_y) = viewport_start.get();
-            props.canvas.update(|c| {
-                if c.viewport.pan_enabled {
-                    c.viewport.transform.x = start_x + dx;
-                    c.viewport.transform.y = start_y + dy;
-                }
-            });
+    let on_mouse_move = {
+        let connection = connection.clone();
+        move |e: MouseEvent| {
+            // Handle panning
+            if is_panning.get() {
+                let dx = e.client_x() as f64 - pan_start.get().x;
+                let dy = e.client_y() as f64 - pan_start.get().y;
+                let (start_x, start_y) = viewport_start.get();
+                props.canvas.update(|c| {
+                    if c.viewport.pan_enabled {
+                        c.viewport.transform.x = start_x + dx;
+                        c.viewport.transform.y = start_y + dy;
+                    }
+                });
+            }
+
+            // Handle connection dragging - update current position
+            if connection.get().is_connecting {
+                let canvas_data = props.canvas.get();
+                let vp = &canvas_data.viewport.transform;
+                // Convert screen position to canvas position
+                let canvas_x = (e.offset_x() as f64 - vp.x) / vp.zoom;
+                let canvas_y = (e.offset_y() as f64 - vp.y) / vp.zoom;
+                connection.update(|c| {
+                    c.current_pos = Position::new(canvas_x, canvas_y);
+                });
+            }
         }
     };
 
-    let on_mouse_up = move |_: MouseEvent| {
-        is_panning.set(false);
+    let on_mouse_up = {
+        let connection = connection.clone();
+        move |_: MouseEvent| {
+            is_panning.set(false);
+            // Cancel any active connection if mouse up on canvas (not on a node handle)
+            if connection.get().is_connecting {
+                connection.update(|c| {
+                    c.is_connecting = false;
+                    c.source_node = None;
+                });
+            }
+        }
     };
 
-    let on_mouse_leave = move |_: MouseEvent| {
-        is_panning.set(false);
+    let on_mouse_leave = {
+        let connection = connection.clone();
+        move |_: MouseEvent| {
+            is_panning.set(false);
+            // Cancel connection when leaving canvas
+            if connection.get().is_connecting {
+                connection.update(|c| {
+                    c.is_connecting = false;
+                    c.source_node = None;
+                });
+            }
+        }
     };
 
     // Handle wheel for zooming towards mouse position (focal point zoom)
@@ -104,7 +160,6 @@ where
         let canvas_y = (mouse_y - vp.y) / vp.zoom;
 
         // After zoom, that same canvas point should remain under the mouse
-        // This creates a natural zoom-to-cursor effect
         let new_vp_x = mouse_x - canvas_x * new_zoom;
         let new_vp_y = mouse_y - canvas_y * new_zoom;
 
@@ -119,7 +174,6 @@ where
     let on_key_down = move |e: KeyboardEvent| {
         let key = e.key();
         match key.as_str() {
-            // Zoom in with + or =
             "+" | "=" => {
                 e.prevent_default();
                 props.canvas.update(|c| {
@@ -128,7 +182,6 @@ where
                     }
                 });
             }
-            // Zoom out with -
             "-" => {
                 e.prevent_default();
                 props.canvas.update(|c| {
@@ -137,26 +190,93 @@ where
                     }
                 });
             }
-            // Reset view with 0
             "0" => {
                 e.prevent_default();
                 props.canvas.update(|c| {
                     c.viewport.reset();
                 });
             }
+            "Escape" => {
+                // Cancel any active connection
+                connection.update(|c| {
+                    c.is_connecting = false;
+                    c.source_node = None;
+                });
+            }
             _ => {}
         }
     };
 
-    // Context menu prevention to allow custom interactions
     let on_context_menu = move |e: MouseEvent| {
         e.prevent_default();
+    };
+
+    // Callbacks for node connection events
+    let on_connection_start = {
+        let connection = connection.clone();
+        Callback::new(move |(node_id, from_top, pos): (String, bool, Position)| {
+            connection.update(|c| {
+                c.is_connecting = true;
+                c.source_node = Some(node_id);
+                c.from_top = from_top;
+                c.current_pos = pos;
+            });
+        })
+    };
+
+    let on_connection_end = {
+        let connection = connection.clone();
+        let on_edge_create = props.on_edge_create.clone();
+        Callback::new(move |target_node_id: String| {
+            let conn = connection.get();
+            if conn.is_connecting {
+                if let Some(ref source_id) = conn.source_node {
+                    // Don't allow self-connections
+                    if source_id != &target_node_id {
+                        if let Some(ref callback) = on_edge_create {
+                            // Direction: bottom handle → top handle (source → target)
+                            if conn.from_top {
+                                // Started from top, so this is an incoming connection
+                                callback.call((target_node_id.clone(), source_id.clone()));
+                            } else {
+                                // Started from bottom, so this is an outgoing connection
+                                callback.call((source_id.clone(), target_node_id.clone()));
+                            }
+                        }
+                    }
+                }
+            }
+            // Reset connection state
+            connection.update(|c| {
+                c.is_connecting = false;
+                c.source_node = None;
+            });
+        })
+    };
+
+    // Get connection line source position
+    let conn_state = connection.get();
+    let connection_source_pos = if conn_state.is_connecting {
+        conn_state.source_node.as_ref().and_then(|id| {
+            canvas.get_node_center(id).map(|center| {
+                // Adjust for handle position (top or bottom)
+                let node = canvas.nodes.get(id);
+                let height = node.and_then(|n| n.dimensions.map(|d| d.height)).unwrap_or(50.0);
+                if conn_state.from_top {
+                    Position::new(center.x, center.y - height / 2.0)
+                } else {
+                    Position::new(center.x, center.y + height / 2.0)
+                }
+            })
+        })
+    } else {
+        None
     };
 
     rsx! {
         div(
             class="flow-canvas",
-            style=styles::container(is_panning.get()),
+            style=styles::container(is_panning.get(), conn_state.is_connecting),
             ref=container_ref,
             tabindex="0",
             on:mousedown=on_mouse_down,
@@ -175,12 +295,23 @@ where
                 class="flow-edges",
                 style=styles::edges_layer(&canvas.viewport),
             ) {
+                // Existing edges
                 for edge in canvas.edges.values() {
                     FlowEdge {
                         edge: edge.clone(),
                         source_pos: canvas.get_node_center(&edge.source),
                         target_pos: canvas.get_node_center(&edge.target),
                         on_select: props.on_edge_select.clone(),
+                    }
+                }
+
+                // Connection line preview (while dragging)
+                if conn_state.is_connecting {
+                    if let Some(source_pos) = connection_source_pos {
+                        ConnectionLine {
+                            source: source_pos,
+                            target: conn_state.current_pos,
+                        }
                     }
                 }
             }
@@ -198,6 +329,9 @@ where
                         grid_size: canvas.config.grid_size,
                         on_select: props.on_node_select.clone(),
                         on_move: props.on_node_move.clone(),
+                        on_connection_start: Some(on_connection_start.clone()),
+                        on_connection_end: Some(on_connection_end.clone()),
+                        is_connection_target: conn_state.is_connecting && conn_state.source_node.as_ref() != Some(&node.id),
                     }
                 }
             }
@@ -205,11 +339,63 @@ where
     }
 }
 
+/// Connection line component for showing edge preview while dragging.
+#[derive(Props)]
+struct ConnectionLineProps {
+    source: Position,
+    target: Position,
+}
+
+#[component]
+fn ConnectionLine(props: ConnectionLineProps) -> Element {
+    let path = calculate_bezier_path(&props.source, &props.target);
+
+    rsx! {
+        path(
+            d=path,
+            fill="none",
+            stroke="var(--color-primary)",
+            stroke_width="2",
+            stroke_dasharray="5,5",
+            style="pointer-events: none; opacity: 0.7;",
+        )
+    }
+}
+
+/// Calculate a smooth bezier curve path between two points.
+fn calculate_bezier_path(source: &Position, target: &Position) -> String {
+    let dx = target.x - source.x;
+    let dy = target.y - source.y;
+
+    // Control point offset based on distance
+    let offset = (dx.abs() + dy.abs()).max(50.0) * 0.3;
+
+    let sx = source.x;
+    let sy = source.y;
+    let tx = target.x;
+    let ty = target.y;
+
+    // Determine control points based on vertical direction
+    let (c1y, c2y) = if ty > sy {
+        (sy + offset, ty - offset)
+    } else {
+        (sy - offset, ty + offset)
+    };
+
+    format!("M {} {} C {} {}, {} {}, {} {}", sx, sy, sx, c1y, tx, c2y, tx, ty)
+}
+
 mod styles {
     use rsc_flow::prelude::{Viewport, FlowCanvasConfig};
 
-    pub fn container(is_panning: bool) -> String {
-        let cursor = if is_panning { "grabbing" } else { "grab" };
+    pub fn container(is_panning: bool, is_connecting: bool) -> String {
+        let cursor = if is_connecting {
+            "crosshair"
+        } else if is_panning {
+            "grabbing"
+        } else {
+            "grab"
+        };
         format!(
             r#"
                 position: relative;
