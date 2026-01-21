@@ -1,5 +1,8 @@
 # RustScript Studio - Project Backlog
 
+**Created:** 2026-01-21
+**Last Updated:** 2026-01-21
+
 Visual IDE for RustScript - Design navigation flows and CSS visually.
 
 ## Legend
