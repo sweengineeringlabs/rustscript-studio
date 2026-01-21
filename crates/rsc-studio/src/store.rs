@@ -146,7 +146,7 @@ pub struct Drafts {
 }
 
 /// UI state.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct UiState {
     /// Currently active designer tab.
     pub active_designer: Designer,

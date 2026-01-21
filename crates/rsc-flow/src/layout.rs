@@ -81,7 +81,7 @@ impl HierarchicalLayout {
     }
 
     /// Apply layout to nodes.
-    pub fn apply<T: Clone>(&self, nodes: &mut [Node<T>], edges: &[Edge]) {
+    pub fn apply<T: Clone, E>(&self, nodes: &mut [Node<T>], edges: &[Edge<E>]) {
         if nodes.is_empty() {
             return;
         }

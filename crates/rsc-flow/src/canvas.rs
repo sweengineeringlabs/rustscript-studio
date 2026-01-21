@@ -6,11 +6,15 @@ use serde::{Deserialize, Serialize};
 use crate::edge::{Edge, EdgeId};
 use crate::layout::{HierarchicalLayout, LayoutConfig};
 use crate::node::{Node, NodeId};
-use crate::position::{Dimensions, Position, Rect};
+use crate::position::{Dimensions, Rect};
 use crate::viewport::Viewport;
 
 /// Flow canvas state.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound(
+    serialize = "N: Serialize, E: Serialize",
+    deserialize = "N: Deserialize<'de> + Default, E: Deserialize<'de> + Default"
+))]
 pub struct FlowCanvas<N = (), E = ()> {
     /// All nodes.
     pub nodes: IndexMap<NodeId, Node<N>>,
@@ -257,6 +261,7 @@ impl Default for FlowCanvasConfig {
 mod tests {
     use super::*;
     use crate::node::NodeType;
+    use crate::position::Position;
 
     #[test]
     fn test_canvas_operations() {

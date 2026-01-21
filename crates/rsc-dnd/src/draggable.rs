@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::context::{DndId, Rect};
+use crate::context::DndId;
 
 /// Draggable element state.
 #[derive(Debug, Clone, Default)]

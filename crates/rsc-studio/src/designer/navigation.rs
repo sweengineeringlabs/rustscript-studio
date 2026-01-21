@@ -3,7 +3,7 @@
 
 use rsc_flow::prelude::*;
 
-use crate::entity::{Context, EntityId, Preset, Workflow};
+use crate::entity::{Context, Preset, Workflow};
 
 /// Navigation designer state.
 #[derive(Debug, Clone)]
