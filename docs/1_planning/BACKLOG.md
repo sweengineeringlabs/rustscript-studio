@@ -204,7 +204,7 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | [x] | Render workflow hierarchy as flow graph | 2026-01-21 | 2026-01-21 |
 | [x] | Auto-layout on structure change | 2026-01-21 | 2026-01-21 |
 | [ ] | Manual node positioning with persistence | 2026-01-21 | |
-| [ ] | Edge routing (bezier curves) | 2026-01-21 | |
+| [x] | Edge routing (bezier curves) | 2026-01-21 | 2026-01-21 |
 | [x] | Zoom to selection | 2026-01-21 | 2026-01-21 |
 | [x] | Search/filter nodes | 2026-01-21 | 2026-01-21 |
 | [ ] | Keyboard navigation | 2026-01-21 | |

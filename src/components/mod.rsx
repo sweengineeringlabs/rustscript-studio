@@ -36,7 +36,7 @@ pub use checkbox::{Checkbox, CheckboxSize, Switch};
 pub use color_picker::{ColorPicker, ColorFormat, Color};
 pub use context_menu::{ContextMenu, MenuItem};
 pub use flow_canvas::{FlowCanvasView, ConnectionState};
-pub use flow_edge::FlowEdge;
+pub use flow_edge::{FlowEdge, EdgeStyle};
 pub use flow_node::FlowNode;
 pub use header::Header;
 pub use icon::Icon;
