@@ -128,7 +128,7 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | [x] | Panel component (scaffold) | 2026-01-21 | 2026-01-21 |
 | [x] | Tabs component (scaffold) | 2026-01-21 | 2026-01-21 |
 | [x] | Toolbar component (scaffold) | 2026-01-21 | 2026-01-21 |
-| [ ] | Input component | 2026-01-21 | |
+| [x] | Input component | 2026-01-21 | 2026-01-21 |
 | [ ] | Select component | 2026-01-21 | |
 | [ ] | Checkbox component | 2026-01-21 | |
 | [ ] | Modal/Dialog component | 2026-01-21 | |
@@ -142,8 +142,8 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | [x] | FlowCanvas component (scaffold) | 2026-01-21 | 2026-01-21 |
 | [x] | FlowNode component (scaffold) | 2026-01-21 | 2026-01-21 |
 | [x] | FlowEdge component (scaffold) | 2026-01-21 | 2026-01-21 |
-| [ ] | Implement canvas pan/zoom gestures | 2026-01-21 | |
-| [ ] | Implement node drag with snap-to-grid | 2026-01-21 | |
+| [x] | Implement canvas pan/zoom gestures | 2026-01-21 | 2026-01-21 |
+| [x] | Implement node drag with snap-to-grid | 2026-01-21 | 2026-01-21 |
 | [ ] | Implement edge creation by dragging | 2026-01-21 | |
 | [ ] | Implement node selection (single/multi) | 2026-01-21 | |
 | [ ] | Implement edge selection | 2026-01-21 | |
@@ -156,7 +156,7 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
 | [x] | TokenEditor component (scaffold) | 2026-01-21 | 2026-01-21 |
-| [ ] | ColorPicker component | 2026-01-21 | |
+| [x] | ColorPicker component | 2026-01-21 | 2026-01-21 |
 | [ ] | SpacingEditor component | 2026-01-21 | |
 | [ ] | ShadowEditor component | 2026-01-21 | |
 | [ ] | TypographyEditor component | 2026-01-21 | |
@@ -428,14 +428,14 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | Phase | Total | Done | Progress |
 |-------|-------|------|----------|
 | Phase 1: Foundation | 35 | 35 | 100% |
-| Phase 2: UI Components | 28 | 12 | 43% |
+| Phase 2: UI Components | 28 | 16 | 57% |
 | Phase 3: Navigation | 19 | 0 | 0% |
 | Phase 4: CSS Designer | 17 | 0 | 0% |
 | Phase 5: Integration | 14 | 0 | 0% |
 | Phase 6: Advanced | 18 | 0 | 0% |
 | Phase 7: Testing | 13 | 3 | 23% |
 | Phase 8: Polish | 14 | 0 | 0% |
-| **Total** | **158** | **50** | **32%** |
+| **Total** | **158** | **54** | **34%** |
 
 ---
 
@@ -443,13 +443,19 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 
 **Focus:** Phase 2 - Core UI Components
 
-**Active Tasks:**
+**Completed:**
+- [x] Implement canvas pan/zoom gestures (2026-01-21)
+- [x] Implement node drag with snap-to-grid (2026-01-21)
+- [x] Input component (2026-01-21)
+- [x] ColorPicker component (2026-01-21)
+
+**Next Tasks:**
 | Task | Assignee | Started |
 |------|----------|---------|
-| Implement canvas pan/zoom gestures | - | - |
-| Implement node drag with snap-to-grid | - | - |
-| Input component | - | - |
-| ColorPicker component | - | - |
+| Select component | - | - |
+| Checkbox component | - | - |
+| SpacingEditor component | - | - |
+| Implement edge creation by dragging | - | - |
 
 ---
 

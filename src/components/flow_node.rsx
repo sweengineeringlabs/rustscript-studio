@@ -1,4 +1,4 @@
-//! Flow node component - draggable node in the flow canvas.
+//! Flow node component - draggable node in the flow canvas with snap-to-grid support.
 
 use rsc::prelude::*;
 
@@ -9,13 +9,33 @@ use super::Icon;
 #[derive(Props)]
 pub struct FlowNodeProps<T: Clone + 'static> {
     pub node: Node<T>,
+    /// Current viewport zoom level (for scaling drag deltas)
+    #[prop(default = 1.0)]
+    pub zoom: f64,
+    /// Whether snap-to-grid is enabled
+    #[prop(default = false)]
+    pub snap_to_grid: bool,
+    /// Grid size in pixels for snapping
+    #[prop(default = 20.0)]
+    pub grid_size: f64,
     #[prop(default)]
     pub on_select: Option<Callback<String>>,
     #[prop(default)]
     pub on_move: Option<Callback<(String, Position)>>,
 }
 
-/// Flow node component.
+/// Snap a value to the nearest grid line.
+fn snap_to_grid_value(value: f64, grid_size: f64) -> f64 {
+    (value / grid_size).round() * grid_size
+}
+
+/// Flow node component with drag support and optional snap-to-grid.
+///
+/// ## Features
+/// - Left click to select
+/// - Drag to move (accounts for canvas zoom)
+/// - Optional snap-to-grid when `snap_to_grid` is enabled
+/// - Visual cursor feedback during drag
 #[component]
 pub fn FlowNode<T: Clone + 'static>(props: FlowNodeProps<T>) -> Element {
     let is_dragging = use_signal(|| false);
@@ -30,9 +50,11 @@ pub fn FlowNode<T: Clone + 'static>(props: FlowNodeProps<T>) -> Element {
     let on_mouse_down = {
         let id = props.node.id.clone();
         let pos = props.node.position;
+        let draggable = props.node.draggable;
         move |e: MouseEvent| {
-            if e.button() == 0 {
-                // Left click
+            if e.button() == 0 && draggable {
+                // Left click and node is draggable
+                e.stop_propagation(); // Prevent canvas pan
                 is_dragging.set(true);
                 drag_start.set(Position::new(e.client_x() as f64, e.client_y() as f64));
                 node_start.set(pos);
@@ -46,11 +68,25 @@ pub fn FlowNode<T: Clone + 'static>(props: FlowNodeProps<T>) -> Element {
 
     let on_mouse_move = {
         let id = props.node.id.clone();
+        let zoom = props.zoom;
+        let snap_enabled = props.snap_to_grid;
+        let grid_size = props.grid_size;
         move |e: MouseEvent| {
             if is_dragging.get() {
-                let dx = e.client_x() as f64 - drag_start.get().x;
-                let dy = e.client_y() as f64 - drag_start.get().y;
-                let new_pos = Position::new(node_start.get().x + dx, node_start.get().y + dy);
+                // Calculate delta in screen space, then convert to canvas space
+                let dx = (e.client_x() as f64 - drag_start.get().x) / zoom;
+                let dy = (e.client_y() as f64 - drag_start.get().y) / zoom;
+
+                let mut new_x = node_start.get().x + dx;
+                let mut new_y = node_start.get().y + dy;
+
+                // Apply snap-to-grid if enabled
+                if snap_enabled {
+                    new_x = snap_to_grid_value(new_x, grid_size);
+                    new_y = snap_to_grid_value(new_y, grid_size);
+                }
+
+                let new_pos = Position::new(new_x, new_y);
 
                 if let Some(ref on_move) = props.on_move {
                     on_move.call((id.clone(), new_pos));
@@ -63,13 +99,43 @@ pub fn FlowNode<T: Clone + 'static>(props: FlowNodeProps<T>) -> Element {
         is_dragging.set(false);
     };
 
+    // Handle mouse leaving the node during drag (continue tracking via window)
+    let on_mouse_leave = {
+        let id = props.node.id.clone();
+        let zoom = props.zoom;
+        let snap_enabled = props.snap_to_grid;
+        let grid_size = props.grid_size;
+        move |e: MouseEvent| {
+            // If dragging and leaving node, we need to finalize position
+            if is_dragging.get() {
+                let dx = (e.client_x() as f64 - drag_start.get().x) / zoom;
+                let dy = (e.client_y() as f64 - drag_start.get().y) / zoom;
+
+                let mut new_x = node_start.get().x + dx;
+                let mut new_y = node_start.get().y + dy;
+
+                if snap_enabled {
+                    new_x = snap_to_grid_value(new_x, grid_size);
+                    new_y = snap_to_grid_value(new_y, grid_size);
+                }
+
+                let new_pos = Position::new(new_x, new_y);
+
+                if let Some(ref on_move) = props.on_move {
+                    on_move.call((id.clone(), new_pos));
+                }
+            }
+        }
+    };
+
     rsx! {
         div(
             class=format!("flow-node flow-node-{}", node_type),
-            style=styles::node(&props.node.position, node_type, props.node.selected),
+            style=styles::node(&props.node.position, node_type, props.node.selected, is_dragging.get()),
             on:mousedown=on_mouse_down,
             on:mousemove=on_mouse_move,
             on:mouseup=on_mouse_up,
+            on:mouseleave=on_mouse_leave,
         ) {
             // Header
             div(class="flow-node-header", style=styles::header(node_type)) {
@@ -79,7 +145,7 @@ pub fn FlowNode<T: Clone + 'static>(props: FlowNodeProps<T>) -> Element {
                 }
             }
 
-            // Handles
+            // Connection handles
             div(class="flow-node-handle flow-node-handle-top", style=styles::handle_top())
             div(class="flow-node-handle flow-node-handle-bottom", style=styles::handle_bottom())
         }
@@ -98,7 +164,7 @@ fn get_node_icon(node_type: &str) -> &str {
 mod styles {
     use rsc_flow::prelude::Position;
 
-    pub fn node(pos: &Position, node_type: &str, selected: bool) -> String {
+    pub fn node(pos: &Position, node_type: &str, selected: bool, is_dragging: bool) -> String {
         let border_color = match node_type {
             "workflow" => "var(--color-node-workflow)",
             "context" => "var(--color-node-context)",
@@ -112,6 +178,9 @@ mod styles {
             ""
         };
 
+        let cursor = if is_dragging { "grabbing" } else { "grab" };
+        let opacity = if is_dragging { "0.9" } else { "1" };
+
         format!(
             r#"
                 position: absolute;
@@ -122,13 +191,17 @@ mod styles {
                 border: 2px solid {border_color};
                 border-radius: var(--radius-lg);
                 box-shadow: var(--shadow-md);
-                cursor: grab;
+                cursor: {cursor};
                 user-select: none;
+                opacity: {opacity};
+                transition: box-shadow 0.15s ease;
                 {selected_style}
             "#,
             x = pos.x,
             y = pos.y,
             border_color = border_color,
+            cursor = cursor,
+            opacity = opacity,
             selected_style = selected_style,
         )
     }
@@ -177,6 +250,7 @@ mod styles {
             border: 2px solid var(--color-border);
             border-radius: 50%;
             cursor: crosshair;
+            transition: border-color 0.15s ease, transform 0.15s ease;
         "#
     }
 
@@ -192,6 +266,7 @@ mod styles {
             border: 2px solid var(--color-border);
             border-radius: 50%;
             cursor: crosshair;
+            transition: border-color 0.15s ease, transform 0.15s ease;
         "#
     }
 }
