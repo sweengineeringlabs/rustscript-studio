@@ -170,30 +170,30 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
-| [ ] | Create new workflow | 2026-01-21 | |
-| [ ] | Edit workflow properties (name, icon, description) | 2026-01-21 | |
-| [ ] | Delete workflow with confirmation | 2026-01-21 | |
-| [ ] | Duplicate workflow | 2026-01-21 | |
-| [ ] | Reorder workflows | 2026-01-21 | |
+| [x] | Create new workflow | 2026-01-21 | |
+| [x] | Edit workflow properties (name, icon, description) | 2026-01-21 | |
+| [x] | Delete workflow with confirmation | 2026-01-21 | |
+| [x] | Duplicate workflow | 2026-01-21 | |
+| [x] | Reorder workflows | 2026-01-21 | |
 
 ### 3.2 Context Management
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
-| [ ] | Create new context within workflow | 2026-01-21 | |
-| [ ] | Edit context properties | 2026-01-21 | |
-| [ ] | Delete context | 2026-01-21 | |
+| [x] | Create new context within workflow | 2026-01-21 | |
+| [x] | Edit context properties | 2026-01-21 | |
+| [x] | Delete context | 2026-01-21 | |
 | [ ] | Drag context between workflows | 2026-01-21 | |
-| [ ] | Visual context node rendering | 2026-01-21 | |
+| [x] | Visual context node rendering | 2026-01-21 | |
 
 ### 3.3 Preset Management
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
-| [ ] | Create new preset within context | 2026-01-21 | |
-| [ ] | Edit preset properties | 2026-01-21 | |
+| [x] | Create new preset within context | 2026-01-21 | |
+| [x] | Edit preset properties | 2026-01-21 | |
 | [ ] | Configure preset layout (activity bar, sidebar, panels) | 2026-01-21 | |
-| [ ] | Delete preset | 2026-01-21 | |
+| [x] | Delete preset | 2026-01-21 | |
 | [ ] | Duplicate preset | 2026-01-21 | |
 | [ ] | Visual preset node rendering | 2026-01-21 | |
 

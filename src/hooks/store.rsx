@@ -47,17 +47,75 @@ impl StudioStore {
     }
 
     /// Add a new workflow.
-    pub fn add_workflow(&self, name: &str) {
+    pub fn add_workflow(&self, name: &str) -> String {
+        let workflow = Workflow::new(name);
+        let id = workflow.id.clone();
         self.inner.update(|s| {
-            s.workflows.push(Workflow::new(name));
+            s.workflows.push(workflow);
         });
+        id
     }
 
     /// Remove a workflow by ID.
     pub fn remove_workflow(&self, id: &str) {
         self.inner.update(|s| {
             s.workflows.retain(|w| w.id != id);
+            // Clear selection if deleted workflow was selected
+            if s.selected_workflow.as_ref() == Some(&id.to_string()) {
+                s.selected_workflow = None;
+                s.selected_context = None;
+                s.selected_preset = None;
+            }
         });
+    }
+
+    /// Update workflow properties.
+    pub fn update_workflow(&self, id: &str, name: Option<String>, description: Option<String>, icon: Option<String>) {
+        self.inner.update(|s| {
+            if let Some(workflow) = s.workflows.iter_mut().find(|w| w.id == id) {
+                if let Some(n) = name {
+                    workflow.name = n;
+                }
+                if description.is_some() {
+                    workflow.description = description;
+                }
+                if icon.is_some() {
+                    workflow.icon = icon;
+                }
+            }
+        });
+    }
+
+    /// Duplicate a workflow.
+    pub fn duplicate_workflow(&self, id: &str) -> Option<String> {
+        let inner = self.inner.get();
+        let workflow = inner.workflows.iter().find(|w| w.id == id)?;
+
+        let mut new_workflow = workflow.clone();
+        new_workflow.id = uuid::Uuid::new_v4().to_string();
+        new_workflow.name = format!("{} (Copy)", workflow.name);
+
+        let new_id = new_workflow.id.clone();
+        drop(inner);
+        self.inner.update(|s| {
+            s.workflows.push(new_workflow);
+        });
+        Some(new_id)
+    }
+
+    /// Reorder workflows by moving one to a new index.
+    pub fn reorder_workflow(&self, from_index: usize, to_index: usize) {
+        self.inner.update(|s| {
+            if from_index < s.workflows.len() && to_index < s.workflows.len() {
+                let workflow = s.workflows.remove(from_index);
+                s.workflows.insert(to_index, workflow);
+            }
+        });
+    }
+
+    /// Get a workflow by ID.
+    pub fn get_workflow(&self, id: &str) -> Option<Workflow> {
+        self.inner.get().workflows.iter().find(|w| w.id == id).cloned()
     }
 
     /// Get the selected workflow.
@@ -79,20 +137,88 @@ impl StudioStore {
     }
 
     /// Add a context to a workflow.
-    pub fn add_context(&self, workflow_id: &str, name: &str) {
+    pub fn add_context(&self, workflow_id: &str, name: &str) -> Option<String> {
+        let context = Context::new(name);
+        let id = context.id.clone();
         self.inner.update(|s| {
             if let Some(workflow) = s.workflows.iter_mut().find(|w| w.id == workflow_id) {
-                workflow.add_context(Context::new(name));
+                workflow.add_context(context);
+            }
+        });
+        Some(id)
+    }
+
+    /// Remove a context from a workflow.
+    pub fn remove_context(&self, workflow_id: &str, context_id: &str) {
+        self.inner.update(|s| {
+            if let Some(workflow) = s.workflows.iter_mut().find(|w| w.id == workflow_id) {
+                workflow.contexts.shift_remove(context_id);
+                // Clear selection if deleted context was selected
+                if s.selected_context.as_ref() == Some(&context_id.to_string()) {
+                    s.selected_context = None;
+                    s.selected_preset = None;
+                }
+            }
+        });
+    }
+
+    /// Update context properties.
+    pub fn update_context(&self, workflow_id: &str, context_id: &str, name: Option<String>, description: Option<String>, icon: Option<String>) {
+        self.inner.update(|s| {
+            if let Some(workflow) = s.workflows.iter_mut().find(|w| w.id == workflow_id) {
+                if let Some(context) = workflow.contexts.get_mut(context_id) {
+                    if let Some(n) = name {
+                        context.name = n;
+                    }
+                    if description.is_some() {
+                        context.description = description;
+                    }
+                    if icon.is_some() {
+                        context.icon = icon;
+                    }
+                }
             }
         });
     }
 
     /// Add a preset to a context.
-    pub fn add_preset(&self, workflow_id: &str, context_id: &str, name: &str) {
+    pub fn add_preset(&self, workflow_id: &str, context_id: &str, name: &str) -> Option<String> {
+        let preset = Preset::new(name);
+        let id = preset.id.clone();
         self.inner.update(|s| {
             if let Some(workflow) = s.workflows.iter_mut().find(|w| w.id == workflow_id) {
                 if let Some(context) = workflow.contexts.get_mut(context_id) {
-                    context.add_preset(Preset::new(name));
+                    context.add_preset(preset);
+                }
+            }
+        });
+        Some(id)
+    }
+
+    /// Remove a preset from a context.
+    pub fn remove_preset(&self, workflow_id: &str, context_id: &str, preset_id: &str) {
+        self.inner.update(|s| {
+            if let Some(workflow) = s.workflows.iter_mut().find(|w| w.id == workflow_id) {
+                if let Some(context) = workflow.contexts.get_mut(context_id) {
+                    context.presets.shift_remove(preset_id);
+                }
+            }
+        });
+    }
+
+    /// Update preset properties.
+    pub fn update_preset(&self, workflow_id: &str, context_id: &str, preset_id: &str, name: Option<String>, description: Option<String>) {
+        self.inner.update(|s| {
+            if let Some(workflow) = s.workflows.iter_mut().find(|w| w.id == workflow_id) {
+                if let Some(context) = workflow.contexts.get_mut(context_id) {
+                    if let Some(preset) = context.presets.get_mut(preset_id) {
+                        if let Some(n) = name {
+                            preset.name = n;
+                        }
+                        if description.is_some() {
+                            preset.description = description;
+                        }
+                    }
                 }
             }
         });

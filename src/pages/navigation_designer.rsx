@@ -5,7 +5,7 @@ use rsc::prelude::*;
 use rsc_flow::prelude::{FlowCanvas as RscFlowCanvas, LayoutConfig, LayoutDirection};
 use rsc_studio::designer::navigation::{NavigationDesigner, NavigationNodeData, EntityType};
 
-use crate::components::{FlowCanvasView, Toolbar, ToolbarGroup, ToolbarButton, ToolbarDivider, Button, ButtonVariant, ButtonSize, Icon};
+use crate::components::{FlowCanvasView, Toolbar, ToolbarGroup, ToolbarButton, ToolbarDivider, Button, ButtonVariant, ButtonSize, Icon, Input, Modal};
 use crate::hooks::StudioStore;
 
 /// Navigation designer page.
@@ -21,16 +21,30 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
 
     let selected_node = use_signal::<Option<String>>(|| None);
     let zoom_level = use_signal(|| 100);
+    let show_delete_modal = use_signal(|| false);
+    let delete_target = use_signal::<Option<(String, EntityType)>>(|| None);
+
+    // Helper to reload canvas
+    let reload_canvas = {
+        let store = store.clone();
+        let canvas = canvas.clone();
+        move || {
+            let workflows = store.workflows();
+            let workflow_refs: Vec<_> = workflows.iter().collect();
+            let mut designer = NavigationDesigner::new();
+            designer.load_workflows(&workflow_refs);
+            canvas.set(designer.canvas);
+        }
+    };
 
     // Toolbar actions
-    let on_add_workflow = move |_| {
-        store.add_workflow("New Workflow");
-        // Reload canvas
-        let workflows = store.workflows();
-        let workflow_refs: Vec<_> = workflows.iter().collect();
-        let mut designer = NavigationDesigner::new();
-        designer.load_workflows(&workflow_refs);
-        canvas.set(designer.canvas);
+    let on_add_workflow = {
+        let reload_canvas = reload_canvas.clone();
+        let store = store.clone();
+        move |_| {
+            store.add_workflow("New Workflow");
+            reload_canvas();
+        }
     };
 
     let on_zoom_in = move |_| {
@@ -65,6 +79,48 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
         });
     };
 
+    // Delete confirmation handler
+    let on_confirm_delete = {
+        let store = store.clone();
+        let reload_canvas = reload_canvas.clone();
+        let delete_target = delete_target.clone();
+        let show_delete_modal = show_delete_modal.clone();
+        let selected_node = selected_node.clone();
+        move |_| {
+            if let Some((id, entity_type)) = delete_target.get() {
+                match entity_type {
+                    EntityType::Workflow => {
+                        store.remove_workflow(&id);
+                    }
+                    EntityType::Context => {
+                        // Find parent workflow
+                        for workflow in store.workflows() {
+                            if workflow.contexts.contains_key(&id) {
+                                store.remove_context(&workflow.id, &id);
+                                break;
+                            }
+                        }
+                    }
+                    EntityType::Preset => {
+                        // Find parent workflow and context
+                        'outer: for workflow in store.workflows() {
+                            for (ctx_id, context) in &workflow.contexts {
+                                if context.presets.contains_key(&id) {
+                                    store.remove_preset(&workflow.id, ctx_id, &id);
+                                    break 'outer;
+                                }
+                            }
+                        }
+                    }
+                }
+                reload_canvas();
+                selected_node.set(None);
+            }
+            show_delete_modal.set(false);
+            delete_target.set(None);
+        }
+    };
+
     rsx! {
         div(class: "navigation-designer-page", style: styles::container()) {
             // Toolbar
@@ -73,7 +129,7 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
                     ToolbarButton {
                         icon: "plus".to_string(),
                         label: Some("Add Workflow".to_string()),
-                        onclick: on_add_workflow,
+                        onclick: on_add_workflow.clone(),
                     }
                 }
 
@@ -131,26 +187,91 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
                 // Empty state
                 if store.workflows().is_empty() {
                     EmptyState {
-                        on_add: on_add_workflow,
-                        on_load_sample: move |_| {
-                            store.load_sample_data();
-                            // Reload canvas
-                            let workflows = store.workflows();
-                            let workflow_refs: Vec<_> = workflows.iter().collect();
-                            let mut designer = NavigationDesigner::new();
-                            designer.load_workflows(&workflow_refs);
-                            canvas.set(designer.canvas);
+                        on_add: on_add_workflow.clone(),
+                        on_load_sample: {
+                            let store = store.clone();
+                            let reload_canvas = reload_canvas.clone();
+                            move |_| {
+                                store.load_sample_data();
+                                reload_canvas();
+                            }
                         },
                     }
                 }
             }
 
             // Selection details panel (if a node is selected)
-            if let Some(node_id) = selected_node.get() {
+            if let Some(ref node_id) = selected_node.get() {
                 NodeDetailsPanel {
                     canvas: canvas.clone(),
-                    node_id: node_id,
-                    on_close: move |_| selected_node.set(None),
+                    node_id: node_id.clone(),
+                    store: store.clone(),
+                    on_close: {
+                        let selected_node = selected_node.clone();
+                        move |_| selected_node.set(None)
+                    },
+                    on_delete: {
+                        let show_delete_modal = show_delete_modal.clone();
+                        let delete_target = delete_target.clone();
+                        move |(id, entity_type): (String, EntityType)| {
+                            delete_target.set(Some((id, entity_type)));
+                            show_delete_modal.set(true);
+                        }
+                    },
+                    on_update: {
+                        let reload_canvas = reload_canvas.clone();
+                        move |_| reload_canvas()
+                    },
+                    on_add_context: {
+                        let store = store.clone();
+                        let reload_canvas = reload_canvas.clone();
+                        move |workflow_id: String| {
+                            store.add_context(&workflow_id, "New Context");
+                            reload_canvas();
+                        }
+                    },
+                    on_add_preset: {
+                        let store = store.clone();
+                        let reload_canvas = reload_canvas.clone();
+                        move |(workflow_id, context_id): (String, String)| {
+                            store.add_preset(&workflow_id, &context_id, "New Preset");
+                            reload_canvas();
+                        }
+                    },
+                    on_duplicate: {
+                        let store = store.clone();
+                        let reload_canvas = reload_canvas.clone();
+                        move |id: String| {
+                            store.duplicate_workflow(&id);
+                            reload_canvas();
+                        }
+                    },
+                }
+            }
+        }
+
+        // Delete confirmation modal
+        if show_delete_modal.get() {
+            Modal {
+                title: "Confirm Delete".to_string(),
+                on_close: {
+                    let show_delete_modal = show_delete_modal.clone();
+                    move |_| show_delete_modal.set(false)
+                },
+            } {
+                p { "Are you sure you want to delete this item? This action cannot be undone." }
+                div(style: "display: flex; gap: var(--spacing-md); justify-content: flex-end; margin-top: var(--spacing-lg);") {
+                    Button {
+                        variant: ButtonVariant::Secondary,
+                        onclick: {
+                            let show_delete_modal = show_delete_modal.clone();
+                            move |_| show_delete_modal.set(false)
+                        },
+                    } { "Cancel" }
+                    Button {
+                        variant: ButtonVariant::Danger,
+                        onclick: on_confirm_delete,
+                    } { "Delete" }
                 }
             }
         }
@@ -187,12 +308,18 @@ fn EmptyState(on_add: Callback<()>, on_load_sample: Callback<()>) -> Element {
     }
 }
 
-/// Node details panel.
+/// Node details panel with editing capabilities.
 #[component]
 fn NodeDetailsPanel(
     canvas: Signal<RscFlowCanvas<NavigationNodeData, ()>>,
     node_id: String,
+    store: StudioStore,
     on_close: Callback<()>,
+    on_delete: Callback<(String, EntityType)>,
+    on_update: Callback<()>,
+    on_add_context: Callback<String>,
+    on_add_preset: Callback<(String, String)>,
+    on_duplicate: Callback<String>,
 ) -> Element {
     let canvas_value = canvas.get();
     let node = canvas_value.nodes.get(&node_id);
@@ -202,43 +329,227 @@ fn NodeDetailsPanel(
     };
 
     let data = node.data.as_ref();
+    let Some(data) = data else {
+        return rsx! {};
+    };
+
+    let is_editing = use_signal(|| false);
+    let edit_name = use_signal(|| data.label.clone());
+    let edit_description = use_signal(|| data.description.clone().unwrap_or_default());
+
+    let entity_type = data.entity_type;
+    let entity_id = data.entity_id.clone();
+    let parent_id = data.parent_id.clone();
+
+    // Save handler
+    let on_save = {
+        let store = store.clone();
+        let entity_id = entity_id.clone();
+        let parent_id = parent_id.clone();
+        let is_editing = is_editing.clone();
+        let on_update = on_update.clone();
+        move |_| {
+            let name = Some(edit_name.get().clone());
+            let desc = if edit_description.get().is_empty() {
+                None
+            } else {
+                Some(edit_description.get().clone())
+            };
+
+            match entity_type {
+                EntityType::Workflow => {
+                    store.update_workflow(&entity_id, name, desc, None);
+                }
+                EntityType::Context => {
+                    if let Some(ref wf_id) = parent_id {
+                        store.update_context(wf_id, &entity_id, name, desc, None);
+                    }
+                }
+                EntityType::Preset => {
+                    // Find workflow and context for this preset
+                    for workflow in store.workflows() {
+                        for (ctx_id, context) in &workflow.contexts {
+                            if context.presets.contains_key(&entity_id) {
+                                store.update_preset(&workflow.id, ctx_id, &entity_id, name.clone(), desc.clone());
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            is_editing.set(false);
+            on_update.call(());
+        }
+    };
 
     rsx! {
         div(class: "node-details-panel", style: styles::details_panel()) {
             div(class: "panel-header", style: styles::panel_header()) {
                 h3(style: styles::panel_title()) {
-                    { data.map(|d| d.label.clone()).unwrap_or_else(|| node_id.clone()) }
+                    { data.label.clone() }
                 }
-                Button {
-                    variant: ButtonVariant::Ghost,
-                    size: ButtonSize::Sm,
-                    onclick: on_close.clone(),
-                } {
-                    Icon { name: "x".to_string() }
+                div(style: "display: flex; gap: var(--spacing-xs);") {
+                    Button {
+                        variant: ButtonVariant::Ghost,
+                        size: ButtonSize::Sm,
+                        onclick: on_close.clone(),
+                    } {
+                        Icon { name: "x".to_string() }
+                    }
                 }
             }
 
             div(class: "panel-content", style: styles::panel_content()) {
-                if let Some(data) = data {
-                    div(class: "detail-row") {
-                        span(class: "detail-label") { "Type" }
-                        span(class: "detail-value") {
-                            { format!("{:?}", data.entity_type) }
+                // Entity type badge
+                div(class: "detail-row", style: styles::detail_row()) {
+                    span(class: "detail-label", style: styles::detail_label()) { "Type" }
+                    span(class: "badge", style: styles::type_badge(entity_type)) {
+                        { format!("{:?}", entity_type) }
+                    }
+                }
+
+                // Editable fields
+                if is_editing.get() {
+                    div(class: "edit-form", style: styles::edit_form()) {
+                        div(class: "form-group") {
+                            label(style: styles::form_label()) { "Name" }
+                            Input {
+                                value: edit_name.get().clone(),
+                                on_change: {
+                                    let edit_name = edit_name.clone();
+                                    move |v: String| edit_name.set(v)
+                                },
+                            }
+                        }
+                        div(class: "form-group") {
+                            label(style: styles::form_label()) { "Description" }
+                            Input {
+                                value: edit_description.get().clone(),
+                                placeholder: Some("Optional description".to_string()),
+                                on_change: {
+                                    let edit_description = edit_description.clone();
+                                    move |v: String| edit_description.set(v)
+                                },
+                            }
+                        }
+                        div(style: "display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-md);") {
+                            Button {
+                                variant: ButtonVariant::Primary,
+                                size: ButtonSize::Sm,
+                                onclick: on_save,
+                            } { "Save" }
+                            Button {
+                                variant: ButtonVariant::Secondary,
+                                size: ButtonSize::Sm,
+                                onclick: {
+                                    let is_editing = is_editing.clone();
+                                    move |_| is_editing.set(false)
+                                },
+                            } { "Cancel" }
                         }
                     }
-
+                } else {
+                    // Display mode
                     if let Some(ref desc) = data.description {
-                        div(class: "detail-row") {
-                            span(class: "detail-label") { "Description" }
+                        div(class: "detail-row", style: styles::detail_row()) {
+                            span(class: "detail-label", style: styles::detail_label()) { "Description" }
                             span(class: "detail-value") { { desc.clone() } }
                         }
                     }
 
-                    div(class: "detail-row") {
-                        span(class: "detail-label") { "Position" }
+                    div(class: "detail-row", style: styles::detail_row()) {
+                        span(class: "detail-label", style: styles::detail_label()) { "Position" }
                         span(class: "detail-value") {
                             { format!("({:.0}, {:.0})", node.position.x, node.position.y) }
                         }
+                    }
+                }
+
+                // Actions
+                div(class: "panel-actions", style: styles::panel_actions()) {
+                    if !is_editing.get() {
+                        Button {
+                            variant: ButtonVariant::Secondary,
+                            size: ButtonSize::Sm,
+                            onclick: {
+                                let is_editing = is_editing.clone();
+                                let edit_name = edit_name.clone();
+                                let edit_description = edit_description.clone();
+                                let label = data.label.clone();
+                                let desc = data.description.clone();
+                                move |_| {
+                                    edit_name.set(label.clone());
+                                    edit_description.set(desc.clone().unwrap_or_default());
+                                    is_editing.set(true);
+                                }
+                            },
+                        } {
+                            Icon { name: "edit".to_string() }
+                            "Edit"
+                        }
+                    }
+
+                    // Workflow-specific actions
+                    if entity_type == EntityType::Workflow {
+                        Button {
+                            variant: ButtonVariant::Secondary,
+                            size: ButtonSize::Sm,
+                            onclick: {
+                                let on_add_context = on_add_context.clone();
+                                let entity_id = entity_id.clone();
+                                move |_| on_add_context.call(entity_id.clone())
+                            },
+                        } {
+                            Icon { name: "plus".to_string() }
+                            "Add Context"
+                        }
+
+                        Button {
+                            variant: ButtonVariant::Secondary,
+                            size: ButtonSize::Sm,
+                            onclick: {
+                                let on_duplicate = on_duplicate.clone();
+                                let entity_id = entity_id.clone();
+                                move |_| on_duplicate.call(entity_id.clone())
+                            },
+                        } {
+                            Icon { name: "copy".to_string() }
+                            "Duplicate"
+                        }
+                    }
+
+                    // Context-specific actions
+                    if entity_type == EntityType::Context {
+                        if let Some(ref wf_id) = parent_id {
+                            Button {
+                                variant: ButtonVariant::Secondary,
+                                size: ButtonSize::Sm,
+                                onclick: {
+                                    let on_add_preset = on_add_preset.clone();
+                                    let wf_id = wf_id.clone();
+                                    let entity_id = entity_id.clone();
+                                    move |_| on_add_preset.call((wf_id.clone(), entity_id.clone()))
+                                },
+                            } {
+                                Icon { name: "plus".to_string() }
+                                "Add Preset"
+                            }
+                        }
+                    }
+
+                    // Delete button (available for all types)
+                    Button {
+                        variant: ButtonVariant::Danger,
+                        size: ButtonSize::Sm,
+                        onclick: {
+                            let on_delete = on_delete.clone();
+                            let entity_id = entity_id.clone();
+                            move |_| on_delete.call((entity_id.clone(), entity_type))
+                        },
+                    } {
+                        Icon { name: "trash".to_string() }
+                        "Delete"
                     }
                 }
             }
@@ -247,6 +558,8 @@ fn NodeDetailsPanel(
 }
 
 mod styles {
+    use rsc_studio::designer::navigation::EntityType;
+
     pub fn container() -> &'static str {
         r#"
             display: flex;
@@ -313,7 +626,7 @@ mod styles {
             position: absolute;
             top: var(--spacing-md);
             right: var(--spacing-md);
-            width: 300px;
+            width: 320px;
             background: var(--color-surface);
             border: 1px solid var(--color-border);
             border-radius: var(--radius-lg);
@@ -347,6 +660,71 @@ mod styles {
             display: flex;
             flex-direction: column;
             gap: var(--spacing-sm);
+        "#
+    }
+
+    pub fn detail_row() -> &'static str {
+        r#"
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--spacing-xs) 0;
+        "#
+    }
+
+    pub fn detail_label() -> &'static str {
+        r#"
+            font-size: var(--font-size-sm);
+            color: var(--color-text-secondary);
+        "#
+    }
+
+    pub fn type_badge(entity_type: EntityType) -> String {
+        let color = match entity_type {
+            EntityType::Workflow => "var(--color-primary)",
+            EntityType::Context => "var(--color-secondary)",
+            EntityType::Preset => "var(--color-accent)",
+        };
+        format!(
+            r#"
+                display: inline-block;
+                padding: 2px 8px;
+                border-radius: var(--radius-sm);
+                font-size: var(--font-size-xs);
+                font-weight: var(--font-weight-medium);
+                background: {};
+                color: white;
+            "#,
+            color
+        )
+    }
+
+    pub fn edit_form() -> &'static str {
+        r#"
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+            padding: var(--spacing-sm) 0;
+        "#
+    }
+
+    pub fn form_label() -> &'static str {
+        r#"
+            display: block;
+            font-size: var(--font-size-sm);
+            font-weight: var(--font-weight-medium);
+            margin-bottom: var(--spacing-xs);
+        "#
+    }
+
+    pub fn panel_actions() -> &'static str {
+        r#"
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--spacing-sm);
+            padding-top: var(--spacing-md);
+            border-top: 1px solid var(--color-border);
+            margin-top: var(--spacing-sm);
         "#
     }
 }
