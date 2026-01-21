@@ -17,6 +17,15 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
         let workflows = store.workflows();
         let workflow_refs: Vec<_> = workflows.iter().collect();
         designer.load_workflows(&workflow_refs);
+
+        // Apply initial auto-layout
+        designer.canvas.auto_layout(FlowLayoutConfig {
+            direction: LayoutDirection::TopToBottom,
+            node_sep: 80.0,
+            rank_sep: 120.0,
+            ..Default::default()
+        });
+
         designer.canvas
     });
 
@@ -26,7 +35,7 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
     let delete_target = use_signal::<Option<(String, EntityType)>>(|| None);
     let search_query = use_signal(String::new);
 
-    // Helper to reload canvas
+    // Helper to reload canvas with auto-layout
     let reload_canvas = {
         let store = store.clone();
         let canvas = canvas.clone();
@@ -35,6 +44,15 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
             let workflow_refs: Vec<_> = workflows.iter().collect();
             let mut designer = NavigationDesigner::new();
             designer.load_workflows(&workflow_refs);
+
+            // Auto-layout on structure change
+            designer.canvas.auto_layout(FlowLayoutConfig {
+                direction: LayoutDirection::TopToBottom,
+                node_sep: 80.0,
+                rank_sep: 120.0,
+                ..Default::default()
+            });
+
             canvas.set(designer.canvas);
         }
     };
