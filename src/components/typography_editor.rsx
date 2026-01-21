@@ -52,28 +52,6 @@ const FONT_SIZES: &[&str] = &[
     "1.5rem", "1.875rem", "2.25rem", "3rem", "3.75rem",
 ];
 
-/// TypographyEditor component props.
-#[derive(Props)]
-pub struct TypographyEditorProps {
-    /// Current typography values
-    pub value: TypographyValue,
-    /// Label for the typography style
-    #[prop(default)]
-    pub label: Option<String>,
-    /// Sample text for preview
-    #[prop(default = "The quick brown fox jumps over the lazy dog".to_string())]
-    pub sample_text: String,
-    /// Available font families
-    #[prop(default)]
-    pub font_families: Vec<String>,
-    /// Whether the editor is disabled
-    #[prop(default)]
-    pub disabled: bool,
-    /// Callback when value changes
-    #[prop(default)]
-    pub on_change: Option<Callback<TypographyValue>>,
-}
-
 /// TypographyEditor component for editing font styles.
 ///
 /// ## Example
@@ -86,11 +64,26 @@ pub struct TypographyEditorProps {
 /// }
 /// ```
 #[component]
-pub fn TypographyEditor(props: TypographyEditorProps) -> Element {
-    let typo = use_signal(|| props.value.clone());
+pub fn TypographyEditor(
+    /// Current typography values
+    value: TypographyValue,
+    /// Label for the typography style
+    label: Option<String>,
+    /// Sample text for preview
+    sample_text: Option<String>,
+    /// Available font families
+    font_families: Vec<String>,
+    /// Whether the editor is disabled
+    disabled: bool,
+    /// Callback when value changes
+    on_change: Option<Callback<TypographyValue>>,
+) -> Element {
+    let sample_text = sample_text.unwrap_or("The quick brown fox jumps over the lazy dog".to_string());
+
+    let typo = use_signal(|| value.clone());
 
     let emit_change = {
-        let on_change = props.on_change.clone();
+        let on_change = on_change.clone();
         move |new_typo: TypographyValue| {
             typo.set(new_typo.clone());
             if let Some(ref callback) = on_change {
@@ -147,7 +140,7 @@ pub fn TypographyEditor(props: TypographyEditorProps) -> Element {
     let current = typo.get();
 
     // Build font family options
-    let font_family_options: Vec<SelectOption> = if props.font_families.is_empty() {
+    let font_family_options: Vec<SelectOption> = if font_families.is_empty() {
         vec![
             SelectOption::new("Inter, sans-serif", "Inter"),
             SelectOption::new("Roboto, sans-serif", "Roboto"),
@@ -156,7 +149,7 @@ pub fn TypographyEditor(props: TypographyEditorProps) -> Element {
             SelectOption::new("monospace", "Monospace"),
         ]
     } else {
-        props.font_families.iter()
+        font_families.iter()
             .map(|f| SelectOption::new(format!("{}, sans-serif", f), f.clone()))
             .collect()
     };
@@ -170,83 +163,83 @@ pub fn TypographyEditor(props: TypographyEditorProps) -> Element {
         .collect();
 
     rsx! {
-        div(class="typography-editor", style=styles::container(props.disabled)) {
+        div(class: "typography-editor", style: styles::container(disabled)) {
             // Label
-            if let Some(ref label) = props.label {
-                label(class="typography-editor-label", style=styles::label()) {
+            if let Some(ref label) = label {
+                label(class: "typography-editor-label", style: styles::label()) {
                     { label.clone() }
                 }
             }
 
             // Preview
-            div(class="typography-editor-preview", style=styles::preview_container()) {
-                p(style=styles::preview_text(&current)) {
-                    { props.sample_text.clone() }
+            div(class: "typography-editor-preview", style: styles::preview_container()) {
+                p(style: styles::preview_text(&current)) {
+                    { sample_text.clone() }
                 }
             }
 
             // Font family
-            div(class="typography-editor-field", style=styles::field()) {
-                label(style=styles::field_label()) { "Font Family" }
+            div(class: "typography-editor-field", style: styles::field()) {
+                label(style: styles::field_label()) { "Font Family" }
                 Select {
                     value: current.font_family.clone(),
                     options: font_family_options,
-                    disabled: props.disabled,
+                    disabled: disabled,
                     on_change: Some(on_family_change),
                 }
             }
 
             // Font size and weight row
-            div(class="typography-editor-row", style=styles::row()) {
-                div(class="typography-editor-field", style=styles::field_half()) {
-                    label(style=styles::field_label()) { "Size" }
+            div(class: "typography-editor-row", style: styles::row()) {
+                div(class: "typography-editor-field", style: styles::field_half()) {
+                    label(style: styles::field_label()) { "Size" }
                     Select {
                         value: current.font_size.clone(),
                         options: font_size_options,
-                        disabled: props.disabled,
+                        disabled: disabled,
                         on_change: Some(on_size_change),
                     }
                 }
 
-                div(class="typography-editor-field", style=styles::field_half()) {
-                    label(style=styles::field_label()) { "Weight" }
+                div(class: "typography-editor-field", style: styles::field_half()) {
+                    label(style: styles::field_label()) { "Weight" }
                     Select {
                         value: current.font_weight.clone(),
                         options: font_weight_options,
-                        disabled: props.disabled,
+                        disabled: disabled,
                         on_change: Some(on_weight_change),
                     }
                 }
             }
 
             // Line height and letter spacing row
-            div(class="typography-editor-row", style=styles::row()) {
-                div(class="typography-editor-field", style=styles::field_half()) {
-                    label(style=styles::field_label()) { "Line Height" }
+            div(class: "typography-editor-row", style: styles::row()) {
+                div(class: "typography-editor-field", style: styles::field_half()) {
+                    label(style: styles::field_label()) { "Line Height" }
                     input(
-                        type="text",
-                        value=current.line_height.clone(),
-                        disabled=props.disabled,
-                        style=styles::text_input(),
-                        on:input=on_line_height_change,
+                        type: "text",
+                        value: current.line_height.clone(),
+                        disabled: disabled,
+                        style: styles::text_input(),
+                        oninput: on_line_height_change,
                     )
                 }
 
-                div(class="typography-editor-field", style=styles::field_half()) {
-                    label(style=styles::field_label()) { "Letter Spacing" }
+                div(class: "typography-editor-field", style: styles::field_half()) {
+                    label(style: styles::field_label()) { "Letter Spacing" }
                     input(
-                        type="text",
-                        value=current.letter_spacing.clone(),
-                        disabled=props.disabled,
-                        style=styles::text_input(),
-                        on:input=on_letter_spacing_change,
+                        type: "text",
+                        value: current.letter_spacing.clone(),
+                        disabled: disabled,
+                        style: styles::text_input(),
+                        oninput: on_letter_spacing_change,
                     )
                 }
             }
 
             // CSS output
-            div(class="typography-editor-output", style=styles::output()) {
-                code(style=styles::code()) { { current.to_css() } }
+            div(class: "typography-editor-output", style: styles::output()) {
+                code(style: styles::code()) { { current.to_css() } }
             }
         }
     }

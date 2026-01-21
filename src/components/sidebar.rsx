@@ -6,29 +6,22 @@ use crate::app::Route;
 use crate::hooks::StudioStore;
 use super::{Panel, Icon};
 
-/// Sidebar component props.
-#[derive(Props)]
-pub struct SidebarProps {
-    pub route: Route,
-    pub store: StudioStore,
-}
-
 /// Sidebar component.
 #[component]
-pub fn Sidebar(props: SidebarProps) -> Element {
+pub fn Sidebar(route: Route, store: StudioStore) -> Element {
     let width = use_signal(|| 280);
 
     rsx! {
         aside(
-            class="sidebar",
-            style=styles::container(width.get()),
+            class: "sidebar",
+            style: styles::container(width.get()),
         ) {
-            match props.route {
+            match route {
                 Route::Navigation => {
-                    NavigationSidebar { store: props.store.clone() }
+                    NavigationSidebar { store: store.clone() }
                 }
                 Route::CssDesigner => {
-                    CssSidebar { store: props.store.clone() }
+                    CssSidebar { store: store.clone() }
                 }
                 Route::Settings => {
                     SettingsSidebar {}
@@ -39,22 +32,17 @@ pub fn Sidebar(props: SidebarProps) -> Element {
 }
 
 /// Navigation designer sidebar.
-#[derive(Props)]
-struct NavigationSidebarProps {
-    store: StudioStore,
-}
-
 #[component]
-fn NavigationSidebar(props: NavigationSidebarProps) -> Element {
-    let workflows = props.store.workflows();
+fn NavigationSidebar(store: StudioStore) -> Element {
+    let workflows = store.workflows();
 
     rsx! {
-        div(class="navigation-sidebar") {
+        div(class: "navigation-sidebar") {
             Panel {
                 title: "Workflows",
                 icon: Some("folder".to_string()),
             } {
-                div(class="workflow-list", style=styles::list()) {
+                div(class: "workflow-list", style: styles::list()) {
                     for workflow in workflows {
                         WorkflowItem {
                             name: workflow.name.clone(),
@@ -65,9 +53,9 @@ fn NavigationSidebar(props: NavigationSidebarProps) -> Element {
 
                     // Add new workflow button
                     button(
-                        class="add-workflow",
-                        style=styles::add_button(),
-                        on:click=move |_| props.store.add_workflow("New Workflow"),
+                        class: "add-workflow",
+                        style: styles::add_button(),
+                        onclick: move |_| store.add_workflow("New Workflow"),
                     ) {
                         Icon { name: "plus".to_string() }
                         span { "Add Workflow" }
@@ -78,29 +66,21 @@ fn NavigationSidebar(props: NavigationSidebarProps) -> Element {
     }
 }
 
-#[derive(Props)]
-struct WorkflowItemProps {
-    name: String,
-    context_count: usize,
-    #[prop(into)]
-    on_select: Callback<()>,
-}
-
 #[component]
-fn WorkflowItem(props: WorkflowItemProps) -> Element {
+fn WorkflowItem(name: String, context_count: usize, on_select: Callback<()>) -> Element {
     rsx! {
         div(
-            class="workflow-item",
-            style=styles::workflow_item(),
-            on:click=move |_| props.on_select.call(()),
+            class: "workflow-item",
+            style: styles::workflow_item(),
+            onclick: move |_| on_select.call(()),
         ) {
             Icon { name: "git-branch".to_string() }
-            div(class="workflow-info") {
-                span(class="workflow-name", style=styles::workflow_name()) {
-                    { props.name }
+            div(class: "workflow-info") {
+                span(class: "workflow-name", style: styles::workflow_name()) {
+                    { name }
                 }
-                span(class="workflow-meta", style=styles::workflow_meta()) {
-                    { format!("{} contexts", props.context_count) }
+                span(class: "workflow-meta", style: styles::workflow_meta()) {
+                    { format!("{} contexts", context_count) }
                 }
             }
         }
@@ -108,13 +88,8 @@ fn WorkflowItem(props: WorkflowItemProps) -> Element {
 }
 
 /// CSS designer sidebar.
-#[derive(Props)]
-struct CssSidebarProps {
-    store: StudioStore,
-}
-
 #[component]
-fn CssSidebar(props: CssSidebarProps) -> Element {
+fn CssSidebar(store: StudioStore) -> Element {
     let categories = vec![
         ("Colors", "palette"),
         ("Spacing", "maximize"),
@@ -124,12 +99,12 @@ fn CssSidebar(props: CssSidebarProps) -> Element {
     ];
 
     rsx! {
-        div(class="css-sidebar") {
+        div(class: "css-sidebar") {
             Panel {
                 title: "Token Categories",
                 icon: Some("sliders".to_string()),
             } {
-                div(class="category-list", style=styles::list()) {
+                div(class: "category-list", style: styles::list()) {
                     for (name, icon) in categories {
                         CategoryItem {
                             name: name.to_string(),
@@ -143,24 +118,16 @@ fn CssSidebar(props: CssSidebarProps) -> Element {
     }
 }
 
-#[derive(Props)]
-struct CategoryItemProps {
-    name: String,
-    icon: String,
-    #[prop(into)]
-    on_select: Callback<()>,
-}
-
 #[component]
-fn CategoryItem(props: CategoryItemProps) -> Element {
+fn CategoryItem(name: String, icon: String, on_select: Callback<()>) -> Element {
     rsx! {
         div(
-            class="category-item",
-            style=styles::category_item(),
-            on:click=move |_| props.on_select.call(()),
+            class: "category-item",
+            style: styles::category_item(),
+            onclick: move |_| on_select.call(()),
         ) {
-            Icon { name: props.icon.clone() }
-            span { { props.name } }
+            Icon { name: icon.clone() }
+            span { { name } }
         }
     }
 }
@@ -176,14 +143,14 @@ fn SettingsSidebar() -> Element {
     ];
 
     rsx! {
-        div(class="settings-sidebar") {
+        div(class: "settings-sidebar") {
             Panel {
                 title: "Settings",
                 icon: Some("settings".to_string()),
             } {
-                div(class="settings-list", style=styles::list()) {
+                div(class: "settings-list", style: styles::list()) {
                     for (name, icon) in sections {
-                        div(class="settings-item", style=styles::settings_item()) {
+                        div(class: "settings-item", style: styles::settings_item()) {
                             Icon { name: icon.to_string() }
                             span { { name } }
                         }

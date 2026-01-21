@@ -5,26 +5,20 @@ use rsc::prelude::*;
 use crate::components::{Button, ButtonVariant, Icon, Panel};
 use crate::hooks::{StudioStore, Theme};
 
-/// Settings page props.
-#[derive(Props)]
-pub struct SettingsPageProps {
-    pub store: StudioStore,
-}
-
 /// Settings page.
 #[component]
-pub fn SettingsPage(props: SettingsPageProps) -> Element {
+pub fn SettingsPage(store: StudioStore) -> Element {
     rsx! {
-        div(class="settings-page", style=styles::container()) {
-            div(class="settings-content", style=styles::content()) {
+        div(class: "settings-page", style: styles::container()) {
+            div(class: "settings-content", style: styles::content()) {
                 // General settings
                 GeneralSettings {}
 
                 // Appearance settings
-                AppearanceSettings { store: props.store.clone() }
+                AppearanceSettings { store: store.clone() }
 
                 // Export settings
-                ExportSettings { store: props.store.clone() }
+                ExportSettings { store: store.clone() }
 
                 // About section
                 AboutSection {}
@@ -37,48 +31,48 @@ pub fn SettingsPage(props: SettingsPageProps) -> Element {
 #[component]
 fn GeneralSettings() -> Element {
     rsx! {
-        section(class="settings-section", style=styles::section()) {
-            h2(style=styles::section_title()) { "General" }
+        section(class: "settings-section", style: styles::section()) {
+            h2(style: styles::section_title()) { "General" }
 
-            div(class="setting-item", style=styles::setting_item()) {
-                div(class="setting-info") {
-                    label(style=styles::setting_label()) { "Auto-save" }
-                    p(style=styles::setting_description()) {
+            div(class: "setting-item", style: styles::setting_item()) {
+                div(class: "setting-info") {
+                    label(style: styles::setting_label()) { "Auto-save" }
+                    p(style: styles::setting_description()) {
                         "Automatically save changes to workflows and tokens"
                     }
                 }
                 input(
-                    type="checkbox",
-                    checked=true,
-                    style=styles::checkbox(),
+                    type: "checkbox",
+                    checked: true,
+                    style: styles::checkbox(),
                 )
             }
 
-            div(class="setting-item", style=styles::setting_item()) {
-                div(class="setting-info") {
-                    label(style=styles::setting_label()) { "Show grid" }
-                    p(style=styles::setting_description()) {
+            div(class: "setting-item", style: styles::setting_item()) {
+                div(class: "setting-info") {
+                    label(style: styles::setting_label()) { "Show grid" }
+                    p(style: styles::setting_description()) {
                         "Display grid lines in the canvas"
                     }
                 }
                 input(
-                    type="checkbox",
-                    checked=true,
-                    style=styles::checkbox(),
+                    type: "checkbox",
+                    checked: true,
+                    style: styles::checkbox(),
                 )
             }
 
-            div(class="setting-item", style=styles::setting_item()) {
-                div(class="setting-info") {
-                    label(style=styles::setting_label()) { "Snap to grid" }
-                    p(style=styles::setting_description()) {
+            div(class: "setting-item", style: styles::setting_item()) {
+                div(class: "setting-info") {
+                    label(style: styles::setting_label()) { "Snap to grid" }
+                    p(style: styles::setting_description()) {
                         "Snap nodes to grid when dragging"
                     }
                 }
                 input(
-                    type="checkbox",
-                    checked=false,
-                    style=styles::checkbox(),
+                    type: "checkbox",
+                    checked: false,
+                    style: styles::checkbox(),
                 )
             }
         }
@@ -86,60 +80,55 @@ fn GeneralSettings() -> Element {
 }
 
 /// Appearance settings section.
-#[derive(Props)]
-struct AppearanceSettingsProps {
-    store: StudioStore,
-}
-
 #[component]
-fn AppearanceSettings(props: AppearanceSettingsProps) -> Element {
-    let current_theme = props.store.theme();
+fn AppearanceSettings(store: StudioStore) -> Element {
+    let current_theme = store.theme();
 
     rsx! {
-        section(class="settings-section", style=styles::section()) {
-            h2(style=styles::section_title()) { "Appearance" }
+        section(class: "settings-section", style: styles::section()) {
+            h2(style: styles::section_title()) { "Appearance" }
 
-            div(class="setting-item", style=styles::setting_item()) {
-                div(class="setting-info") {
-                    label(style=styles::setting_label()) { "Theme" }
-                    p(style=styles::setting_description()) {
+            div(class: "setting-item", style: styles::setting_item()) {
+                div(class: "setting-info") {
+                    label(style: styles::setting_label()) { "Theme" }
+                    p(style: styles::setting_description()) {
                         "Choose your preferred color theme"
                     }
                 }
                 select(
-                    style=styles::select(),
-                    on:change=move |e: Event<FormData>| {
+                    style: styles::select(),
+                    onchange: move |e: Event<FormData>| {
                         let theme = match e.value().as_str() {
                             "light" => Theme::Light,
                             "dark" => Theme::Dark,
                             _ => Theme::System,
                         };
-                        props.store.set_theme(theme);
+                        store.set_theme(theme);
                     },
                 ) {
-                    option(value="system", selected=current_theme == Theme::System) {
+                    option(value: "system", selected: current_theme == Theme::System) {
                         "System"
                     }
-                    option(value="light", selected=current_theme == Theme::Light) {
+                    option(value: "light", selected: current_theme == Theme::Light) {
                         "Light"
                     }
-                    option(value="dark", selected=current_theme == Theme::Dark) {
+                    option(value: "dark", selected: current_theme == Theme::Dark) {
                         "Dark"
                     }
                 }
             }
 
-            div(class="setting-item", style=styles::setting_item()) {
-                div(class="setting-info") {
-                    label(style=styles::setting_label()) { "Font size" }
-                    p(style=styles::setting_description()) {
+            div(class: "setting-item", style: styles::setting_item()) {
+                div(class: "setting-info") {
+                    label(style: styles::setting_label()) { "Font size" }
+                    p(style: styles::setting_description()) {
                         "Adjust the UI font size"
                     }
                 }
-                select(style=styles::select()) {
-                    option(value="small") { "Small" }
-                    option(value="medium", selected=true) { "Medium" }
-                    option(value="large") { "Large" }
+                select(style: styles::select()) {
+                    option(value: "small") { "Small" }
+                    option(value: "medium", selected: true) { "Medium" }
+                    option(value: "large") { "Large" }
                 }
             }
         }
@@ -147,36 +136,31 @@ fn AppearanceSettings(props: AppearanceSettingsProps) -> Element {
 }
 
 /// Export settings section.
-#[derive(Props)]
-struct ExportSettingsProps {
-    store: StudioStore,
-}
-
 #[component]
-fn ExportSettings(props: ExportSettingsProps) -> Element {
+fn ExportSettings(store: StudioStore) -> Element {
     rsx! {
-        section(class="settings-section", style=styles::section()) {
-            h2(style=styles::section_title()) { "Export" }
+        section(class: "settings-section", style: styles::section()) {
+            h2(style: styles::section_title()) { "Export" }
 
-            div(class="setting-item", style=styles::setting_item()) {
-                div(class="setting-info") {
-                    label(style=styles::setting_label()) { "Export format" }
-                    p(style=styles::setting_description()) {
+            div(class: "setting-item", style: styles::setting_item()) {
+                div(class: "setting-info") {
+                    label(style: styles::setting_label()) { "Export format" }
+                    p(style: styles::setting_description()) {
                         "Choose the default export format for design tokens"
                     }
                 }
-                select(style=styles::select()) {
-                    option(value="yaml", selected=true) { "YAML" }
-                    option(value="json") { "JSON" }
-                    option(value="css") { "CSS Variables" }
-                    option(value="scss") { "SCSS" }
+                select(style: styles::select()) {
+                    option(value: "yaml", selected: true) { "YAML" }
+                    option(value: "json") { "JSON" }
+                    option(value: "css") { "CSS Variables" }
+                    option(value: "scss") { "SCSS" }
                 }
             }
 
-            div(class="export-actions", style=styles::export_actions()) {
+            div(class: "export-actions", style: styles::export_actions()) {
                 Button {
                     variant: ButtonVariant::Primary,
-                    on_click: move |_| {
+                    onclick: move |_| {
                         // Export workflows
                     },
                 } {
@@ -186,7 +170,7 @@ fn ExportSettings(props: ExportSettingsProps) -> Element {
 
                 Button {
                     variant: ButtonVariant::Secondary,
-                    on_click: move |_| {
+                    onclick: move |_| {
                         // Export tokens
                     },
                 } {
@@ -202,26 +186,26 @@ fn ExportSettings(props: ExportSettingsProps) -> Element {
 #[component]
 fn AboutSection() -> Element {
     rsx! {
-        section(class="settings-section", style=styles::section()) {
-            h2(style=styles::section_title()) { "About" }
+        section(class: "settings-section", style: styles::section()) {
+            h2(style: styles::section_title()) { "About" }
 
-            div(class="about-content", style=styles::about_content()) {
-                div(class="about-logo", style=styles::about_logo()) {
+            div(class: "about-content", style: styles::about_content()) {
+                div(class: "about-logo", style: styles::about_logo()) {
                     Icon { name: "code".to_string(), size: 48 }
                 }
 
-                h3(style=styles::about_title()) { "RustScript Studio" }
-                p(style=styles::about_version()) { "Version 0.1.0" }
-                p(style=styles::about_description()) {
+                h3(style: styles::about_title()) { "RustScript Studio" }
+                p(style: styles::about_version()) { "Version 0.1.0" }
+                p(style: styles::about_description()) {
                     "Visual IDE for RustScript - Design navigation flows and CSS visually."
                 }
 
-                div(class="about-links", style=styles::about_links()) {
-                    a(href="#", style=styles::about_link()) {
+                div(class: "about-links", style: styles::about_links()) {
+                    a(href: "#", style: styles::about_link()) {
                         Icon { name: "book".to_string(), size: 16 }
                         "Documentation"
                     }
-                    a(href="#", style=styles::about_link()) {
+                    a(href: "#", style: styles::about_link()) {
                         Icon { name: "github".to_string(), size: 16 }
                         "GitHub"
                     }

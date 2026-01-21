@@ -4,49 +4,45 @@ use rsc::prelude::*;
 
 use super::Icon;
 
-/// Panel component props.
-#[derive(Props)]
-pub struct PanelProps {
-    pub title: &'static str,
-    #[prop(default)]
-    pub icon: Option<String>,
-    #[prop(default = true)]
-    pub collapsible: bool,
-    #[prop(default = true)]
-    pub default_open: bool,
-    pub children: Element,
-}
-
 /// Panel component.
 #[component]
-pub fn Panel(props: PanelProps) -> Element {
-    let is_open = use_signal(|| props.default_open);
+pub fn Panel(
+    title: &'static str,
+    icon: Option<String>,
+    collapsible: Option<bool>,
+    default_open: Option<bool>,
+    children: Element,
+) -> Element {
+    let collapsible = collapsible.unwrap_or(true);
+    let default_open = default_open.unwrap_or(true);
+
+    let is_open = use_signal(|| default_open);
 
     rsx! {
-        div(class="panel", style=styles::container()) {
+        div(class: "panel", style: styles::container()) {
             // Header
             div(
-                class="panel-header",
-                style=styles::header(),
-                on:click=move |_| {
-                    if props.collapsible {
+                class: "panel-header",
+                style: styles::header(),
+                onclick: move |_| {
+                    if collapsible {
                         is_open.update(|v| *v = !*v);
                     }
                 },
             ) {
-                div(class="panel-header-left", style=styles::header_left()) {
-                    if let Some(ref icon) = props.icon {
+                div(class: "panel-header-left", style: styles::header_left()) {
+                    if let Some(ref icon) = icon {
                         Icon { name: icon.clone(), size: 16 }
                     }
-                    span(class="panel-title", style=styles::title()) {
-                        { props.title }
+                    span(class: "panel-title", style: styles::title()) {
+                        { title }
                     }
                 }
 
-                if props.collapsible {
+                if collapsible {
                     div(
-                        class="panel-toggle",
-                        style=styles::toggle(is_open.get()),
+                        class: "panel-toggle",
+                        style: styles::toggle(is_open.get()),
                     ) {
                         Icon { name: "chevron-down".to_string(), size: 16 }
                     }
@@ -55,8 +51,8 @@ pub fn Panel(props: PanelProps) -> Element {
 
             // Content
             if is_open.get() {
-                div(class="panel-content", style=styles::content()) {
-                    { props.children }
+                div(class: "panel-content", style: styles::content()) {
+                    { children }
                 }
             }
         }

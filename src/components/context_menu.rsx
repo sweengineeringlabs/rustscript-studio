@@ -70,25 +70,6 @@ impl MenuItem {
     }
 }
 
-/// Context menu props.
-#[derive(Props)]
-pub struct ContextMenuProps {
-    /// Whether the menu is visible
-    pub is_open: bool,
-    /// X position in pixels
-    pub x: f64,
-    /// Y position in pixels
-    pub y: f64,
-    /// Menu items
-    pub items: Vec<MenuItem>,
-    /// Callback when an item is selected (receives item id)
-    #[prop(default)]
-    pub on_select: Option<Callback<String>>,
-    /// Callback when menu should close
-    #[prop(default)]
-    pub on_close: Option<Callback<()>>,
-}
-
 /// Context menu component.
 ///
 /// ## Example
@@ -108,13 +89,26 @@ pub struct ContextMenuProps {
 /// }
 /// ```
 #[component]
-pub fn ContextMenu(props: ContextMenuProps) -> Element {
-    if !props.is_open {
+pub fn ContextMenu(
+    /// Whether the menu is visible
+    is_open: bool,
+    /// X position in pixels
+    x: f64,
+    /// Y position in pixels
+    y: f64,
+    /// Menu items
+    items: Vec<MenuItem>,
+    /// Callback when an item is selected (receives item id)
+    on_select: Option<Callback<String>>,
+    /// Callback when menu should close
+    on_close: Option<Callback<()>>,
+) -> Element {
+    if !is_open {
         return rsx! {};
     }
 
     let on_overlay_click = {
-        let on_close = props.on_close.clone();
+        let on_close = on_close.clone();
         move |_: MouseEvent| {
             if let Some(ref callback) = on_close {
                 callback.call(());
@@ -127,7 +121,7 @@ pub fn ContextMenu(props: ContextMenuProps) -> Element {
     };
 
     let on_key_down = {
-        let on_close = props.on_close.clone();
+        let on_close = on_close.clone();
         move |e: KeyboardEvent| {
             if e.key() == "Escape" {
                 if let Some(ref callback) = on_close {
@@ -139,24 +133,24 @@ pub fn ContextMenu(props: ContextMenuProps) -> Element {
 
     rsx! {
         div(
-            class="context-menu-overlay",
-            style=styles::overlay(),
-            on:click=on_overlay_click,
-            on:contextmenu=on_overlay_click,
-            on:keydown=on_key_down,
-            tabindex="-1",
+            class: "context-menu-overlay",
+            style: styles::overlay(),
+            onclick: on_overlay_click,
+            oncontextmenu: on_overlay_click,
+            onkeydown: on_key_down,
+            tabindex: "-1",
         ) {
             div(
-                class="context-menu",
-                style=styles::menu(props.x, props.y),
-                on:click=on_menu_click,
-                role="menu",
+                class: "context-menu",
+                style: styles::menu(x, y),
+                onclick: on_menu_click,
+                role: "menu",
             ) {
-                for item in props.items.iter() {
+                for item in items.iter() {
                     ContextMenuItem {
                         item: item.clone(),
-                        on_select: props.on_select.clone(),
-                        on_close: props.on_close.clone(),
+                        on_select: on_select.clone(),
+                        on_close: on_close.clone(),
                     }
                 }
             }
@@ -164,24 +158,19 @@ pub fn ContextMenu(props: ContextMenuProps) -> Element {
     }
 }
 
-#[derive(Props)]
-struct ContextMenuItemProps {
-    item: MenuItem,
-    #[prop(default)]
-    on_select: Option<Callback<String>>,
-    #[prop(default)]
-    on_close: Option<Callback<()>>,
-}
-
 #[component]
-fn ContextMenuItem(props: ContextMenuItemProps) -> Element {
-    match &props.item {
+fn ContextMenuItem(
+    item: MenuItem,
+    on_select: Option<Callback<String>>,
+    on_close: Option<Callback<()>>,
+) -> Element {
+    match &item {
         MenuItem::Action { id, label, icon, shortcut, disabled } => {
             let on_click = {
                 let id = id.clone();
                 let disabled = *disabled;
-                let on_select = props.on_select.clone();
-                let on_close = props.on_close.clone();
+                let on_select = on_select.clone();
+                let on_close = on_close.clone();
                 move |_: MouseEvent| {
                     if !disabled {
                         if let Some(ref callback) = on_select {
@@ -196,22 +185,22 @@ fn ContextMenuItem(props: ContextMenuItemProps) -> Element {
 
             rsx! {
                 div(
-                    class="context-menu-item",
-                    style=styles::item(*disabled),
-                    on:click=on_click,
-                    role="menuitem",
-                    aria-disabled=disabled.to_string(),
+                    class: "context-menu-item",
+                    style: styles::item(*disabled),
+                    onclick: on_click,
+                    role: "menuitem",
+                    aria-disabled: disabled.to_string(),
                 ) {
                     if let Some(ref icon_name) = icon {
-                        span(class="context-menu-icon", style=styles::icon()) {
+                        span(class: "context-menu-icon", style: styles::icon()) {
                             { icon_name.clone() }
                         }
                     }
-                    span(class="context-menu-label", style=styles::label()) {
+                    span(class: "context-menu-label", style: styles::label()) {
                         { label.clone() }
                     }
                     if let Some(ref shortcut_text) = shortcut {
-                        span(class="context-menu-shortcut", style=styles::shortcut()) {
+                        span(class: "context-menu-shortcut", style: styles::shortcut()) {
                             { shortcut_text.clone() }
                         }
                     }
@@ -220,7 +209,7 @@ fn ContextMenuItem(props: ContextMenuItemProps) -> Element {
         }
         MenuItem::Separator => {
             rsx! {
-                div(class="context-menu-separator", style=styles::separator(), role="separator")
+                div(class: "context-menu-separator", style: styles::separator(), role: "separator")
             }
         }
         MenuItem::Submenu { id, label, icon, items } => {
@@ -228,31 +217,31 @@ fn ContextMenuItem(props: ContextMenuItemProps) -> Element {
 
             rsx! {
                 div(
-                    class="context-menu-submenu",
-                    style=styles::submenu_wrapper(),
-                    on:mouseenter=move |_| is_open.set(true),
-                    on:mouseleave=move |_| is_open.set(false),
+                    class: "context-menu-submenu",
+                    style: styles::submenu_wrapper(),
+                    onmouseenter: move |_| is_open.set(true),
+                    onmouseleave: move |_| is_open.set(false),
                 ) {
-                    div(class="context-menu-item", style=styles::item(false), role="menuitem") {
+                    div(class: "context-menu-item", style: styles::item(false), role: "menuitem") {
                         if let Some(ref icon_name) = icon {
-                            span(class="context-menu-icon", style=styles::icon()) {
+                            span(class: "context-menu-icon", style: styles::icon()) {
                                 { icon_name.clone() }
                             }
                         }
-                        span(class="context-menu-label", style=styles::label()) {
+                        span(class: "context-menu-label", style: styles::label()) {
                             { label.clone() }
                         }
-                        span(class="context-menu-chevron", style=styles::chevron()) {
+                        span(class: "context-menu-chevron", style: styles::chevron()) {
                             "›"
                         }
                     }
                     if is_open.get() {
-                        div(class="context-menu-submenu-content", style=styles::submenu_content()) {
+                        div(class: "context-menu-submenu-content", style: styles::submenu_content()) {
                             for item in items.iter() {
                                 ContextMenuItem {
                                     item: item.clone(),
-                                    on_select: props.on_select.clone(),
-                                    on_close: props.on_close.clone(),
+                                    on_select: on_select.clone(),
+                                    on_close: on_close.clone(),
                                 }
                             }
                         }

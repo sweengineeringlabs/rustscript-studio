@@ -3,9 +3,8 @@
 use rsc::prelude::*;
 
 /// Input type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputType {
-    #[default]
     Text,
     Password,
     Email,
@@ -13,6 +12,12 @@ pub enum InputType {
     Search,
     Url,
     Tel,
+}
+
+impl Default for InputType {
+    fn default() -> Self {
+        InputType::Text
+    }
 }
 
 impl InputType {
@@ -30,109 +35,81 @@ impl InputType {
 }
 
 /// Input size.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputSize {
     Sm,
-    #[default]
     Md,
     Lg,
 }
 
+impl Default for InputSize {
+    fn default() -> Self {
+        InputSize::Md
+    }
+}
+
 /// Input variant.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputVariant {
-    #[default]
     Outline,
     Filled,
     Flushed,
 }
 
-/// Input component props.
-#[derive(Props)]
-pub struct InputProps {
-    /// Input value (controlled)
-    #[prop(default)]
-    pub value: String,
-    /// Input type
-    #[prop(default)]
-    pub input_type: InputType,
-    /// Input size
-    #[prop(default)]
-    pub size: InputSize,
-    /// Input variant
-    #[prop(default)]
-    pub variant: InputVariant,
-    /// Placeholder text
-    #[prop(default)]
-    pub placeholder: Option<String>,
-    /// Whether the input is disabled
-    #[prop(default)]
-    pub disabled: bool,
-    /// Whether the input is read-only
-    #[prop(default)]
-    pub readonly: bool,
-    /// Whether the input is required
-    #[prop(default)]
-    pub required: bool,
-    /// Whether the input has an error state
-    #[prop(default)]
-    pub error: bool,
-    /// Minimum value (for number input)
-    #[prop(default)]
-    pub min: Option<f64>,
-    /// Maximum value (for number input)
-    #[prop(default)]
-    pub max: Option<f64>,
-    /// Step value (for number input)
-    #[prop(default)]
-    pub step: Option<f64>,
-    /// Maximum length
-    #[prop(default)]
-    pub maxlength: Option<u32>,
-    /// Callback when value changes
-    #[prop(default)]
-    pub on_change: Option<Callback<String>>,
-    /// Callback when input receives focus
-    #[prop(default)]
-    pub on_focus: Option<Callback<()>>,
-    /// Callback when input loses focus
-    #[prop(default)]
-    pub on_blur: Option<Callback<()>>,
-    /// Callback when Enter is pressed
-    #[prop(default)]
-    pub on_submit: Option<Callback<String>>,
-    /// Additional CSS class
-    #[prop(default)]
-    pub class: Option<String>,
-    /// Autofocus
-    #[prop(default)]
-    pub autofocus: bool,
+impl Default for InputVariant {
+    fn default() -> Self {
+        InputVariant::Outline
+    }
 }
 
 /// Input component.
 ///
 /// ## Example
 /// ```rust,ignore
-/// Input {
+/// Input(
 ///     value: name.get(),
 ///     placeholder: Some("Enter your name".to_string()),
-///     on_change: Callback::new(move |v| name.set(v)),
-/// }
+///     on_change: Some(Callback::new(move |v| name.set(v))),
+/// )
 /// ```
 #[component]
-pub fn Input(props: InputProps) -> Element {
-    let is_focused = use_signal(|| false);
-    let style = get_input_style(
-        props.variant,
-        props.size,
-        props.disabled,
-        props.error,
-        is_focused.get(),
-    );
-    let class = props.class.clone().unwrap_or_default();
+pub fn Input(
+    value: Option<String>,
+    input_type: Option<InputType>,
+    size: Option<InputSize>,
+    variant: Option<InputVariant>,
+    placeholder: Option<String>,
+    disabled: Option<bool>,
+    readonly: Option<bool>,
+    required: Option<bool>,
+    error: Option<bool>,
+    min: Option<f64>,
+    max: Option<f64>,
+    step: Option<f64>,
+    maxlength: Option<u32>,
+    on_change: Option<Callback<String>>,
+    on_focus: Option<Callback<()>>,
+    on_blur: Option<Callback<()>>,
+    on_submit: Option<Callback<String>>,
+    class: Option<String>,
+    autofocus: Option<bool>,
+) -> Element {
+    let value = value.unwrap_or(String::new());
+    let input_type = input_type.unwrap_or(InputType::Text);
+    let size = size.unwrap_or(InputSize::Md);
+    let variant = variant.unwrap_or(InputVariant::Outline);
+    let disabled = disabled.unwrap_or(false);
+    let readonly = readonly.unwrap_or(false);
+    let required = required.unwrap_or(false);
+    let error = error.unwrap_or(false);
+    let autofocus = autofocus.unwrap_or(false);
 
-    let on_input = {
-        let on_change = props.on_change.clone();
+    let (is_focused, set_focused) = use_state(false);
+    let style = get_input_style(variant, size, disabled, error, is_focused);
+    let extra_class = class.unwrap_or_default();
+
+    let handle_input = {
+        let on_change = on_change.clone();
         move |e: InputEvent| {
             if let Some(ref callback) = on_change {
                 callback.call(e.value());
@@ -140,29 +117,29 @@ pub fn Input(props: InputProps) -> Element {
         }
     };
 
-    let on_focus = {
-        let on_focus_cb = props.on_focus.clone();
+    let handle_focus = {
+        let on_focus_cb = on_focus.clone();
         move |_: FocusEvent| {
-            is_focused.set(true);
+            set_focused(true);
             if let Some(ref callback) = on_focus_cb {
                 callback.call(());
             }
         }
     };
 
-    let on_blur = {
-        let on_blur_cb = props.on_blur.clone();
+    let handle_blur = {
+        let on_blur_cb = on_blur.clone();
         move |_: FocusEvent| {
-            is_focused.set(false);
+            set_focused(false);
             if let Some(ref callback) = on_blur_cb {
                 callback.call(());
             }
         }
     };
 
-    let on_keydown = {
-        let on_submit = props.on_submit.clone();
-        let value = props.value.clone();
+    let handle_keydown = {
+        let on_submit = on_submit.clone();
+        let value = value.clone();
         move |e: KeyboardEvent| {
             if e.key() == "Enter" {
                 if let Some(ref callback) = on_submit {
@@ -174,23 +151,23 @@ pub fn Input(props: InputProps) -> Element {
 
     rsx! {
         input(
-            class=format!("input {}", class),
-            style=style,
-            type=props.input_type.as_str(),
-            value=props.value.clone(),
-            placeholder=props.placeholder.clone().unwrap_or_default(),
-            disabled=props.disabled,
-            readonly=props.readonly,
-            required=props.required,
-            autofocus=props.autofocus,
-            min=props.min.map(|v| v.to_string()).unwrap_or_default(),
-            max=props.max.map(|v| v.to_string()).unwrap_or_default(),
-            step=props.step.map(|v| v.to_string()).unwrap_or_default(),
-            maxlength=props.maxlength.map(|v| v.to_string()).unwrap_or_default(),
-            on:input=on_input,
-            on:focus=on_focus,
-            on:blur=on_blur,
-            on:keydown=on_keydown,
+            class: format!("input {}", extra_class),
+            style: style,
+            type: input_type.as_str(),
+            value: value.clone(),
+            placeholder: placeholder.clone().unwrap_or_default(),
+            disabled: disabled,
+            readonly: readonly,
+            required: required,
+            autofocus: autofocus,
+            min: min.map(|v| v.to_string()).unwrap_or_default(),
+            max: max.map(|v| v.to_string()).unwrap_or_default(),
+            step: step.map(|v| v.to_string()).unwrap_or_default(),
+            maxlength: maxlength.map(|v| v.to_string()).unwrap_or_default(),
+            oninput: handle_input,
+            onfocus: handle_focus,
+            onblur: handle_blur,
+            onkeydown: handle_keydown
         )
     }
 }
@@ -258,55 +235,35 @@ fn get_input_style(
         ""
     };
 
-    let hover_style = if !disabled && !error && !focused {
-        "border-color: var(--color-border-hover);"
-    } else {
-        ""
-    };
-
-    // Note: hover_style is for CSS hover state, applied via :hover pseudo-class
-    // For RSX inline styles, we just combine the base styles
     format!("{} {} {} {}", base, variant_style, size_style, state_style)
-}
-
-/// Labeled input wrapper component.
-#[derive(Props)]
-pub struct LabeledInputProps {
-    /// Label text
-    pub label: String,
-    /// Optional helper text
-    #[prop(default)]
-    pub helper: Option<String>,
-    /// Optional error message
-    #[prop(default)]
-    pub error_message: Option<String>,
-    /// Whether the field is required
-    #[prop(default)]
-    pub required: bool,
-    /// The input element
-    pub children: Element,
 }
 
 /// Labeled input wrapper that provides consistent label, helper text, and error styling.
 #[component]
-pub fn LabeledInput(props: LabeledInputProps) -> Element {
-    let has_error = props.error_message.is_some();
+pub fn LabeledInput(
+    label: String,
+    helper: Option<String>,
+    error_message: Option<String>,
+    required: Option<bool>,
+    children: Element,
+) -> Element {
+    let required = required.unwrap_or(false);
 
     rsx! {
-        div(class="labeled-input", style=styles::wrapper()) {
-            label(style=styles::label()) {
-                { props.label.clone() }
-                if props.required {
-                    span(style=styles::required()) { " *" }
+        div(class: "labeled-input", style: styles::wrapper()) {
+            label(style: styles::label()) {
+                {label.clone()}
+                if required {
+                    span(style: styles::required()) { " *" }
                 }
             }
 
-            { props.children }
+            {children}
 
-            if let Some(ref error) = props.error_message {
-                span(style=styles::error_text()) { { error.clone() } }
-            } else if let Some(ref helper) = props.helper {
-                span(style=styles::helper_text()) { { helper.clone() } }
+            if let Some(ref error) = error_message {
+                span(style: styles::error_text()) { {error.clone()} }
+            } else if let Some(ref helper_text) = helper {
+                span(style: styles::helper_text()) { {helper_text.clone()} }
             }
         }
     }

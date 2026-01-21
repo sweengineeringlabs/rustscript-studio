@@ -5,41 +5,19 @@ use rsc::prelude::*;
 use super::{Button, ButtonVariant};
 
 /// Modal size.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModalSize {
     Sm,
-    #[default]
     Md,
     Lg,
     Xl,
     Full,
 }
 
-/// Modal component props.
-#[derive(Props)]
-pub struct ModalProps {
-    /// Whether the modal is open
-    pub is_open: bool,
-    /// Modal title
-    #[prop(default)]
-    pub title: Option<String>,
-    /// Modal size
-    #[prop(default)]
-    pub size: ModalSize,
-    /// Whether clicking the overlay closes the modal
-    #[prop(default = true)]
-    pub close_on_overlay_click: bool,
-    /// Whether pressing Escape closes the modal
-    #[prop(default = true)]
-    pub close_on_escape: bool,
-    /// Whether to show the close button
-    #[prop(default = true)]
-    pub show_close_button: bool,
-    /// Callback when modal should close
-    #[prop(default)]
-    pub on_close: Option<Callback<()>>,
-    /// Modal content
-    pub children: Element,
+impl Default for ModalSize {
+    fn default() -> Self {
+        ModalSize::Md
+    }
 }
 
 /// Modal component for dialogs and overlays.
@@ -56,14 +34,36 @@ pub struct ModalProps {
 /// }
 /// ```
 #[component]
-pub fn Modal(props: ModalProps) -> Element {
-    if !props.is_open {
+pub fn Modal(
+    /// Whether the modal is open
+    is_open: bool,
+    /// Modal title
+    title: Option<String>,
+    /// Modal size
+    size: Option<ModalSize>,
+    /// Whether clicking the overlay closes the modal
+    close_on_overlay_click: Option<bool>,
+    /// Whether pressing Escape closes the modal
+    close_on_escape: Option<bool>,
+    /// Whether to show the close button
+    show_close_button: Option<bool>,
+    /// Callback when modal should close
+    on_close: Option<Callback<()>>,
+    /// Modal content
+    children: Element,
+) -> Element {
+    let size = size.unwrap_or(ModalSize::default());
+    let close_on_overlay_click = close_on_overlay_click.unwrap_or(true);
+    let close_on_escape = close_on_escape.unwrap_or(true);
+    let show_close_button = show_close_button.unwrap_or(true);
+
+    if !is_open {
         return rsx! {};
     }
 
     let on_overlay_click = {
-        let on_close = props.on_close.clone();
-        let close_on_overlay = props.close_on_overlay_click;
+        let on_close = on_close.clone();
+        let close_on_overlay = close_on_overlay_click;
         move |_: MouseEvent| {
             if close_on_overlay {
                 if let Some(ref callback) = on_close {
@@ -78,7 +78,7 @@ pub fn Modal(props: ModalProps) -> Element {
     };
 
     let on_close_click = {
-        let on_close = props.on_close.clone();
+        let on_close = on_close.clone();
         move |_: MouseEvent| {
             if let Some(ref callback) = on_close {
                 callback.call(());
@@ -87,8 +87,8 @@ pub fn Modal(props: ModalProps) -> Element {
     };
 
     let on_key_down = {
-        let on_close = props.on_close.clone();
-        let close_on_escape = props.close_on_escape;
+        let on_close = on_close.clone();
+        let close_on_escape = close_on_escape;
         move |e: KeyboardEvent| {
             if close_on_escape && e.key() == "Escape" {
                 if let Some(ref callback) = on_close {
@@ -100,41 +100,41 @@ pub fn Modal(props: ModalProps) -> Element {
 
     rsx! {
         div(
-            class="modal-overlay",
-            style=styles::overlay(),
-            on:click=on_overlay_click,
-            on:keydown=on_key_down,
-            tabindex="-1",
+            class: "modal-overlay",
+            style: styles::overlay(),
+            onclick: on_overlay_click,
+            onkeydown: on_key_down,
+            tabindex: "-1",
         ) {
             div(
-                class="modal-content",
-                style=styles::content(props.size),
-                on:click=on_content_click,
-                role="dialog",
-                aria-modal="true",
+                class: "modal-content",
+                style: styles::content(size),
+                onclick: on_content_click,
+                role: "dialog",
+                aria-modal: "true",
             ) {
                 // Header
-                if props.title.is_some() || props.show_close_button {
-                    div(class="modal-header", style=styles::header()) {
-                        if let Some(ref title) = props.title {
-                            h2(style=styles::title()) { { title.clone() } }
+                if title.is_some() || show_close_button {
+                    div(class: "modal-header", style: styles::header()) {
+                        if let Some(ref title) = title {
+                            h2(style: styles::title()) { { title.clone() } }
                         }
-                        if props.show_close_button {
+                        if show_close_button {
                             button(
-                                class="modal-close",
-                                style=styles::close_button(),
-                                on:click=on_close_click,
-                                aria-label="Close",
+                                class: "modal-close",
+                                style: styles::close_button(),
+                                onclick: on_close_click,
+                                aria-label: "Close",
                             ) {
                                 svg(
-                                    width="20",
-                                    height="20",
-                                    viewBox="0 0 24 24",
-                                    fill="none",
-                                    stroke="currentColor",
-                                    stroke-width="2",
+                                    width: "20",
+                                    height: "20",
+                                    viewBox: "0 0 24 24",
+                                    fill: "none",
+                                    stroke: "currentColor",
+                                    stroke-width: "2",
                                 ) {
-                                    path(d="M18 6L6 18M6 6l12 12")
+                                    path(d: "M18 6L6 18M6 6l12 12")
                                 }
                             }
                         }
@@ -142,45 +142,40 @@ pub fn Modal(props: ModalProps) -> Element {
                 }
 
                 // Body
-                div(class="modal-body", style=styles::body()) {
-                    { props.children }
+                div(class: "modal-body", style: styles::body()) {
+                    { children }
                 }
             }
         }
     }
 }
 
-/// Confirmation dialog props.
-#[derive(Props)]
-pub struct ConfirmDialogProps {
-    /// Whether the dialog is open
-    pub is_open: bool,
-    /// Dialog title
-    pub title: String,
-    /// Confirmation message
-    pub message: String,
-    /// Confirm button text
-    #[prop(default = "Confirm".to_string())]
-    pub confirm_text: String,
-    /// Cancel button text
-    #[prop(default = "Cancel".to_string())]
-    pub cancel_text: String,
-    /// Whether the action is destructive (shows red confirm button)
-    #[prop(default = false)]
-    pub destructive: bool,
-    /// Callback when confirmed
-    #[prop(default)]
-    pub on_confirm: Option<Callback<()>>,
-    /// Callback when cancelled
-    #[prop(default)]
-    pub on_cancel: Option<Callback<()>>,
-}
-
 /// Pre-built confirmation dialog.
 #[component]
-pub fn ConfirmDialog(props: ConfirmDialogProps) -> Element {
-    let on_confirm = {
-        let callback = props.on_confirm.clone();
+pub fn ConfirmDialog(
+    /// Whether the dialog is open
+    is_open: bool,
+    /// Dialog title
+    title: String,
+    /// Confirmation message
+    message: String,
+    /// Confirm button text
+    confirm_text: Option<String>,
+    /// Cancel button text
+    cancel_text: Option<String>,
+    /// Whether the action is destructive (shows red confirm button)
+    destructive: Option<bool>,
+    /// Callback when confirmed
+    on_confirm: Option<Callback<()>>,
+    /// Callback when cancelled
+    on_cancel: Option<Callback<()>>,
+) -> Element {
+    let confirm_text = confirm_text.unwrap_or("Confirm".to_string());
+    let cancel_text = cancel_text.unwrap_or("Cancel".to_string());
+    let destructive = destructive.unwrap_or(false);
+
+    let on_confirm_handler = {
+        let callback = on_confirm.clone();
         move |_| {
             if let Some(ref cb) = callback {
                 cb.call(());
@@ -188,8 +183,8 @@ pub fn ConfirmDialog(props: ConfirmDialogProps) -> Element {
         }
     };
 
-    let on_cancel = {
-        let callback = props.on_cancel.clone();
+    let on_cancel_handler = {
+        let callback = on_cancel.clone();
         move |_| {
             if let Some(ref cb) = callback {
                 cb.call(());
@@ -199,22 +194,22 @@ pub fn ConfirmDialog(props: ConfirmDialogProps) -> Element {
 
     rsx! {
         Modal {
-            is_open: props.is_open,
-            title: Some(props.title.clone()),
+            is_open: is_open,
+            title: Some(title.clone()),
             size: ModalSize::Sm,
-            on_close: props.on_cancel.clone(),
+            on_close: on_cancel.clone(),
             children: rsx! {
-                p(style=styles::message()) { { props.message.clone() } }
-                div(style=styles::actions()) {
+                p(style: styles::message()) { { message.clone() } }
+                div(style: styles::actions()) {
                     Button {
                         variant: ButtonVariant::Secondary,
-                        on_click: Callback::new(on_cancel),
-                        children: rsx! { { props.cancel_text.clone() } }
+                        on_click: Callback::new(on_cancel_handler),
+                        children: rsx! { { cancel_text.clone() } }
                     }
                     Button {
-                        variant: if props.destructive { ButtonVariant::Danger } else { ButtonVariant::Primary },
-                        on_click: Callback::new(on_confirm),
-                        children: rsx! { { props.confirm_text.clone() } }
+                        variant: if destructive { ButtonVariant::Danger } else { ButtonVariant::Primary },
+                        on_click: Callback::new(on_confirm_handler),
+                        children: rsx! { { confirm_text.clone() } }
                     }
                 }
             }

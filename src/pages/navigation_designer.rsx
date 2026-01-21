@@ -8,18 +8,12 @@ use rsc_studio::designer::navigation::{NavigationDesigner, NavigationNodeData, E
 use crate::components::{FlowCanvasView, Toolbar, ToolbarGroup, ToolbarButton, ToolbarDivider, Button, ButtonVariant, ButtonSize, Icon};
 use crate::hooks::StudioStore;
 
-/// Navigation designer page props.
-#[derive(Props)]
-pub struct NavigationDesignerPageProps {
-    pub store: StudioStore,
-}
-
 /// Navigation designer page.
 #[component]
-pub fn NavigationDesignerPage(props: NavigationDesignerPageProps) -> Element {
+pub fn NavigationDesignerPage(store: StudioStore) -> Element {
     let canvas = use_signal(|| {
         let mut designer = NavigationDesigner::new();
-        let workflows = props.store.workflows();
+        let workflows = store.workflows();
         let workflow_refs: Vec<_> = workflows.iter().collect();
         designer.load_workflows(&workflow_refs);
         designer.canvas
@@ -30,9 +24,9 @@ pub fn NavigationDesignerPage(props: NavigationDesignerPageProps) -> Element {
 
     // Toolbar actions
     let on_add_workflow = move |_| {
-        props.store.add_workflow("New Workflow");
+        store.add_workflow("New Workflow");
         // Reload canvas
-        let workflows = props.store.workflows();
+        let workflows = store.workflows();
         let workflow_refs: Vec<_> = workflows.iter().collect();
         let mut designer = NavigationDesigner::new();
         designer.load_workflows(&workflow_refs);
@@ -72,14 +66,14 @@ pub fn NavigationDesignerPage(props: NavigationDesignerPageProps) -> Element {
     };
 
     rsx! {
-        div(class="navigation-designer-page", style=styles::container()) {
+        div(class: "navigation-designer-page", style: styles::container()) {
             // Toolbar
             Toolbar {
                 ToolbarGroup {
                     ToolbarButton {
                         icon: "plus".to_string(),
                         label: Some("Add Workflow".to_string()),
-                        on_click: on_add_workflow,
+                        onclick: on_add_workflow,
                     }
                 }
 
@@ -88,16 +82,16 @@ pub fn NavigationDesignerPage(props: NavigationDesignerPageProps) -> Element {
                 ToolbarGroup {
                     ToolbarButton {
                         icon: "zoom-in".to_string(),
-                        on_click: on_zoom_in,
+                        onclick: on_zoom_in,
                     }
 
-                    span(style=styles::zoom_label()) {
+                    span(style: styles::zoom_label()) {
                         { format!("{}%", zoom_level.get()) }
                     }
 
                     ToolbarButton {
                         icon: "zoom-out".to_string(),
-                        on_click: on_zoom_out,
+                        onclick: on_zoom_out,
                     }
                 }
 
@@ -107,19 +101,19 @@ pub fn NavigationDesignerPage(props: NavigationDesignerPageProps) -> Element {
                     ToolbarButton {
                         icon: "maximize".to_string(),
                         label: Some("Fit".to_string()),
-                        on_click: on_fit_view,
+                        onclick: on_fit_view,
                     }
 
                     ToolbarButton {
                         icon: "layout".to_string(),
                         label: Some("Auto Layout".to_string()),
-                        on_click: on_auto_layout,
+                        onclick: on_auto_layout,
                     }
                 }
             }
 
             // Canvas area
-            div(class="canvas-container", style=styles::canvas_container()) {
+            div(class: "canvas-container", style: styles::canvas_container()) {
                 FlowCanvasView {
                     canvas: canvas.clone(),
                     on_node_select: Some(Callback::new(move |id: String| {
@@ -135,13 +129,13 @@ pub fn NavigationDesignerPage(props: NavigationDesignerPageProps) -> Element {
                 }
 
                 // Empty state
-                if props.store.workflows().is_empty() {
+                if store.workflows().is_empty() {
                     EmptyState {
                         on_add: on_add_workflow,
                         on_load_sample: move |_| {
-                            props.store.load_sample_data();
+                            store.load_sample_data();
                             // Reload canvas
-                            let workflows = props.store.workflows();
+                            let workflows = store.workflows();
                             let workflow_refs: Vec<_> = workflows.iter().collect();
                             let mut designer = NavigationDesigner::new();
                             designer.load_workflows(&workflow_refs);
@@ -164,34 +158,26 @@ pub fn NavigationDesignerPage(props: NavigationDesignerPageProps) -> Element {
 }
 
 /// Empty state when no workflows exist.
-#[derive(Props)]
-struct EmptyStateProps {
-    #[prop(into)]
-    on_add: Callback<()>,
-    #[prop(into)]
-    on_load_sample: Callback<()>,
-}
-
 #[component]
-fn EmptyState(props: EmptyStateProps) -> Element {
+fn EmptyState(on_add: Callback<()>, on_load_sample: Callback<()>) -> Element {
     rsx! {
-        div(class="empty-state", style=styles::empty_state()) {
+        div(class: "empty-state", style: styles::empty_state()) {
             Icon { name: "git-branch".to_string(), size: 48 }
-            h2(style=styles::empty_title()) { "No Workflows Yet" }
-            p(style=styles::empty_description()) {
+            h2(style: styles::empty_title()) { "No Workflows Yet" }
+            p(style: styles::empty_description()) {
                 "Create your first workflow to start designing navigation flows."
             }
-            div(class="empty-actions", style=styles::empty_actions()) {
+            div(class: "empty-actions", style: styles::empty_actions()) {
                 Button {
                     variant: ButtonVariant::Primary,
-                    on_click: props.on_add.clone(),
+                    onclick: on_add.clone(),
                 } {
                     Icon { name: "plus".to_string() }
                     "Create Workflow"
                 }
                 Button {
                     variant: ButtonVariant::Secondary,
-                    on_click: props.on_load_sample.clone(),
+                    onclick: on_load_sample.clone(),
                 } {
                     Icon { name: "download".to_string() }
                     "Load Sample Data"
@@ -202,18 +188,14 @@ fn EmptyState(props: EmptyStateProps) -> Element {
 }
 
 /// Node details panel.
-#[derive(Props)]
-struct NodeDetailsPanelProps {
+#[component]
+fn NodeDetailsPanel(
     canvas: Signal<RscFlowCanvas<NavigationNodeData, ()>>,
     node_id: String,
-    #[prop(into)]
     on_close: Callback<()>,
-}
-
-#[component]
-fn NodeDetailsPanel(props: NodeDetailsPanelProps) -> Element {
-    let canvas = props.canvas.get();
-    let node = canvas.nodes.get(&props.node_id);
+) -> Element {
+    let canvas_value = canvas.get();
+    let node = canvas_value.nodes.get(&node_id);
 
     let Some(node) = node else {
         return rsx! {};
@@ -222,39 +204,39 @@ fn NodeDetailsPanel(props: NodeDetailsPanelProps) -> Element {
     let data = node.data.as_ref();
 
     rsx! {
-        div(class="node-details-panel", style=styles::details_panel()) {
-            div(class="panel-header", style=styles::panel_header()) {
-                h3(style=styles::panel_title()) {
-                    { data.map(|d| d.label.clone()).unwrap_or_else(|| props.node_id.clone()) }
+        div(class: "node-details-panel", style: styles::details_panel()) {
+            div(class: "panel-header", style: styles::panel_header()) {
+                h3(style: styles::panel_title()) {
+                    { data.map(|d| d.label.clone()).unwrap_or_else(|| node_id.clone()) }
                 }
                 Button {
                     variant: ButtonVariant::Ghost,
                     size: ButtonSize::Sm,
-                    on_click: props.on_close.clone(),
+                    onclick: on_close.clone(),
                 } {
                     Icon { name: "x".to_string() }
                 }
             }
 
-            div(class="panel-content", style=styles::panel_content()) {
+            div(class: "panel-content", style: styles::panel_content()) {
                 if let Some(data) = data {
-                    div(class="detail-row") {
-                        span(class="detail-label") { "Type" }
-                        span(class="detail-value") {
+                    div(class: "detail-row") {
+                        span(class: "detail-label") { "Type" }
+                        span(class: "detail-value") {
                             { format!("{:?}", data.entity_type) }
                         }
                     }
 
                     if let Some(ref desc) = data.description {
-                        div(class="detail-row") {
-                            span(class="detail-label") { "Description" }
-                            span(class="detail-value") { { desc.clone() } }
+                        div(class: "detail-row") {
+                            span(class: "detail-label") { "Description" }
+                            span(class: "detail-value") { { desc.clone() } }
                         }
                     }
 
-                    div(class="detail-row") {
-                        span(class="detail-label") { "Position" }
-                        span(class="detail-value") {
+                    div(class: "detail-row") {
+                        span(class: "detail-label") { "Position" }
+                        span(class: "detail-value") {
                             { format!("({:.0}, {:.0})", node.position.x, node.position.y) }
                         }
                     }

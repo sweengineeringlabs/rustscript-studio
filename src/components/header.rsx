@@ -4,48 +4,44 @@ use rsc::prelude::*;
 
 use super::{Button, ButtonVariant, ButtonSize, Icon};
 
-/// Header component props.
-#[derive(Props)]
-pub struct HeaderProps {
-    pub title: &'static str,
-    pub sidebar_visible: Signal<bool>,
-    pub bottom_panel_visible: Signal<bool>,
-}
-
 /// Header component.
 #[component]
-pub fn Header(props: HeaderProps) -> Element {
+pub fn Header(
+    title: &'static str,
+    sidebar_visible: Signal<bool>,
+    bottom_panel_visible: Signal<bool>,
+) -> Element {
     rsx! {
-        header(class="header", style=styles::container()) {
+        header(class: "header", style: styles::container()) {
             // Left section - toggle buttons
-            div(class="header-left", style=styles::section()) {
+            div(class: "header-left", style: styles::section()) {
                 Button {
                     variant: ButtonVariant::Ghost,
                     size: ButtonSize::Sm,
-                    on_click: move |_| {
-                        props.sidebar_visible.update(|v| *v = !*v);
+                    onclick: move |_| {
+                        sidebar_visible.update(|v| *v = !*v);
                     },
                 } {
                     Icon { name: "sidebar".to_string() }
                 }
 
-                h1(class="header-title", style=styles::title()) {
-                    { props.title }
+                h1(class: "header-title", style: styles::title()) {
+                    { title }
                 }
             }
 
             // Center section - breadcrumbs or context
-            div(class="header-center", style=styles::section()) {
+            div(class: "header-center", style: styles::section()) {
                 // Placeholder for breadcrumbs
             }
 
             // Right section - actions
-            div(class="header-right", style=styles::section()) {
+            div(class: "header-right", style: styles::section()) {
                 Button {
                     variant: ButtonVariant::Ghost,
                     size: ButtonSize::Sm,
-                    on_click: move |_| {
-                        props.bottom_panel_visible.update(|v| *v = !*v);
+                    onclick: move |_| {
+                        bottom_panel_visible.update(|v| *v = !*v);
                     },
                 } {
                     Icon { name: "panel-bottom".to_string() }
@@ -54,7 +50,7 @@ pub fn Header(props: HeaderProps) -> Element {
                 Button {
                     variant: ButtonVariant::Ghost,
                     size: ButtonSize::Sm,
-                    on_click: move |_| {},
+                    onclick: move |_| {},
                 } {
                     Icon { name: "sun".to_string() }
                 }

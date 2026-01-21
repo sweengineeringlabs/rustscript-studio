@@ -3,65 +3,53 @@
 use rsc::prelude::*;
 
 /// Checkbox size.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CheckboxSize {
     Sm,
-    #[default]
     Md,
     Lg,
 }
 
-/// Checkbox component props.
-#[derive(Props)]
-pub struct CheckboxProps {
-    /// Whether the checkbox is checked
-    #[prop(default)]
-    pub checked: bool,
-    /// Whether the checkbox is in indeterminate state
-    #[prop(default)]
-    pub indeterminate: bool,
-    /// Checkbox size
-    #[prop(default)]
-    pub size: CheckboxSize,
-    /// Whether the checkbox is disabled
-    #[prop(default)]
-    pub disabled: bool,
-    /// Whether the checkbox has an error state
-    #[prop(default)]
-    pub error: bool,
-    /// Optional label text
-    #[prop(default)]
-    pub label: Option<String>,
-    /// Optional description text below the label
-    #[prop(default)]
-    pub description: Option<String>,
-    /// Callback when checkbox state changes
-    #[prop(default)]
-    pub on_change: Option<Callback<bool>>,
-    /// Additional CSS class
-    #[prop(default)]
-    pub class: Option<String>,
+impl Default for CheckboxSize {
+    fn default() -> Self {
+        CheckboxSize::Md
+    }
 }
 
 /// Checkbox component with custom styling.
 ///
 /// ## Example
 /// ```rust,ignore
-/// Checkbox {
+/// Checkbox(
 ///     checked: is_enabled.get(),
 ///     label: Some("Enable notifications".to_string()),
 ///     description: Some("Receive email updates".to_string()),
-///     on_change: Callback::new(move |v| is_enabled.set(v)),
-/// }
+///     on_change: Some(Callback::new(move |v| is_enabled.set(v))),
+/// )
 /// ```
 #[component]
-pub fn Checkbox(props: CheckboxProps) -> Element {
-    let is_focused = use_signal(|| false);
-    let class = props.class.clone().unwrap_or_default();
+pub fn Checkbox(
+    checked: Option<bool>,
+    indeterminate: Option<bool>,
+    size: Option<CheckboxSize>,
+    disabled: Option<bool>,
+    error: Option<bool>,
+    label: Option<String>,
+    description: Option<String>,
+    on_change: Option<Callback<bool>>,
+    class: Option<String>,
+) -> Element {
+    let checked = checked.unwrap_or(false);
+    let indeterminate = indeterminate.unwrap_or(false);
+    let size = size.unwrap_or(CheckboxSize::Md);
+    let disabled = disabled.unwrap_or(false);
+    let error = error.unwrap_or(false);
 
-    let on_change = {
-        let on_change = props.on_change.clone();
-        let checked = props.checked;
+    let (is_focused, set_focused) = use_state(false);
+    let extra_class = class.unwrap_or_default();
+
+    let handle_change = {
+        let on_change = on_change.clone();
         move |_: InputEvent| {
             if let Some(ref callback) = on_change {
                 callback.call(!checked);
@@ -69,18 +57,16 @@ pub fn Checkbox(props: CheckboxProps) -> Element {
         }
     };
 
-    let on_focus = move |_: FocusEvent| {
-        is_focused.set(true);
+    let handle_focus = move |_: FocusEvent| {
+        set_focused(true);
     };
 
-    let on_blur = move |_: FocusEvent| {
-        is_focused.set(false);
+    let handle_blur = move |_: FocusEvent| {
+        set_focused(false);
     };
 
-    let on_click = {
-        let on_change = props.on_change.clone();
-        let checked = props.checked;
-        let disabled = props.disabled;
+    let handle_click = {
+        let on_change = on_change.clone();
         move |_: MouseEvent| {
             if !disabled {
                 if let Some(ref callback) = on_change {
@@ -92,69 +78,62 @@ pub fn Checkbox(props: CheckboxProps) -> Element {
 
     rsx! {
         label(
-            class=format!("checkbox-wrapper {}", class),
-            style=styles::wrapper(props.disabled),
-            on:click=on_click,
+            class: format!("checkbox-wrapper {}", extra_class),
+            style: styles::wrapper(disabled),
+            onclick: handle_click
         ) {
             // Hidden native checkbox for accessibility
             input(
-                type="checkbox",
-                checked=props.checked,
-                disabled=props.disabled,
-                style=styles::hidden_input(),
-                on:change=on_change,
-                on:focus=on_focus,
-                on:blur=on_blur,
+                type: "checkbox",
+                checked: checked,
+                disabled: disabled,
+                style: styles::hidden_input(),
+                onchange: handle_change,
+                onfocus: handle_focus,
+                onblur: handle_blur
             )
 
             // Custom checkbox visual
             div(
-                class="checkbox-box",
-                style=styles::box_style(
-                    props.size,
-                    props.checked,
-                    props.indeterminate,
-                    props.disabled,
-                    props.error,
-                    is_focused.get(),
-                ),
+                class: "checkbox-box",
+                style: styles::box_style(size, checked, indeterminate, disabled, error, is_focused)
             ) {
-                if props.checked {
+                if checked {
                     // Checkmark icon
                     svg(
-                        viewBox="0 0 24 24",
-                        fill="none",
-                        stroke="currentColor",
-                        stroke-width="3",
-                        style=styles::icon(props.size),
+                        viewBox: "0 0 24 24",
+                        fill: "none",
+                        stroke: "currentColor",
+                        stroke_width: "3",
+                        style: styles::icon(size)
                     ) {
-                        path(d="M5 12l5 5L20 7")
+                        path(d: "M5 12l5 5L20 7")
                     }
-                } else if props.indeterminate {
+                } else if indeterminate {
                     // Indeterminate line
                     svg(
-                        viewBox="0 0 24 24",
-                        fill="none",
-                        stroke="currentColor",
-                        stroke-width="3",
-                        style=styles::icon(props.size),
+                        viewBox: "0 0 24 24",
+                        fill: "none",
+                        stroke: "currentColor",
+                        stroke_width: "3",
+                        style: styles::icon(size)
                     ) {
-                        path(d="M5 12h14")
+                        path(d: "M5 12h14")
                     }
                 }
             }
 
             // Label and description
-            if props.label.is_some() || props.description.is_some() {
-                div(class="checkbox-content", style=styles::content()) {
-                    if let Some(ref label) = props.label {
-                        span(class="checkbox-label", style=styles::label(props.size, props.disabled)) {
-                            { label.clone() }
+            if label.is_some() || description.is_some() {
+                div(class: "checkbox-content", style: styles::content()) {
+                    if let Some(ref lbl) = label {
+                        span(class: "checkbox-label", style: styles::label(size, disabled)) {
+                            {lbl.clone()}
                         }
                     }
-                    if let Some(ref description) = props.description {
-                        span(class="checkbox-description", style=styles::description(props.disabled)) {
-                            { description.clone() }
+                    if let Some(ref desc) = description {
+                        span(class: "checkbox-description", style: styles::description(disabled)) {
+                            {desc.clone()}
                         }
                     }
                 }
@@ -173,10 +152,10 @@ mod styles {
                 display: inline-flex;
                 align-items: flex-start;
                 gap: var(--spacing-sm);
-                cursor: {cursor};
+                cursor: {};
                 user-select: none;
             "#,
-            cursor = cursor,
+            cursor
         )
     }
 
@@ -273,10 +252,10 @@ mod styles {
         };
         format!(
             r#"
-                width: {icon_size};
-                height: {icon_size};
+                width: {};
+                height: {};
             "#,
-            icon_size = icon_size,
+            icon_size, icon_size
         )
     }
 
@@ -298,13 +277,12 @@ mod styles {
         let opacity = if disabled { "0.5" } else { "1" };
         format!(
             r#"
-                font-size: {font_size};
+                font-size: {};
                 font-weight: var(--font-weight-medium);
                 color: var(--color-text-primary);
-                opacity: {opacity};
+                opacity: {};
             "#,
-            font_size = font_size,
-            opacity = opacity,
+            font_size, opacity
         )
     }
 
@@ -314,55 +292,41 @@ mod styles {
             r#"
                 font-size: var(--font-size-sm);
                 color: var(--color-text-secondary);
-                opacity: {opacity};
+                opacity: {};
             "#,
-            opacity = opacity,
+            opacity
         )
     }
-}
-
-/// Switch component (toggle variant of checkbox).
-#[derive(Props)]
-pub struct SwitchProps {
-    /// Whether the switch is on
-    #[prop(default)]
-    pub checked: bool,
-    /// Switch size
-    #[prop(default)]
-    pub size: CheckboxSize,
-    /// Whether the switch is disabled
-    #[prop(default)]
-    pub disabled: bool,
-    /// Optional label text
-    #[prop(default)]
-    pub label: Option<String>,
-    /// Callback when switch state changes
-    #[prop(default)]
-    pub on_change: Option<Callback<bool>>,
-    /// Additional CSS class
-    #[prop(default)]
-    pub class: Option<String>,
 }
 
 /// Switch component (toggle style).
 ///
 /// ## Example
 /// ```rust,ignore
-/// Switch {
+/// Switch(
 ///     checked: dark_mode.get(),
 ///     label: Some("Dark mode".to_string()),
-///     on_change: Callback::new(move |v| dark_mode.set(v)),
-/// }
+///     on_change: Some(Callback::new(move |v| dark_mode.set(v))),
+/// )
 /// ```
 #[component]
-pub fn Switch(props: SwitchProps) -> Element {
-    let is_focused = use_signal(|| false);
-    let class = props.class.clone().unwrap_or_default();
+pub fn Switch(
+    checked: Option<bool>,
+    size: Option<CheckboxSize>,
+    disabled: Option<bool>,
+    label: Option<String>,
+    on_change: Option<Callback<bool>>,
+    class: Option<String>,
+) -> Element {
+    let checked = checked.unwrap_or(false);
+    let size = size.unwrap_or(CheckboxSize::Md);
+    let disabled = disabled.unwrap_or(false);
 
-    let on_click = {
-        let on_change = props.on_change.clone();
-        let checked = props.checked;
-        let disabled = props.disabled;
+    let (is_focused, set_focused) = use_state(false);
+    let extra_class = class.unwrap_or_default();
+
+    let handle_click = {
+        let on_change = on_change.clone();
         move |_: MouseEvent| {
             if !disabled {
                 if let Some(ref callback) = on_change {
@@ -372,46 +336,46 @@ pub fn Switch(props: SwitchProps) -> Element {
         }
     };
 
-    let on_focus = move |_: FocusEvent| {
-        is_focused.set(true);
+    let handle_focus = move |_: FocusEvent| {
+        set_focused(true);
     };
 
-    let on_blur = move |_: FocusEvent| {
-        is_focused.set(false);
+    let handle_blur = move |_: FocusEvent| {
+        set_focused(false);
     };
 
     rsx! {
         label(
-            class=format!("switch-wrapper {}", class),
-            style=switch_styles::wrapper(props.disabled),
-            on:click=on_click,
+            class: format!("switch-wrapper {}", extra_class),
+            style: switch_styles::wrapper(disabled),
+            onclick: handle_click
         ) {
             // Hidden native checkbox for accessibility
             input(
-                type="checkbox",
-                checked=props.checked,
-                disabled=props.disabled,
-                style=styles::hidden_input(),
-                on:focus=on_focus,
-                on:blur=on_blur,
+                type: "checkbox",
+                checked: checked,
+                disabled: disabled,
+                style: styles::hidden_input(),
+                onfocus: handle_focus,
+                onblur: handle_blur
             )
 
             // Switch track
             div(
-                class="switch-track",
-                style=switch_styles::track(props.size, props.checked, props.disabled, is_focused.get()),
+                class: "switch-track",
+                style: switch_styles::track(size, checked, disabled, is_focused)
             ) {
                 // Switch thumb
                 div(
-                    class="switch-thumb",
-                    style=switch_styles::thumb(props.size, props.checked),
+                    class: "switch-thumb",
+                    style: switch_styles::thumb(size, checked)
                 )
             }
 
             // Label
-            if let Some(ref label) = props.label {
-                span(class="switch-label", style=switch_styles::label(props.size, props.disabled)) {
-                    { label.clone() }
+            if let Some(ref lbl) = label {
+                span(class: "switch-label", style: switch_styles::label(size, disabled)) {
+                    {lbl.clone()}
                 }
             }
         }
@@ -428,10 +392,10 @@ mod switch_styles {
                 display: inline-flex;
                 align-items: center;
                 gap: var(--spacing-sm);
-                cursor: {cursor};
+                cursor: {};
                 user-select: none;
             "#,
-            cursor = cursor,
+            cursor
         )
     }
 
@@ -520,13 +484,12 @@ mod switch_styles {
         let opacity = if disabled { "0.5" } else { "1" };
         format!(
             r#"
-                font-size: {font_size};
+                font-size: {};
                 font-weight: var(--font-weight-medium);
                 color: var(--color-text-primary);
-                opacity: {opacity};
+                opacity: {};
             "#,
-            font_size = font_size,
-            opacity = opacity,
+            font_size, opacity
         )
     }
 }

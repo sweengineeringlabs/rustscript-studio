@@ -80,22 +80,6 @@ impl ShadowValue {
     }
 }
 
-/// ShadowEditor component props.
-#[derive(Props)]
-pub struct ShadowEditorProps {
-    /// Current shadow value (CSS format)
-    pub value: String,
-    /// Label for the shadow
-    #[prop(default)]
-    pub label: Option<String>,
-    /// Whether the editor is disabled
-    #[prop(default)]
-    pub disabled: bool,
-    /// Callback when value changes
-    #[prop(default)]
-    pub on_change: Option<Callback<String>>,
-}
-
 /// ShadowEditor component for editing box-shadow values.
 ///
 /// ## Example
@@ -107,11 +91,17 @@ pub struct ShadowEditorProps {
 /// }
 /// ```
 #[component]
-pub fn ShadowEditor(props: ShadowEditorProps) -> Element {
-    let shadow = use_signal(|| ShadowValue::from_css(&props.value).unwrap_or_default());
+pub fn ShadowEditor(
+    value: String,
+    label: Option<String>,
+    disabled: Option<bool>,
+    on_change: Option<Callback<String>>,
+) -> Element {
+    let disabled = disabled.unwrap_or(false);
+    let shadow = use_signal(|| ShadowValue::from_css(&value).unwrap_or_default());
 
     let emit_change = {
-        let on_change = props.on_change.clone();
+        let on_change = on_change.clone();
         move |new_shadow: ShadowValue| {
             shadow.set(new_shadow.clone());
             if let Some(ref callback) = on_change {
@@ -185,99 +175,99 @@ pub fn ShadowEditor(props: ShadowEditorProps) -> Element {
     let current = shadow.get();
 
     rsx! {
-        div(class="shadow-editor", style=styles::container(props.disabled)) {
+        div(class: "shadow-editor", style: styles::container(disabled)) {
             // Label
-            if let Some(ref label) = props.label {
-                label(class="shadow-editor-label", style=styles::label()) {
+            if let Some(ref label) = label {
+                label(class: "shadow-editor-label", style: styles::label()) {
                     { label.clone() }
                 }
             }
 
             // Preview
-            div(class="shadow-editor-preview", style=styles::preview_container()) {
-                div(class="shadow-editor-preview-box", style=styles::preview_box(&current))
+            div(class: "shadow-editor-preview", style: styles::preview_container()) {
+                div(class: "shadow-editor-preview-box", style: styles::preview_box(&current))
             }
 
             // Controls grid
-            div(class="shadow-editor-controls", style=styles::controls()) {
+            div(class: "shadow-editor-controls", style: styles::controls()) {
                 // X offset
-                div(class="shadow-editor-field", style=styles::field()) {
-                    label(style=styles::field_label()) { "X" }
+                div(class: "shadow-editor-field", style: styles::field()) {
+                    label(style: styles::field_label()) { "X" }
                     input(
-                        type="number",
-                        value=current.x.to_string(),
-                        disabled=props.disabled,
-                        style=styles::number_input(),
-                        on:input=on_x_change,
+                        type: "number",
+                        value: current.x.to_string(),
+                        disabled: disabled,
+                        style: styles::number_input(),
+                        oninput: on_x_change,
                     )
                 }
 
                 // Y offset
-                div(class="shadow-editor-field", style=styles::field()) {
-                    label(style=styles::field_label()) { "Y" }
+                div(class: "shadow-editor-field", style: styles::field()) {
+                    label(style: styles::field_label()) { "Y" }
                     input(
-                        type="number",
-                        value=current.y.to_string(),
-                        disabled=props.disabled,
-                        style=styles::number_input(),
-                        on:input=on_y_change,
+                        type: "number",
+                        value: current.y.to_string(),
+                        disabled: disabled,
+                        style: styles::number_input(),
+                        oninput: on_y_change,
                     )
                 }
 
                 // Blur
-                div(class="shadow-editor-field", style=styles::field()) {
-                    label(style=styles::field_label()) { "Blur" }
+                div(class: "shadow-editor-field", style: styles::field()) {
+                    label(style: styles::field_label()) { "Blur" }
                     input(
-                        type="number",
-                        min="0",
-                        value=current.blur.to_string(),
-                        disabled=props.disabled,
-                        style=styles::number_input(),
-                        on:input=on_blur_change,
+                        type: "number",
+                        min: "0",
+                        value: current.blur.to_string(),
+                        disabled: disabled,
+                        style: styles::number_input(),
+                        oninput: on_blur_change,
                     )
                 }
 
                 // Spread
-                div(class="shadow-editor-field", style=styles::field()) {
-                    label(style=styles::field_label()) { "Spread" }
+                div(class: "shadow-editor-field", style: styles::field()) {
+                    label(style: styles::field_label()) { "Spread" }
                     input(
-                        type="number",
-                        value=current.spread.to_string(),
-                        disabled=props.disabled,
-                        style=styles::number_input(),
-                        on:input=on_spread_change,
+                        type: "number",
+                        value: current.spread.to_string(),
+                        disabled: disabled,
+                        style: styles::number_input(),
+                        oninput: on_spread_change,
                     )
                 }
             }
 
             // Color input
-            div(class="shadow-editor-color", style=styles::color_row()) {
-                label(style=styles::field_label()) { "Color" }
+            div(class: "shadow-editor-color", style: styles::color_row()) {
+                label(style: styles::field_label()) { "Color" }
                 input(
-                    type="text",
-                    value=current.color.clone(),
-                    disabled=props.disabled,
-                    style=styles::color_input(),
-                    on:input=on_color_change,
+                    type: "text",
+                    value: current.color.clone(),
+                    disabled: disabled,
+                    style: styles::color_input(),
+                    oninput: on_color_change,
                 )
             }
 
             // Inset toggle
-            div(class="shadow-editor-inset", style=styles::inset_row()) {
-                label(style=styles::checkbox_label()) {
+            div(class: "shadow-editor-inset", style: styles::inset_row()) {
+                label(style: styles::checkbox_label()) {
                     input(
-                        type="checkbox",
-                        checked=current.inset,
-                        disabled=props.disabled,
-                        on:change=on_inset_change,
+                        type: "checkbox",
+                        checked: current.inset,
+                        disabled: disabled,
+                        onchange: on_inset_change,
                     )
                     span { "Inset shadow" }
                 }
             }
 
             // CSS output
-            div(class="shadow-editor-output", style=styles::output()) {
-                code(style=styles::code()) { { current.to_css() } }
+            div(class: "shadow-editor-output", style: styles::output()) {
+                code(style: styles::code()) { { current.to_css() } }
             }
         }
     }

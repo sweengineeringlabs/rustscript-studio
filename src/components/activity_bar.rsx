@@ -14,17 +14,9 @@ pub struct ActivityItem {
     pub route: Route,
 }
 
-/// Activity bar component props.
-#[derive(Props)]
-pub struct ActivityBarProps {
-    pub active_view: Signal<Route>,
-    #[prop(into)]
-    pub on_change: Callback<Route>,
-}
-
 /// Activity bar component.
 #[component]
-pub fn ActivityBar(props: ActivityBarProps) -> Element {
+pub fn ActivityBar(active_view: Signal<Route>, on_change: Callback<Route>) -> Element {
     let items = vec![
         ActivityItem {
             id: "navigation".to_string(),
@@ -47,13 +39,13 @@ pub fn ActivityBar(props: ActivityBarProps) -> Element {
     ];
 
     rsx! {
-        aside(class="activity-bar", style=styles::container()) {
-            div(class="activity-items", style=styles::items()) {
+        aside(class: "activity-bar", style: styles::container()) {
+            div(class: "activity-items", style: styles::items()) {
                 for item in items {
                     ActivityBarItem {
                         item: item.clone(),
-                        is_active: props.active_view.get() == item.route,
-                        on_click: props.on_change.clone(),
+                        is_active: active_view.get() == item.route,
+                        on_click: on_change.clone(),
                     }
                 }
             }
@@ -61,17 +53,9 @@ pub fn ActivityBar(props: ActivityBarProps) -> Element {
     }
 }
 
-#[derive(Props)]
-struct ActivityBarItemProps {
-    item: ActivityItem,
-    is_active: bool,
-    #[prop(into)]
-    on_click: Callback<Route>,
-}
-
 #[component]
-fn ActivityBarItem(props: ActivityBarItemProps) -> Element {
-    let style = if props.is_active {
+fn ActivityBarItem(item: ActivityItem, is_active: bool, on_click: Callback<Route>) -> Element {
+    let style = if is_active {
         styles::item_active()
     } else {
         styles::item()
@@ -79,12 +63,12 @@ fn ActivityBarItem(props: ActivityBarItemProps) -> Element {
 
     rsx! {
         button(
-            class="activity-item",
-            style=style,
-            title=props.item.label.clone(),
-            on:click=move |_| props.on_click.call(props.item.route.clone()),
+            class: "activity-item",
+            style: style,
+            title: item.label.clone(),
+            onclick: move |_| on_click.call(item.route.clone()),
         ) {
-            Icon { name: props.item.icon.clone() }
+            Icon { name: item.icon.clone() }
         }
     }
 }

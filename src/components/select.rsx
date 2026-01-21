@@ -3,21 +3,31 @@
 use rsc::prelude::*;
 
 /// Select size.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectSize {
     Sm,
-    #[default]
     Md,
     Lg,
 }
 
+impl Default for SelectSize {
+    fn default() -> Self {
+        SelectSize::Md
+    }
+}
+
 /// Select variant.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectVariant {
-    #[default]
     Outline,
     Filled,
     Flushed,
+}
+
+impl Default for SelectVariant {
+    fn default() -> Self {
+        SelectVariant::Outline
+    }
 }
 
 /// Option item for the select component.
@@ -43,46 +53,6 @@ impl SelectOption {
     }
 }
 
-/// Select component props.
-#[derive(Props)]
-pub struct SelectProps {
-    /// Currently selected value
-    #[prop(default)]
-    pub value: String,
-    /// Available options
-    pub options: Vec<SelectOption>,
-    /// Placeholder text when no value is selected
-    #[prop(default)]
-    pub placeholder: Option<String>,
-    /// Select size
-    #[prop(default)]
-    pub size: SelectSize,
-    /// Select variant
-    #[prop(default)]
-    pub variant: SelectVariant,
-    /// Whether the select is disabled
-    #[prop(default)]
-    pub disabled: bool,
-    /// Whether the select is required
-    #[prop(default)]
-    pub required: bool,
-    /// Whether the select has an error state
-    #[prop(default)]
-    pub error: bool,
-    /// Callback when selection changes
-    #[prop(default)]
-    pub on_change: Option<Callback<String>>,
-    /// Callback when select receives focus
-    #[prop(default)]
-    pub on_focus: Option<Callback<()>>,
-    /// Callback when select loses focus
-    #[prop(default)]
-    pub on_blur: Option<Callback<()>>,
-    /// Additional CSS class
-    #[prop(default)]
-    pub class: Option<String>,
-}
-
 /// Select component with native dropdown.
 ///
 /// ## Example
@@ -98,19 +68,51 @@ pub struct SelectProps {
 /// }
 /// ```
 #[component]
-pub fn Select(props: SelectProps) -> Element {
+pub fn Select(
+    /// Currently selected value
+    value: Option<String>,
+    /// Available options
+    options: Vec<SelectOption>,
+    /// Placeholder text when no value is selected
+    placeholder: Option<String>,
+    /// Select size
+    size: Option<SelectSize>,
+    /// Select variant
+    variant: Option<SelectVariant>,
+    /// Whether the select is disabled
+    disabled: Option<bool>,
+    /// Whether the select is required
+    required: Option<bool>,
+    /// Whether the select has an error state
+    error: Option<bool>,
+    /// Callback when selection changes
+    on_change: Option<Callback<String>>,
+    /// Callback when select receives focus
+    on_focus: Option<Callback<()>>,
+    /// Callback when select loses focus
+    on_blur: Option<Callback<()>>,
+    /// Additional CSS class
+    class: Option<String>,
+) -> Element {
+    let value = value.unwrap_or(String::new());
+    let size = size.unwrap_or(SelectSize::default());
+    let variant = variant.unwrap_or(SelectVariant::default());
+    let disabled = disabled.unwrap_or(false);
+    let required = required.unwrap_or(false);
+    let error = error.unwrap_or(false);
+
     let is_focused = use_signal(|| false);
     let style = get_select_style(
-        props.variant,
-        props.size,
-        props.disabled,
-        props.error,
+        variant,
+        size,
+        disabled,
+        error,
         is_focused.get(),
     );
-    let class = props.class.clone().unwrap_or_default();
+    let class = class.clone().unwrap_or_default();
 
-    let on_change = {
-        let on_change = props.on_change.clone();
+    let on_change_handler = {
+        let on_change = on_change.clone();
         move |e: InputEvent| {
             if let Some(ref callback) = on_change {
                 callback.call(e.value());
@@ -118,8 +120,8 @@ pub fn Select(props: SelectProps) -> Element {
         }
     };
 
-    let on_focus = {
-        let on_focus_cb = props.on_focus.clone();
+    let on_focus_handler = {
+        let on_focus_cb = on_focus.clone();
         move |_: FocusEvent| {
             is_focused.set(true);
             if let Some(ref callback) = on_focus_cb {
@@ -128,8 +130,8 @@ pub fn Select(props: SelectProps) -> Element {
         }
     };
 
-    let on_blur = {
-        let on_blur_cb = props.on_blur.clone();
+    let on_blur_handler = {
+        let on_blur_cb = on_blur.clone();
         move |_: FocusEvent| {
             is_focused.set(false);
             if let Some(ref callback) = on_blur_cb {
@@ -139,34 +141,34 @@ pub fn Select(props: SelectProps) -> Element {
     };
 
     rsx! {
-        div(class=format!("select-wrapper {}", class), style=styles::wrapper()) {
+        div(class: format!("select-wrapper {}", class), style: styles::wrapper()) {
             select(
-                class="select",
-                style=style,
-                disabled=props.disabled,
-                required=props.required,
-                on:change=on_change,
-                on:focus=on_focus,
-                on:blur=on_blur,
+                class: "select",
+                style: style,
+                disabled: disabled,
+                required: required,
+                onchange: on_change_handler,
+                onfocus: on_focus_handler,
+                onblur: on_blur_handler,
             ) {
                 // Placeholder option
-                if let Some(ref placeholder) = props.placeholder {
+                if let Some(ref placeholder) = placeholder {
                     option(
-                        value="",
-                        disabled=true,
-                        selected=props.value.is_empty(),
-                        style=styles::placeholder_option(),
+                        value: "",
+                        disabled: true,
+                        selected: value.is_empty(),
+                        style: styles::placeholder_option(),
                     ) {
                         { placeholder.clone() }
                     }
                 }
 
                 // Options
-                for opt in props.options.iter() {
+                for opt in options.iter() {
                     option(
-                        value=opt.value.clone(),
-                        disabled=opt.disabled,
-                        selected=props.value == opt.value,
+                        value: opt.value.clone(),
+                        disabled: opt.disabled,
+                        selected: value == opt.value,
                     ) {
                         { opt.label.clone() }
                     }
@@ -174,16 +176,16 @@ pub fn Select(props: SelectProps) -> Element {
             }
 
             // Chevron icon
-            div(class="select-icon", style=styles::icon()) {
+            div(class: "select-icon", style: styles::icon()) {
                 svg(
-                    width="16",
-                    height="16",
-                    viewBox="0 0 24 24",
-                    fill="none",
-                    stroke="currentColor",
-                    stroke-width="2",
+                    width: "16",
+                    height: "16",
+                    viewBox: "0 0 24 24",
+                    fill: "none",
+                    stroke: "currentColor",
+                    stroke-width: "2",
                 ) {
-                    path(d="M6 9l6 6 6-6")
+                    path(d: "M6 9l6 6 6-6")
                 }
             }
         }
@@ -287,42 +289,37 @@ mod styles {
     }
 }
 
-/// Labeled select wrapper component.
-#[derive(Props)]
-pub struct LabeledSelectProps {
-    /// Label text
-    pub label: String,
-    /// Optional helper text
-    #[prop(default)]
-    pub helper: Option<String>,
-    /// Optional error message
-    #[prop(default)]
-    pub error_message: Option<String>,
-    /// Whether the field is required
-    #[prop(default)]
-    pub required: bool,
-    /// The select element
-    pub children: Element,
-}
-
 /// Labeled select wrapper that provides consistent label, helper text, and error styling.
 #[component]
-pub fn LabeledSelect(props: LabeledSelectProps) -> Element {
+pub fn LabeledSelect(
+    /// Label text
+    label: String,
+    /// Optional helper text
+    helper: Option<String>,
+    /// Optional error message
+    error_message: Option<String>,
+    /// Whether the field is required
+    required: Option<bool>,
+    /// The select element
+    children: Element,
+) -> Element {
+    let required = required.unwrap_or(false);
+
     rsx! {
-        div(class="labeled-select", style=label_styles::wrapper()) {
-            label(style=label_styles::label()) {
-                { props.label.clone() }
-                if props.required {
-                    span(style=label_styles::required()) { " *" }
+        div(class: "labeled-select", style: label_styles::wrapper()) {
+            label(style: label_styles::label()) {
+                { label.clone() }
+                if required {
+                    span(style: label_styles::required()) { " *" }
                 }
             }
 
-            { props.children }
+            { children }
 
-            if let Some(ref error) = props.error_message {
-                span(style=label_styles::error_text()) { { error.clone() } }
-            } else if let Some(ref helper) = props.helper {
-                span(style=label_styles::helper_text()) { { helper.clone() } }
+            if let Some(ref error) = error_message {
+                span(style: label_styles::error_text()) { { error.clone() } }
+            } else if let Some(ref helper) = helper {
+                span(style: label_styles::helper_text()) { { helper.clone() } }
             }
         }
     }

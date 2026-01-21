@@ -5,34 +5,6 @@ use rsc::prelude::*;
 use rsc_flow::prelude::{Node, Position};
 use super::Icon;
 
-/// Flow node component props.
-#[derive(Props)]
-pub struct FlowNodeProps<T: Clone + 'static> {
-    pub node: Node<T>,
-    /// Current viewport zoom level (for scaling drag deltas)
-    #[prop(default = 1.0)]
-    pub zoom: f64,
-    /// Whether snap-to-grid is enabled
-    #[prop(default = false)]
-    pub snap_to_grid: bool,
-    /// Grid size in pixels for snapping
-    #[prop(default = 20.0)]
-    pub grid_size: f64,
-    #[prop(default)]
-    pub on_select: Option<Callback<String>>,
-    #[prop(default)]
-    pub on_move: Option<Callback<(String, Position)>>,
-    /// Callback when connection drag starts from this node (node_id, from_top, position)
-    #[prop(default)]
-    pub on_connection_start: Option<Callback<(String, bool, Position)>>,
-    /// Callback when connection ends on this node (node_id)
-    #[prop(default)]
-    pub on_connection_end: Option<Callback<String>>,
-    /// Whether this node is a valid connection target (while another node is being connected)
-    #[prop(default = false)]
-    pub is_connection_target: bool,
-}
-
 /// Snap a value to the nearest grid line.
 fn snap_to_grid_value(value: f64, grid_size: f64) -> f64 {
     (value / grid_size).round() * grid_size
@@ -47,22 +19,43 @@ fn snap_to_grid_value(value: f64, grid_size: f64) -> f64 {
 /// - Drag from handles to create connections
 /// - Visual feedback when node is a valid connection target
 #[component]
-pub fn FlowNode<T: Clone + 'static>(props: FlowNodeProps<T>) -> Element {
+pub fn FlowNode<T: Clone + 'static>(
+    node: Node<T>,
+    /// Current viewport zoom level (for scaling drag deltas)
+    zoom: Option<f64>,
+    /// Whether snap-to-grid is enabled
+    snap_to_grid: Option<bool>,
+    /// Grid size in pixels for snapping
+    grid_size: Option<f64>,
+    on_select: Option<Callback<String>>,
+    on_move: Option<Callback<(String, Position)>>,
+    /// Callback when connection drag starts from this node (node_id, from_top, position)
+    on_connection_start: Option<Callback<(String, bool, Position)>>,
+    /// Callback when connection ends on this node (node_id)
+    on_connection_end: Option<Callback<String>>,
+    /// Whether this node is a valid connection target (while another node is being connected)
+    is_connection_target: Option<bool>,
+) -> Element {
+    let zoom = zoom.unwrap_or(1.0);
+    let snap_to_grid = snap_to_grid.unwrap_or(false);
+    let grid_size = grid_size.unwrap_or(20.0);
+    let is_connection_target = is_connection_target.unwrap_or(false);
+
     let is_dragging = use_signal(|| false);
     let drag_start = use_signal(|| Position::zero());
     let node_start = use_signal(|| Position::zero());
     let is_handle_hovered = use_signal(|| false);
 
-    let node_type = match &props.node.node_type {
+    let node_type = match &node.node_type {
         rsc_flow::prelude::NodeType::Custom(t) => t.as_str(),
         _ => "default",
     };
 
     // Node drag handlers
     let on_mouse_down = {
-        let id = props.node.id.clone();
-        let pos = props.node.position;
-        let draggable = props.node.draggable;
+        let id = node.id.clone();
+        let pos = node.position;
+        let draggable = node.draggable;
         move |e: MouseEvent| {
             if e.button() == 0 && draggable {
                 e.stop_propagation();
@@ -70,7 +63,7 @@ pub fn FlowNode<T: Clone + 'static>(props: FlowNodeProps<T>) -> Element {
                 drag_start.set(Position::new(e.client_x() as f64, e.client_y() as f64));
                 node_start.set(pos);
 
-                if let Some(ref on_select) = props.on_select {
+                if let Some(ref on_select) = on_select {
                     on_select.call(id.clone());
                 }
             }
@@ -78,10 +71,10 @@ pub fn FlowNode<T: Clone + 'static>(props: FlowNodeProps<T>) -> Element {
     };
 
     let on_mouse_move = {
-        let id = props.node.id.clone();
-        let zoom = props.zoom;
-        let snap_enabled = props.snap_to_grid;
-        let grid_size = props.grid_size;
+        let id = node.id.clone();
+        let zoom = zoom;
+        let snap_enabled = snap_to_grid;
+        let grid_size = grid_size;
         move |e: MouseEvent| {
             if is_dragging.get() {
                 let dx = (e.client_x() as f64 - drag_start.get().x) / zoom;
@@ -97,7 +90,7 @@ pub fn FlowNode<T: Clone + 'static>(props: FlowNodeProps<T>) -> Element {
 
                 let new_pos = Position::new(new_x, new_y);
 
-                if let Some(ref on_move) = props.on_move {
+                if let Some(ref on_move) = on_move {
                     on_move.call((id.clone(), new_pos));
                 }
             }
@@ -110,10 +103,10 @@ pub fn FlowNode<T: Clone + 'static>(props: FlowNodeProps<T>) -> Element {
 
     // Handle mouse events for connection handles
     let on_handle_top_mouse_down = {
-        let id = props.node.id.clone();
-        let pos = props.node.position;
-        let connectable = props.node.connectable;
-        let on_connection_start = props.on_connection_start.clone();
+        let id = node.id.clone();
+        let pos = node.position;
+        let connectable = node.connectable;
+        let on_connection_start = on_connection_start.clone();
         move |e: MouseEvent| {
             if e.button() == 0 && connectable {
                 e.stop_propagation();
@@ -128,10 +121,10 @@ pub fn FlowNode<T: Clone + 'static>(props: FlowNodeProps<T>) -> Element {
     };
 
     let on_handle_bottom_mouse_down = {
-        let id = props.node.id.clone();
-        let pos = props.node.position;
-        let connectable = props.node.connectable;
-        let on_connection_start = props.on_connection_start.clone();
+        let id = node.id.clone();
+        let pos = node.position;
+        let connectable = node.connectable;
+        let on_connection_start = on_connection_start.clone();
         move |e: MouseEvent| {
             if e.button() == 0 && connectable {
                 e.stop_propagation();
@@ -147,9 +140,9 @@ pub fn FlowNode<T: Clone + 'static>(props: FlowNodeProps<T>) -> Element {
 
     // When this node is a connection target, handle mouse up to complete the connection
     let on_handle_mouse_up = {
-        let id = props.node.id.clone();
-        let on_connection_end = props.on_connection_end.clone();
-        let is_target = props.is_connection_target;
+        let id = node.id.clone();
+        let on_connection_end = on_connection_end.clone();
+        let is_target = is_connection_target;
         move |e: MouseEvent| {
             if is_target {
                 e.stop_propagation();
@@ -170,44 +163,44 @@ pub fn FlowNode<T: Clone + 'static>(props: FlowNodeProps<T>) -> Element {
 
     rsx! {
         div(
-            class=format!("flow-node flow-node-{}", node_type),
-            style=styles::node(
-                &props.node.position,
+            class: format!("flow-node flow-node-{}", node_type),
+            style: styles::node(
+                &node.position,
                 node_type,
-                props.node.selected,
+                node.selected,
                 is_dragging.get(),
-                props.is_connection_target,
+                is_connection_target,
             ),
-            on:mousedown=on_mouse_down,
-            on:mousemove=on_mouse_move,
-            on:mouseup=on_mouse_up,
+            onmousedown: on_mouse_down,
+            onmousemove: on_mouse_move,
+            onmouseup: on_mouse_up,
         ) {
             // Header
-            div(class="flow-node-header", style=styles::header(node_type)) {
+            div(class: "flow-node-header", style: styles::header(node_type)) {
                 Icon { name: get_node_icon(node_type).to_string(), size: 16 }
-                span(style=styles::label()) {
-                    { props.node.id.clone() }
+                span(style: styles::label()) {
+                    { node.id.clone() }
                 }
             }
 
             // Top connection handle (input)
             div(
-                class="flow-node-handle flow-node-handle-top",
-                style=styles::handle_top(props.is_connection_target, is_handle_hovered.get()),
-                on:mousedown=on_handle_top_mouse_down,
-                on:mouseup=on_handle_mouse_up.clone(),
-                on:mouseenter=on_handle_mouse_enter,
-                on:mouseleave=on_handle_mouse_leave,
+                class: "flow-node-handle flow-node-handle-top",
+                style: styles::handle_top(is_connection_target, is_handle_hovered.get()),
+                onmousedown: on_handle_top_mouse_down,
+                onmouseup: on_handle_mouse_up.clone(),
+                onmouseenter: on_handle_mouse_enter,
+                onmouseleave: on_handle_mouse_leave,
             )
 
             // Bottom connection handle (output)
             div(
-                class="flow-node-handle flow-node-handle-bottom",
-                style=styles::handle_bottom(props.is_connection_target, is_handle_hovered.get()),
-                on:mousedown=on_handle_bottom_mouse_down,
-                on:mouseup=on_handle_mouse_up,
-                on:mouseenter=on_handle_mouse_enter,
-                on:mouseleave=on_handle_mouse_leave,
+                class: "flow-node-handle flow-node-handle-bottom",
+                style: styles::handle_bottom(is_connection_target, is_handle_hovered.get()),
+                onmousedown: on_handle_bottom_mouse_down,
+                onmouseup: on_handle_mouse_up,
+                onmouseenter: on_handle_mouse_enter,
+                onmouseleave: on_handle_mouse_leave,
             )
         }
     }

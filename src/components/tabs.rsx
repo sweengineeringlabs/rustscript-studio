@@ -12,42 +12,25 @@ pub struct Tab {
     pub icon: Option<String>,
 }
 
-/// Tabs component props.
-#[derive(Props)]
-pub struct TabsProps {
-    pub tabs: Vec<Tab>,
-    pub active: Signal<String>,
-    #[prop(into)]
-    pub on_change: Callback<String>,
-}
-
 /// Tabs component.
 #[component]
-pub fn Tabs(props: TabsProps) -> Element {
+pub fn Tabs(tabs: Vec<Tab>, active: Signal<String>, on_change: Callback<String>) -> Element {
     rsx! {
-        div(class="tabs", style=styles::container()) {
-            for tab in props.tabs {
+        div(class: "tabs", style: styles::container()) {
+            for tab in tabs {
                 TabItem {
                     tab: tab.clone(),
-                    is_active: props.active.get() == tab.id,
-                    on_click: props.on_change.clone(),
+                    is_active: active.get() == tab.id,
+                    on_click: on_change.clone(),
                 }
             }
         }
     }
 }
 
-#[derive(Props)]
-struct TabItemProps {
-    tab: Tab,
-    is_active: bool,
-    #[prop(into)]
-    on_click: Callback<String>,
-}
-
 #[component]
-fn TabItem(props: TabItemProps) -> Element {
-    let style = if props.is_active {
+fn TabItem(tab: Tab, is_active: bool, on_click: Callback<String>) -> Element {
+    let style = if is_active {
         styles::tab_active()
     } else {
         styles::tab()
@@ -55,14 +38,14 @@ fn TabItem(props: TabItemProps) -> Element {
 
     rsx! {
         button(
-            class="tab",
-            style=style,
-            on:click=move |_| props.on_click.call(props.tab.id.clone()),
+            class: "tab",
+            style: style,
+            onclick: move |_| on_click.call(tab.id.clone()),
         ) {
-            if let Some(ref icon) = props.tab.icon {
+            if let Some(ref icon) = tab.icon {
                 Icon { name: icon.clone(), size: 16 }
             }
-            span { { props.tab.label.clone() } }
+            span { { tab.label.clone() } }
         }
     }
 }

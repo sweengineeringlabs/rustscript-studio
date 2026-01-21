@@ -4,52 +4,37 @@ use rsc::prelude::*;
 
 use super::{Button, ButtonVariant, ButtonSize, Icon};
 
-/// Toolbar component props.
-#[derive(Props)]
-pub struct ToolbarProps {
-    pub children: Element,
-}
-
 /// Toolbar component.
 #[component]
-pub fn Toolbar(props: ToolbarProps) -> Element {
+pub fn Toolbar(children: Element) -> Element {
     rsx! {
-        div(class="toolbar", style=styles::container()) {
-            { props.children }
+        div(class: "toolbar", style: styles::container()) {
+            { children }
         }
     }
 }
 
 /// Toolbar group for organizing buttons.
-#[derive(Props)]
-pub struct ToolbarGroupProps {
-    pub children: Element,
-}
-
 #[component]
-pub fn ToolbarGroup(props: ToolbarGroupProps) -> Element {
+pub fn ToolbarGroup(children: Element) -> Element {
     rsx! {
-        div(class="toolbar-group", style=styles::group()) {
-            { props.children }
+        div(class: "toolbar-group", style: styles::group()) {
+            { children }
         }
     }
 }
 
 /// Toolbar button.
-#[derive(Props)]
-pub struct ToolbarButtonProps {
-    pub icon: String,
-    #[prop(default)]
-    pub label: Option<String>,
-    #[prop(default)]
-    pub active: bool,
-    #[prop(into)]
-    pub on_click: Callback<()>,
-}
-
 #[component]
-pub fn ToolbarButton(props: ToolbarButtonProps) -> Element {
-    let variant = if props.active {
+pub fn ToolbarButton(
+    icon: String,
+    label: Option<String>,
+    active: Option<bool>,
+    on_click: Callback<()>,
+) -> Element {
+    let active = active.unwrap_or(false);
+
+    let variant = if active {
         ButtonVariant::Primary
     } else {
         ButtonVariant::Ghost
@@ -59,10 +44,10 @@ pub fn ToolbarButton(props: ToolbarButtonProps) -> Element {
         Button {
             variant: variant,
             size: ButtonSize::Sm,
-            on_click: props.on_click.clone(),
+            on_click: on_click.clone(),
         } {
-            Icon { name: props.icon.clone(), size: 16 }
-            if let Some(ref label) = props.label {
+            Icon { name: icon.clone(), size: 16 }
+            if let Some(ref label) = label {
                 span { { label.clone() } }
             }
         }
@@ -73,7 +58,7 @@ pub fn ToolbarButton(props: ToolbarButtonProps) -> Element {
 #[component]
 pub fn ToolbarDivider() -> Element {
     rsx! {
-        div(class="toolbar-divider", style=styles::divider())
+        div(class: "toolbar-divider", style: styles::divider())
     }
 }
 

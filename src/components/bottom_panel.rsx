@@ -5,15 +5,9 @@ use rsc::prelude::*;
 use crate::hooks::StudioStore;
 use super::{Tabs, Tab, Icon};
 
-/// Bottom panel component props.
-#[derive(Props)]
-pub struct BottomPanelProps {
-    pub store: StudioStore,
-}
-
 /// Bottom panel component.
 #[component]
-pub fn BottomPanel(props: BottomPanelProps) -> Element {
+pub fn BottomPanel(store: StudioStore) -> Element {
     let active_tab = use_signal(|| "output".to_string());
     let height = use_signal(|| 200);
 
@@ -37,13 +31,13 @@ pub fn BottomPanel(props: BottomPanelProps) -> Element {
 
     rsx! {
         div(
-            class="bottom-panel",
-            style=styles::container(height.get()),
+            class: "bottom-panel",
+            style: styles::container(height.get()),
         ) {
             // Resize handle
             div(
-                class="resize-handle",
-                style=styles::resize_handle(),
+                class: "resize-handle",
+                style: styles::resize_handle(),
                 // TODO: Add drag handlers for resizing
             )
 
@@ -55,7 +49,7 @@ pub fn BottomPanel(props: BottomPanelProps) -> Element {
             }
 
             // Content
-            div(class="bottom-panel-content", style=styles::content()) {
+            div(class: "bottom-panel-content", style: styles::content()) {
                 match active_tab.get().as_str() {
                     "output" => {
                         OutputPanel {}
@@ -64,7 +58,7 @@ pub fn BottomPanel(props: BottomPanelProps) -> Element {
                         ProblemsPanel {}
                     }
                     "css-preview" => {
-                        CssPreviewPanel { store: props.store.clone() }
+                        CssPreviewPanel { store: store.clone() }
                     }
                     _ => {
                         div { "Unknown tab" }
@@ -79,8 +73,8 @@ pub fn BottomPanel(props: BottomPanelProps) -> Element {
 #[component]
 fn OutputPanel() -> Element {
     rsx! {
-        div(class="output-panel", style=styles::output_panel()) {
-            pre(style=styles::output_text()) {
+        div(class: "output-panel", style: styles::output_panel()) {
+            pre(style: styles::output_text()) {
                 "[info] RustScript Studio started\n"
                 "[info] Design tokens loaded from design/theme.yaml\n"
                 "[info] Ready"
@@ -93,8 +87,8 @@ fn OutputPanel() -> Element {
 #[component]
 fn ProblemsPanel() -> Element {
     rsx! {
-        div(class="problems-panel", style=styles::problems_panel()) {
-            div(class="no-problems", style=styles::no_problems()) {
+        div(class: "problems-panel", style: styles::problems_panel()) {
+            div(class: "no-problems", style: styles::no_problems()) {
                 Icon { name: "check-circle".to_string() }
                 span { "No problems detected" }
             }
@@ -103,18 +97,13 @@ fn ProblemsPanel() -> Element {
 }
 
 /// CSS preview panel.
-#[derive(Props)]
-struct CssPreviewPanelProps {
-    store: StudioStore,
-}
-
 #[component]
-fn CssPreviewPanel(props: CssPreviewPanelProps) -> Element {
-    let css = props.store.get_generated_css();
+fn CssPreviewPanel(store: StudioStore) -> Element {
+    let css = store.get_generated_css();
 
     rsx! {
-        div(class="css-preview-panel", style=styles::css_preview()) {
-            pre(style=styles::css_code()) {
+        div(class: "css-preview-panel", style: styles::css_preview()) {
+            pre(style: styles::css_code()) {
                 { css }
             }
         }

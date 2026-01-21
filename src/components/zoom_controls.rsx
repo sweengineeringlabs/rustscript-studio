@@ -4,37 +4,6 @@ use rsc::prelude::*;
 
 use super::Button;
 
-/// ZoomControls component props.
-#[derive(Props)]
-pub struct ZoomControlsProps {
-    /// Current zoom level (0.0 to 1.0 scale)
-    pub zoom: f64,
-    /// Minimum zoom level
-    #[prop(default = 0.1)]
-    pub min_zoom: f64,
-    /// Maximum zoom level
-    #[prop(default = 4.0)]
-    pub max_zoom: f64,
-    /// Whether to show the zoom percentage
-    #[prop(default = true)]
-    pub show_percentage: bool,
-    /// Whether controls are disabled
-    #[prop(default)]
-    pub disabled: bool,
-    /// Callback for zoom in
-    #[prop(default)]
-    pub on_zoom_in: Option<Callback<()>>,
-    /// Callback for zoom out
-    #[prop(default)]
-    pub on_zoom_out: Option<Callback<()>>,
-    /// Callback for zoom reset (fit to view)
-    #[prop(default)]
-    pub on_zoom_reset: Option<Callback<()>>,
-    /// Callback for fit to view
-    #[prop(default)]
-    pub on_fit_view: Option<Callback<()>>,
-}
-
 /// ZoomControls component for controlling canvas zoom level.
 ///
 /// ## Example
@@ -48,11 +17,34 @@ pub struct ZoomControlsProps {
 /// }
 /// ```
 #[component]
-pub fn ZoomControls(props: ZoomControlsProps) -> Element {
-    let zoom_percentage = (props.zoom * 100.0).round() as i32;
+pub fn ZoomControls(
+    /// Current zoom level (0.0 to 1.0 scale)
+    zoom: f64,
+    /// Minimum zoom level
+    min_zoom: Option<f64>,
+    /// Maximum zoom level
+    max_zoom: Option<f64>,
+    /// Whether to show the zoom percentage
+    show_percentage: Option<bool>,
+    /// Whether controls are disabled
+    disabled: Option<bool>,
+    /// Callback for zoom in
+    on_zoom_in: Option<Callback<()>>,
+    /// Callback for zoom out
+    on_zoom_out: Option<Callback<()>>,
+    /// Callback for zoom reset (fit to view)
+    on_zoom_reset: Option<Callback<()>>,
+    /// Callback for fit to view
+    on_fit_view: Option<Callback<()>>,
+) -> Element {
+    let min_zoom = min_zoom.unwrap_or(0.1);
+    let max_zoom = max_zoom.unwrap_or(4.0);
+    let show_percentage = show_percentage.unwrap_or(true);
+    let disabled = disabled.unwrap_or(false);
+    let zoom_percentage = (zoom * 100.0).round() as i32;
 
     let on_zoom_in_click = {
-        let callback = props.on_zoom_in.clone();
+        let callback = on_zoom_in.clone();
         move |_| {
             if let Some(ref cb) = callback {
                 cb.call(());
@@ -61,7 +53,7 @@ pub fn ZoomControls(props: ZoomControlsProps) -> Element {
     };
 
     let on_zoom_out_click = {
-        let callback = props.on_zoom_out.clone();
+        let callback = on_zoom_out.clone();
         move |_| {
             if let Some(ref cb) = callback {
                 cb.call(());
@@ -70,7 +62,7 @@ pub fn ZoomControls(props: ZoomControlsProps) -> Element {
     };
 
     let on_reset_click = {
-        let callback = props.on_zoom_reset.clone();
+        let callback = on_zoom_reset.clone();
         move |_| {
             if let Some(ref cb) = callback {
                 cb.call(());
@@ -79,7 +71,7 @@ pub fn ZoomControls(props: ZoomControlsProps) -> Element {
     };
 
     let on_fit_click = {
-        let callback = props.on_fit_view.clone();
+        let callback = on_fit_view.clone();
         move |_| {
             if let Some(ref cb) = callback {
                 cb.call(());
@@ -87,32 +79,32 @@ pub fn ZoomControls(props: ZoomControlsProps) -> Element {
         }
     };
 
-    let can_zoom_in = props.zoom < props.max_zoom;
-    let can_zoom_out = props.zoom > props.min_zoom;
+    let can_zoom_in = zoom < max_zoom;
+    let can_zoom_out = zoom > min_zoom;
 
     rsx! {
-        div(class="zoom-controls", style=styles::container()) {
+        div(class: "zoom-controls", style: styles::container()) {
             // Zoom out button
             button(
-                class="zoom-control-btn",
-                style=styles::button(props.disabled || !can_zoom_out),
-                disabled=props.disabled || !can_zoom_out,
-                on:click=on_zoom_out_click,
-                title="Zoom out (-)",
+                class: "zoom-control-btn",
+                style: styles::button(disabled || !can_zoom_out),
+                disabled: disabled || !can_zoom_out,
+                onclick: on_zoom_out_click,
+                title: "Zoom out (-)",
             ) {
-                svg(width="16", height="16", viewBox="0 0 24 24", fill="none", stroke="currentColor", stroke-width="2") {
-                    path(d="M5 12h14")
+                svg(width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", stroke-width: "2") {
+                    path(d: "M5 12h14")
                 }
             }
 
             // Zoom percentage / Reset button
-            if props.show_percentage {
+            if show_percentage {
                 button(
-                    class="zoom-control-percentage",
-                    style=styles::percentage_button(props.disabled),
-                    disabled=props.disabled,
-                    on:click=on_reset_click,
-                    title="Reset zoom (0)",
+                    class: "zoom-control-percentage",
+                    style: styles::percentage_button(disabled),
+                    disabled: disabled,
+                    onclick: on_reset_click,
+                    title: "Reset zoom (0)",
                 ) {
                     { format!("{}%", zoom_percentage) }
                 }
@@ -120,30 +112,30 @@ pub fn ZoomControls(props: ZoomControlsProps) -> Element {
 
             // Zoom in button
             button(
-                class="zoom-control-btn",
-                style=styles::button(props.disabled || !can_zoom_in),
-                disabled=props.disabled || !can_zoom_in,
-                on:click=on_zoom_in_click,
-                title="Zoom in (+)",
+                class: "zoom-control-btn",
+                style: styles::button(disabled || !can_zoom_in),
+                disabled: disabled || !can_zoom_in,
+                onclick: on_zoom_in_click,
+                title: "Zoom in (+)",
             ) {
-                svg(width="16", height="16", viewBox="0 0 24 24", fill="none", stroke="currentColor", stroke-width="2") {
-                    path(d="M12 5v14M5 12h14")
+                svg(width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", stroke-width: "2") {
+                    path(d: "M12 5v14M5 12h14")
                 }
             }
 
             // Separator
-            div(class="zoom-control-separator", style=styles::separator())
+            div(class: "zoom-control-separator", style: styles::separator())
 
             // Fit to view button
             button(
-                class="zoom-control-btn",
-                style=styles::button(props.disabled),
-                disabled=props.disabled,
-                on:click=on_fit_click,
-                title="Fit to view",
+                class: "zoom-control-btn",
+                style: styles::button(disabled),
+                disabled: disabled,
+                onclick: on_fit_click,
+                title: "Fit to view",
             ) {
-                svg(width="16", height="16", viewBox="0 0 24 24", fill="none", stroke="currentColor", stroke-width="2") {
-                    path(d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7")
+                svg(width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", stroke-width: "2") {
+                    path(d: "M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7")
                 }
             }
         }

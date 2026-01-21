@@ -3,31 +3,18 @@
 use rsc::prelude::*;
 
 /// Tooltip placement.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TooltipPlacement {
-    #[default]
     Top,
     Bottom,
     Left,
     Right,
 }
 
-/// Tooltip component props.
-#[derive(Props)]
-pub struct TooltipProps {
-    /// Tooltip content text
-    pub content: String,
-    /// Tooltip placement
-    #[prop(default)]
-    pub placement: TooltipPlacement,
-    /// Delay before showing tooltip (ms)
-    #[prop(default = 300)]
-    pub delay: u32,
-    /// Whether the tooltip is disabled
-    #[prop(default)]
-    pub disabled: bool,
-    /// The element to wrap with tooltip
-    pub children: Element,
+impl Default for TooltipPlacement {
+    fn default() -> Self {
+        TooltipPlacement::Top
+    }
 }
 
 /// Tooltip component that shows on hover.
@@ -43,13 +30,28 @@ pub struct TooltipProps {
 /// }
 /// ```
 #[component]
-pub fn Tooltip(props: TooltipProps) -> Element {
+pub fn Tooltip(
+    /// Tooltip content text
+    content: String,
+    /// Tooltip placement
+    placement: Option<TooltipPlacement>,
+    /// Delay before showing tooltip (ms)
+    delay: Option<u32>,
+    /// Whether the tooltip is disabled
+    disabled: Option<bool>,
+    /// The element to wrap with tooltip
+    children: Element,
+) -> Element {
+    let placement = placement.unwrap_or(TooltipPlacement::default());
+    let delay = delay.unwrap_or(300);
+    let disabled = disabled.unwrap_or(false);
+
     let is_visible = use_signal(|| false);
     let timeout_id = use_signal(|| None::<i32>);
 
     let on_mouse_enter = {
-        let delay = props.delay;
-        let disabled = props.disabled;
+        let delay = delay;
+        let disabled = disabled;
         move |_: MouseEvent| {
             if disabled {
                 return;
@@ -65,7 +67,7 @@ pub fn Tooltip(props: TooltipProps) -> Element {
     };
 
     let on_focus = {
-        let disabled = props.disabled;
+        let disabled = disabled;
         move |_: FocusEvent| {
             if !disabled {
                 is_visible.set(true);
@@ -79,23 +81,23 @@ pub fn Tooltip(props: TooltipProps) -> Element {
 
     rsx! {
         div(
-            class="tooltip-wrapper",
-            style=styles::wrapper(),
-            on:mouseenter=on_mouse_enter,
-            on:mouseleave=on_mouse_leave,
-            on:focus=on_focus,
-            on:blur=on_blur,
+            class: "tooltip-wrapper",
+            style: styles::wrapper(),
+            onmouseenter: on_mouse_enter,
+            onmouseleave: on_mouse_leave,
+            onfocus: on_focus,
+            onblur: on_blur,
         ) {
-            { props.children }
+            { children }
 
-            if is_visible.get() && !props.disabled {
+            if is_visible.get() && !disabled {
                 div(
-                    class="tooltip",
-                    style=styles::tooltip(props.placement),
-                    role="tooltip",
+                    class: "tooltip",
+                    style: styles::tooltip(placement),
+                    role: "tooltip",
                 ) {
-                    { props.content.clone() }
-                    div(class="tooltip-arrow", style=styles::arrow(props.placement))
+                    { content.clone() }
+                    div(class: "tooltip-arrow", style: styles::arrow(placement))
                 }
             }
         }

@@ -1,60 +1,55 @@
-//! Button component with variants.
+// Button component with variants
 
 use rsc::prelude::*;
 
-/// Button variant.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Button variant
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ButtonVariant {
-    #[default]
     Primary,
     Secondary,
     Ghost,
     Danger,
 }
 
-/// Button size.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// Button size
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ButtonSize {
     Sm,
-    #[default]
     Md,
     Lg,
 }
 
-/// Button component props.
-#[derive(Props)]
-pub struct ButtonProps {
-    #[prop(default)]
-    pub variant: ButtonVariant,
-    #[prop(default)]
-    pub size: ButtonSize,
-    #[prop(default)]
-    pub disabled: bool,
-    #[prop(into)]
-    pub on_click: Callback<()>,
-    #[prop(default)]
-    pub class: Option<String>,
-    pub children: Element,
-}
-
-/// Button component.
+/// Button component
 #[component]
-pub fn Button(props: ButtonProps) -> Element {
-    let style = get_button_style(props.variant, props.size, props.disabled);
-    let class = props.class.unwrap_or_default();
+pub fn Button(
+    variant: Option<ButtonVariant>,
+    size: Option<ButtonSize>,
+    disabled: Option<bool>,
+    class: Option<String>,
+    onclick: Option<Callback<()>>,
+    children: Children,
+) -> Element {
+    let variant = variant.unwrap_or(ButtonVariant::Primary);
+    let size = size.unwrap_or(ButtonSize::Md);
+    let disabled = disabled.unwrap_or(false);
+    let class = class.unwrap_or_default();
+
+    let style = get_button_style(variant, size, disabled);
 
     rsx! {
         button(
-            class=format!("button {}", class),
-            style=style,
-            disabled=props.disabled,
-            on:click=move |_| {
-                if !props.disabled {
-                    props.on_click.call(());
+            class: format!("button {}", class),
+            style: style,
+            disabled: disabled,
+            onclick: move |_| {
+                if !disabled {
+                    if let Some(ref cb) = onclick {
+                        cb.call(());
+                    }
                 }
-            },
+            }
         ) {
-            { props.children }
+            {children}
         }
     }
 }

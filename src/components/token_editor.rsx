@@ -5,42 +5,37 @@ use rsc::prelude::*;
 use rsc_studio::designer::css::{DesignTokens, TokenCategory, TokenValue};
 use super::Icon;
 
-/// Token editor component props.
-#[derive(Props)]
-pub struct TokenEditorProps {
-    pub tokens: Signal<DesignTokens>,
-    pub category: TokenCategory,
-    #[prop(into)]
-    pub on_change: Callback<(String, TokenValue)>,
-}
-
 /// Token editor component.
 #[component]
-pub fn TokenEditor(props: TokenEditorProps) -> Element {
-    let tokens = props.tokens.get();
+pub fn TokenEditor(
+    tokens: Signal<DesignTokens>,
+    category: TokenCategory,
+    on_change: Callback<(String, TokenValue)>,
+) -> Element {
+    let tokens_data = tokens.get();
 
-    let items: Vec<(String, TokenValue)> = match props.category {
-        TokenCategory::Colors => tokens
+    let items: Vec<(String, TokenValue)> = match category {
+        TokenCategory::Colors => tokens_data
             .colors
             .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect(),
-        TokenCategory::Spacing => tokens
+        TokenCategory::Spacing => tokens_data
             .spacing
             .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect(),
-        TokenCategory::Radius => tokens
+        TokenCategory::Radius => tokens_data
             .radius
             .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect(),
-        TokenCategory::Shadows => tokens
+        TokenCategory::Shadows => tokens_data
             .shadows
             .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect(),
-        TokenCategory::Typography => tokens
+        TokenCategory::Typography => tokens_data
             .typography
             .fonts
             .iter()
@@ -49,55 +44,51 @@ pub fn TokenEditor(props: TokenEditorProps) -> Element {
     };
 
     rsx! {
-        div(class="token-editor", style=styles::container()) {
+        div(class: "token-editor", style: styles::container()) {
             for (name, value) in items {
                 TokenRow {
                     name: name.clone(),
                     value: value.clone(),
-                    category: props.category,
-                    on_change: props.on_change.clone(),
+                    category: category,
+                    on_change: on_change.clone(),
                 }
             }
         }
     }
 }
 
-#[derive(Props)]
-struct TokenRowProps {
+#[component]
+fn TokenRow(
     name: String,
     value: TokenValue,
     category: TokenCategory,
-    #[prop(into)]
     on_change: Callback<(String, TokenValue)>,
-}
-
-#[component]
-fn TokenRow(props: TokenRowProps) -> Element {
+) -> Element {
     let expanded = use_signal(|| false);
 
     rsx! {
-        div(class="token-row", style=styles::row()) {
+        div(class: "token-row", style: styles::row()) {
             // Token name and preview
             div(
-                class="token-header",
-                style=styles::row_header(),
-                on:click=move |_| expanded.update(|v| *v = !*v),
+                class: "token-header",
+                style: styles::row_header(),
+                onclick: move |_| expanded.update(|v| *v = !*v),
             ) {
-                match props.category {
+                match category {
                     TokenCategory::Colors => {
-                        ColorPreview { value: props.value.clone() }
+                        ColorPreview { value: value.clone() }
                     }
                     _ => {
                         Icon { name: "hash".to_string(), size: 16 }
                     }
                 }
 
-                span(class="token-name", style=styles::token_name()) {
-                    { props.name.clone() }
+                span(class: "token-name", style: styles::token_name()) {
+                    { name.clone() }
                 }
 
-                span(class="token-value-preview", style=styles::value_preview()) {
-                    { format_value_preview(&props.value) }
+                span(class: "token-value-preview", style: styles::value_preview()) {
+                    { format_value_preview(&value) }
                 }
 
                 Icon {
@@ -108,30 +99,30 @@ fn TokenRow(props: TokenRowProps) -> Element {
 
             // Expanded editor
             if expanded.get() {
-                div(class="token-editor-content", style=styles::editor_content()) {
-                    match props.value.clone() {
+                div(class: "token-editor-content", style: styles::editor_content()) {
+                    match value.clone() {
                         TokenValue::Simple(v) => {
                             SimpleValueEditor {
-                                name: props.name.clone(),
+                                name: name.clone(),
                                 value: v,
-                                category: props.category,
-                                on_change: props.on_change.clone(),
+                                category: category,
+                                on_change: on_change.clone(),
                             }
                         }
                         TokenValue::Adaptive { light, dark } => {
                             AdaptiveValueEditor {
-                                name: props.name.clone(),
+                                name: name.clone(),
                                 light: light,
                                 dark: dark,
-                                category: props.category,
-                                on_change: props.on_change.clone(),
+                                category: category,
+                                on_change: on_change.clone(),
                             }
                         }
                         TokenValue::Scale(scale) => {
                             ScaleValueEditor {
-                                name: props.name.clone(),
+                                name: name.clone(),
                                 scale: scale,
-                                on_change: props.on_change.clone(),
+                                on_change: on_change.clone(),
                             }
                         }
                     }
@@ -142,14 +133,9 @@ fn TokenRow(props: TokenRowProps) -> Element {
 }
 
 /// Color preview swatch.
-#[derive(Props)]
-struct ColorPreviewProps {
-    value: TokenValue,
-}
-
 #[component]
-fn ColorPreview(props: ColorPreviewProps) -> Element {
-    let color = match &props.value {
+fn ColorPreview(value: TokenValue) -> Element {
+    let color = match &value {
         TokenValue::Simple(v) => v.clone(),
         TokenValue::Adaptive { light, .. } => light.clone(),
         TokenValue::Scale(s) => s.values().next().cloned().unwrap_or_default(),
@@ -157,38 +143,34 @@ fn ColorPreview(props: ColorPreviewProps) -> Element {
 
     rsx! {
         div(
-            class="color-preview",
-            style=styles::color_swatch(&color),
+            class: "color-preview",
+            style: styles::color_swatch(&color),
         )
     }
 }
 
 /// Simple value editor (single input).
-#[derive(Props)]
-struct SimpleValueEditorProps {
+#[component]
+fn SimpleValueEditor(
     name: String,
     value: String,
     category: TokenCategory,
-    #[prop(into)]
     on_change: Callback<(String, TokenValue)>,
-}
-
-#[component]
-fn SimpleValueEditor(props: SimpleValueEditorProps) -> Element {
-    let value = use_signal(|| props.value.clone());
+) -> Element {
+    let value_signal = use_signal(|| value.clone());
 
     rsx! {
-        div(class="simple-editor", style=styles::simple_editor()) {
-            if props.category == TokenCategory::Colors {
+        div(class: "simple-editor", style: styles::simple_editor()) {
+            if category == TokenCategory::Colors {
                 input(
-                    type="color",
-                    value=value.get(),
-                    style=styles::color_input(),
-                    on:change=move |e: Event<FormData>| {
+                    type: "color",
+                    value: value_signal.get(),
+                    style: styles::color_input(),
+                    onchange: move |e: Event<FormData>| {
                         let new_val = e.value();
-                        value.set(new_val.clone());
-                        props.on_change.call((
-                            props.name.clone(),
+                        value_signal.set(new_val.clone());
+                        on_change.call((
+                            name.clone(),
                             TokenValue::Simple(new_val),
                         ));
                     },
@@ -196,14 +178,14 @@ fn SimpleValueEditor(props: SimpleValueEditorProps) -> Element {
             }
 
             input(
-                type="text",
-                value=value.get(),
-                style=styles::text_input(),
-                on:change=move |e: Event<FormData>| {
+                type: "text",
+                value: value_signal.get(),
+                style: styles::text_input(),
+                onchange: move |e: Event<FormData>| {
                     let new_val = e.value();
-                    value.set(new_val.clone());
-                    props.on_change.call((
-                        props.name.clone(),
+                    value_signal.set(new_val.clone());
+                    on_change.call((
+                        name.clone(),
                         TokenValue::Simple(new_val),
                     ));
                 },
@@ -213,56 +195,52 @@ fn SimpleValueEditor(props: SimpleValueEditorProps) -> Element {
 }
 
 /// Adaptive value editor (light/dark inputs).
-#[derive(Props)]
-struct AdaptiveValueEditorProps {
+#[component]
+fn AdaptiveValueEditor(
     name: String,
     light: String,
     dark: String,
     category: TokenCategory,
-    #[prop(into)]
     on_change: Callback<(String, TokenValue)>,
-}
-
-#[component]
-fn AdaptiveValueEditor(props: AdaptiveValueEditorProps) -> Element {
-    let light = use_signal(|| props.light.clone());
-    let dark = use_signal(|| props.dark.clone());
+) -> Element {
+    let light_signal = use_signal(|| light.clone());
+    let dark_signal = use_signal(|| dark.clone());
 
     let emit_change = move || {
-        props.on_change.call((
-            props.name.clone(),
+        on_change.call((
+            name.clone(),
             TokenValue::Adaptive {
-                light: light.get(),
-                dark: dark.get(),
+                light: light_signal.get(),
+                dark: dark_signal.get(),
             },
         ));
     };
 
     rsx! {
-        div(class="adaptive-editor", style=styles::adaptive_editor()) {
-            div(class="mode-row") {
+        div(class: "adaptive-editor", style: styles::adaptive_editor()) {
+            div(class: "mode-row") {
                 Icon { name: "sun".to_string(), size: 16 }
                 label { "Light" }
                 input(
-                    type="text",
-                    value=light.get(),
-                    style=styles::text_input(),
-                    on:change=move |e: Event<FormData>| {
-                        light.set(e.value());
+                    type: "text",
+                    value: light_signal.get(),
+                    style: styles::text_input(),
+                    onchange: move |e: Event<FormData>| {
+                        light_signal.set(e.value());
                         emit_change();
                     },
                 )
             }
 
-            div(class="mode-row") {
+            div(class: "mode-row") {
                 Icon { name: "moon".to_string(), size: 16 }
                 label { "Dark" }
                 input(
-                    type="text",
-                    value=dark.get(),
-                    style=styles::text_input(),
-                    on:change=move |e: Event<FormData>| {
-                        dark.set(e.value());
+                    type: "text",
+                    value: dark_signal.get(),
+                    style: styles::text_input(),
+                    onchange: move |e: Event<FormData>| {
+                        dark_signal.set(e.value());
                         emit_change();
                     },
                 )
@@ -272,25 +250,21 @@ fn AdaptiveValueEditor(props: AdaptiveValueEditorProps) -> Element {
 }
 
 /// Scale value editor.
-#[derive(Props)]
-struct ScaleValueEditorProps {
+#[component]
+fn ScaleValueEditor(
     name: String,
     scale: indexmap::IndexMap<String, String>,
-    #[prop(into)]
     on_change: Callback<(String, TokenValue)>,
-}
-
-#[component]
-fn ScaleValueEditor(props: ScaleValueEditorProps) -> Element {
+) -> Element {
     rsx! {
-        div(class="scale-editor", style=styles::scale_editor()) {
-            for (key, value) in props.scale.iter() {
-                div(class="scale-row", style=styles::scale_row()) {
-                    span(class="scale-key") { { key.clone() } }
+        div(class: "scale-editor", style: styles::scale_editor()) {
+            for (key, value) in scale.iter() {
+                div(class: "scale-row", style: styles::scale_row()) {
+                    span(class: "scale-key") { { key.clone() } }
                     input(
-                        type="text",
-                        value=value.clone(),
-                        style=styles::text_input(),
+                        type: "text",
+                        value: value.clone(),
+                        style: styles::text_input(),
                     )
                 }
             }

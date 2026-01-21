@@ -4,26 +4,6 @@ use rsc::prelude::*;
 
 use rsc_flow::prelude::{FlowCanvas, Position, Dimensions};
 
-/// Minimap component props.
-#[derive(Props)]
-pub struct MinimapProps<N, E>
-where
-    N: Clone + 'static,
-    E: Clone + 'static,
-{
-    /// Canvas data
-    pub canvas: Signal<FlowCanvas<N, E>>,
-    /// Minimap width
-    #[prop(default = 200.0)]
-    pub width: f64,
-    /// Minimap height
-    #[prop(default = 150.0)]
-    pub height: f64,
-    /// Callback when viewport position changes via minimap click
-    #[prop(default)]
-    pub on_viewport_change: Option<Callback<Position>>,
-}
-
 /// Minimap component showing an overview of the flow canvas.
 ///
 /// ## Example
@@ -38,12 +18,24 @@ where
 /// }
 /// ```
 #[component]
-pub fn Minimap<N, E>(props: MinimapProps<N, E>) -> Element
+pub fn Minimap<N, E>(
+    /// Canvas data
+    canvas: Signal<FlowCanvas<N, E>>,
+    /// Minimap width
+    width: Option<f64>,
+    /// Minimap height
+    height: Option<f64>,
+    /// Callback when viewport position changes via minimap click
+    on_viewport_change: Option<Callback<Position>>,
+) -> Element
 where
     N: Clone + 'static,
     E: Clone + 'static,
 {
-    let canvas = props.canvas.get();
+    let width = width.unwrap_or(200.0);
+    let height = height.unwrap_or(150.0);
+
+    let canvas = canvas.get();
     let is_dragging = use_signal(|| false);
 
     // Calculate bounds of all nodes
@@ -61,21 +53,21 @@ where
     };
 
     // Calculate scale to fit content in minimap
-    let scale_x = props.width / content_width;
-    let scale_y = props.height / content_height;
+    let scale_x = width / content_width;
+    let scale_y = height / content_height;
     let scale = scale_x.min(scale_y);
 
     // Calculate viewport rectangle
     let vp = &canvas.viewport.transform;
-    let viewport_width = props.width / vp.zoom;
-    let viewport_height = props.height / vp.zoom;
+    let viewport_width = width / vp.zoom;
+    let viewport_height = height / vp.zoom;
     let viewport_x = (-vp.x / vp.zoom - min_x) * scale;
     let viewport_y = (-vp.y / vp.zoom - min_y) * scale;
     let viewport_w = viewport_width * scale;
     let viewport_h = viewport_height * scale;
 
     let on_mouse_down = {
-        let on_change = props.on_viewport_change.clone();
+        let on_change = on_viewport_change.clone();
         move |e: MouseEvent| {
             is_dragging.set(true);
             handle_minimap_click(&e, min_x, min_y, scale, &on_change);
@@ -83,7 +75,7 @@ where
     };
 
     let on_mouse_move = {
-        let on_change = props.on_viewport_change.clone();
+        let on_change = on_viewport_change.clone();
         move |e: MouseEvent| {
             if is_dragging.get() {
                 handle_minimap_click(&e, min_x, min_y, scale, &on_change);
@@ -97,28 +89,28 @@ where
 
     rsx! {
         div(
-            class="minimap",
-            style=styles::container(props.width, props.height),
-            on:mousedown=on_mouse_down,
-            on:mousemove=on_mouse_move,
-            on:mouseup=on_mouse_up,
-            on:mouseleave=on_mouse_up,
+            class: "minimap",
+            style: styles::container(width, height),
+            onmousedown: on_mouse_down,
+            onmousemove: on_mouse_move,
+            onmouseup: on_mouse_up,
+            onmouseleave: on_mouse_up,
         ) {
             // Node indicators
             svg(
-                width=props.width.to_string(),
-                height=props.height.to_string(),
-                style=styles::svg(),
+                width: width.to_string(),
+                height: height.to_string(),
+                style: styles::svg(),
             ) {
                 // Nodes
                 for node in canvas.nodes.values() {
                     rect(
-                        x=((node.position.x - min_x) * scale).to_string(),
-                        y=((node.position.y - min_y) * scale).to_string(),
-                        width=(node.dimensions.unwrap_or(Dimensions::new(160.0, 50.0)).width * scale).to_string(),
-                        height=(node.dimensions.unwrap_or(Dimensions::new(160.0, 50.0)).height * scale).to_string(),
-                        fill=get_node_color(&node.node_type),
-                        rx="2",
+                        x: ((node.position.x - min_x) * scale).to_string(),
+                        y: ((node.position.y - min_y) * scale).to_string(),
+                        width: (node.dimensions.unwrap_or(Dimensions::new(160.0, 50.0)).width * scale).to_string(),
+                        height: (node.dimensions.unwrap_or(Dimensions::new(160.0, 50.0)).height * scale).to_string(),
+                        fill: get_node_color(&node.node_type),
+                        rx: "2",
                     )
                 }
 
@@ -129,27 +121,27 @@ where
                         canvas.get_node_center(&edge.target)
                     ) {
                         line(
-                            x1=((source.x - min_x) * scale).to_string(),
-                            y1=((source.y - min_y) * scale).to_string(),
-                            x2=((target.x - min_x) * scale).to_string(),
-                            y2=((target.y - min_y) * scale).to_string(),
-                            stroke="var(--color-edge-default)",
-                            stroke-width="1",
-                            opacity="0.5",
+                            x1: ((source.x - min_x) * scale).to_string(),
+                            y1: ((source.y - min_y) * scale).to_string(),
+                            x2: ((target.x - min_x) * scale).to_string(),
+                            y2: ((target.y - min_y) * scale).to_string(),
+                            stroke: "var(--color-edge-default)",
+                            stroke-width: "1",
+                            opacity: "0.5",
                         )
                     }
                 }
 
                 // Viewport rectangle
                 rect(
-                    x=viewport_x.to_string(),
-                    y=viewport_y.to_string(),
-                    width=viewport_w.to_string(),
-                    height=viewport_h.to_string(),
-                    fill="transparent",
-                    stroke="var(--color-primary)",
-                    stroke-width="2",
-                    rx="2",
+                    x: viewport_x.to_string(),
+                    y: viewport_y.to_string(),
+                    width: viewport_w.to_string(),
+                    height: viewport_h.to_string(),
+                    fill: "transparent",
+                    stroke: "var(--color-primary)",
+                    stroke-width: "2",
+                    rx: "2",
                 )
             }
         }

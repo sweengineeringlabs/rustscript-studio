@@ -21,12 +21,17 @@ struct StudioStoreInner {
     theme: Theme,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Theme {
-    #[default]
     Light,
     Dark,
     System,
+}
+
+impl Default for Theme {
+    fn default() -> Self {
+        Theme::Light
+    }
 }
 
 impl StudioStore {

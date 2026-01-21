@@ -3,12 +3,17 @@
 use rsc::prelude::*;
 
 /// Color format for display and input.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ColorFormat {
-    #[default]
     Hex,
     Rgb,
     Hsl,
+}
+
+impl Default for ColorFormat {
+    fn default() -> Self {
+        ColorFormat::Hex
+    }
 }
 
 impl ColorFormat {
@@ -133,28 +138,6 @@ impl Color {
     }
 }
 
-/// ColorPicker component props.
-#[derive(Props)]
-pub struct ColorPickerProps {
-    /// Current color value (hex format)
-    pub value: String,
-    /// Callback when color changes
-    #[prop(default)]
-    pub on_change: Option<Callback<String>>,
-    /// Whether to show the alpha channel slider
-    #[prop(default = true)]
-    pub show_alpha: bool,
-    /// Initial color format for display
-    #[prop(default)]
-    pub format: ColorFormat,
-    /// Whether the picker is disabled
-    #[prop(default)]
-    pub disabled: bool,
-    /// Preset colors to show
-    #[prop(default)]
-    pub presets: Vec<String>,
-}
-
 /// ColorPicker component with saturation/brightness picker, hue slider, and optional alpha slider.
 ///
 /// ## Example
@@ -166,9 +149,17 @@ pub struct ColorPickerProps {
 /// }
 /// ```
 #[component]
-pub fn ColorPicker(props: ColorPickerProps) -> Element {
-    let color = use_signal(|| Color::from_hex(&props.value).unwrap_or_default());
-    let format = use_signal(|| props.format);
+pub fn ColorPicker(
+    value: String,
+    on_change: Option<Callback<String>>,
+    show_alpha: Option<bool>,
+    format: ColorFormat,
+    disabled: bool,
+    presets: Vec<String>,
+) -> Element {
+    let show_alpha = show_alpha.unwrap_or(true);
+    let color = use_signal(|| Color::from_hex(&value).unwrap_or_default());
+    let format = use_signal(|| format);
     let is_dragging_sv = use_signal(|| false);
     let is_dragging_hue = use_signal(|| false);
     let is_dragging_alpha = use_signal(|| false);
@@ -179,7 +170,7 @@ pub fn ColorPicker(props: ColorPickerProps) -> Element {
 
     // Emit color change
     let emit_change = {
-        let on_change = props.on_change.clone();
+        let on_change = on_change.clone();
         move |new_color: Color| {
             color.set(new_color);
             if let Some(ref callback) = on_change {
@@ -190,7 +181,7 @@ pub fn ColorPicker(props: ColorPickerProps) -> Element {
 
     // Saturation/Brightness picker mouse handlers
     let on_sv_mouse_down = move |e: MouseEvent| {
-        if props.disabled { return; }
+        if disabled { return; }
         e.prevent_default();
         is_dragging_sv.set(true);
         update_sv_from_event(&e, &sv_ref, color, &emit_change);
@@ -275,83 +266,83 @@ pub fn ColorPicker(props: ColorPickerProps) -> Element {
     };
 
     rsx! {
-        div(class="color-picker", style=styles::container(props.disabled)) {
+        div(class: "color-picker", style: styles::container(disabled)) {
             // Saturation/Brightness picker
             div(
-                class="color-picker-sv",
-                style=styles::sv_picker(hue),
-                ref=sv_ref,
-                on:mousedown=on_sv_mouse_down,
-                on:mousemove=on_sv_mouse_move,
-                on:mouseup=on_sv_mouse_up,
-                on:mouseleave=on_sv_mouse_up,
+                class: "color-picker-sv",
+                style: styles::sv_picker(hue),
+                ref: sv_ref,
+                onmousedown: on_sv_mouse_down,
+                onmousemove: on_sv_mouse_move,
+                onmouseup: on_sv_mouse_up,
+                onmouseleave: on_sv_mouse_up,
             ) {
-                div(class="color-picker-sv-white", style=styles::sv_white())
-                div(class="color-picker-sv-black", style=styles::sv_black())
-                div(class="color-picker-sv-cursor", style=styles::sv_cursor(sat, light))
+                div(class: "color-picker-sv-white", style: styles::sv_white())
+                div(class: "color-picker-sv-black", style: styles::sv_black())
+                div(class: "color-picker-sv-cursor", style: styles::sv_cursor(sat, light))
             }
 
             // Sliders section
-            div(class="color-picker-sliders", style=styles::sliders()) {
+            div(class: "color-picker-sliders", style: styles::sliders()) {
                 // Hue slider
-                div(class="color-picker-hue", style=styles::slider_row()) {
-                    div(class="color-picker-hue-track", style=styles::hue_track())
+                div(class: "color-picker-hue", style: styles::slider_row()) {
+                    div(class: "color-picker-hue-track", style: styles::hue_track())
                     input(
-                        type="range",
-                        min="0",
-                        max="360",
-                        value=hue.to_string(),
-                        style=styles::slider_input(),
-                        disabled=props.disabled,
-                        on:input=on_hue_input,
+                        type: "range",
+                        min: "0",
+                        max: "360",
+                        value: hue.to_string(),
+                        style: styles::slider_input(),
+                        disabled: disabled,
+                        oninput: on_hue_input,
                     )
                 }
 
                 // Alpha slider (optional)
-                if props.show_alpha {
-                    div(class="color-picker-alpha", style=styles::slider_row()) {
-                        div(class="color-picker-alpha-track", style=styles::alpha_track(&hex_value))
+                if show_alpha {
+                    div(class: "color-picker-alpha", style: styles::slider_row()) {
+                        div(class: "color-picker-alpha-track", style: styles::alpha_track(&hex_value))
                         input(
-                            type="range",
-                            min="0",
-                            max="100",
-                            value=(current_color.a * 100.0).to_string(),
-                            style=styles::slider_input(),
-                            disabled=props.disabled,
-                            on:input=on_alpha_input,
+                            type: "range",
+                            min: "0",
+                            max: "100",
+                            value: (current_color.a * 100.0).to_string(),
+                            style: styles::slider_input(),
+                            disabled: disabled,
+                            oninput: on_alpha_input,
                         )
                     }
                 }
             }
 
             // Color preview and input
-            div(class="color-picker-input-row", style=styles::input_row()) {
-                div(class="color-picker-preview", style=styles::preview(&hex_value, current_color.a))
+            div(class: "color-picker-input-row", style: styles::input_row()) {
+                div(class: "color-picker-preview", style: styles::preview(&hex_value, current_color.a))
                 input(
-                    type="text",
-                    value=display_value.clone(),
-                    style=styles::text_input(),
-                    disabled=props.disabled,
-                    on:input=on_hex_input,
+                    type: "text",
+                    value: display_value.clone(),
+                    style: styles::text_input(),
+                    disabled: disabled,
+                    oninput: on_hex_input,
                 )
                 button(
-                    style=styles::format_button(),
-                    disabled=props.disabled,
-                    on:click=on_format_click,
+                    style: styles::format_button(),
+                    disabled: disabled,
+                    onclick: on_format_click,
                 ) {
                     { format.get().as_str() }
                 }
             }
 
             // Preset colors
-            if !props.presets.is_empty() {
-                div(class="color-picker-presets", style=styles::presets()) {
-                    for preset in props.presets.iter() {
+            if !presets.is_empty() {
+                div(class: "color-picker-presets", style: styles::presets()) {
+                    for preset in presets.iter() {
                         button(
-                            class="color-picker-preset",
-                            style=styles::preset_button(preset),
-                            disabled=props.disabled,
-                            on:click={
+                            class: "color-picker-preset",
+                            style: styles::preset_button(preset),
+                            disabled: disabled,
+                            onclick: {
                                 let preset = preset.clone();
                                 let on_preset_click = on_preset_click.clone();
                                 move |_| on_preset_click(preset.clone())

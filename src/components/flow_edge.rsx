@@ -4,20 +4,15 @@ use rsc::prelude::*;
 
 use rsc_flow::prelude::{Edge, Position};
 
-/// Flow edge component props.
-#[derive(Props)]
-pub struct FlowEdgeProps<T: Clone + 'static> {
-    pub edge: Edge<T>,
-    pub source_pos: Option<Position>,
-    pub target_pos: Option<Position>,
-    #[prop(default)]
-    pub on_select: Option<Callback<String>>,
-}
-
 /// Flow edge component.
 #[component]
-pub fn FlowEdge<T: Clone + 'static>(props: FlowEdgeProps<T>) -> Element {
-    let (source, target) = match (props.source_pos, props.target_pos) {
+pub fn FlowEdge<T: Clone + 'static>(
+    edge: Edge<T>,
+    source_pos: Option<Position>,
+    target_pos: Option<Position>,
+    on_select: Option<Callback<String>>,
+) -> Element {
+    let (source, target) = match (source_pos, target_pos) {
         (Some(s), Some(t)) => (s, t),
         _ => return rsx! {},
     };
@@ -25,48 +20,48 @@ pub fn FlowEdge<T: Clone + 'static>(props: FlowEdgeProps<T>) -> Element {
     let path = calculate_bezier_path(&source, &target);
 
     let on_click = {
-        let id = props.edge.id.clone();
+        let id = edge.id.clone();
         move |_: MouseEvent| {
-            if let Some(ref on_select) = props.on_select {
+            if let Some(ref on_select) = on_select {
                 on_select.call(id.clone());
             }
         }
     };
 
     rsx! {
-        g(class="flow-edge", on:click=on_click) {
+        g(class: "flow-edge", onclick: on_click) {
             // Invisible wider path for easier clicking
             path(
-                d=path.clone(),
-                fill="none",
-                stroke="transparent",
-                stroke_width="20",
-                style="cursor: pointer; pointer-events: stroke;",
+                d: path.clone(),
+                fill: "none",
+                stroke: "transparent",
+                stroke_width: "20",
+                style: "cursor: pointer; pointer-events: stroke;",
             )
 
             // Visible edge path
             path(
-                d=path,
-                fill="none",
-                stroke=if props.edge.selected {
+                d: path,
+                fill: "none",
+                stroke: if edge.selected {
                     "var(--color-edge-selected)"
                 } else {
                     "var(--color-edge-default)"
                 },
-                stroke_width=if props.edge.selected { "3" } else { "2" },
-                style="pointer-events: none;",
+                stroke_width: if edge.selected { "3" } else { "2" },
+                style: "pointer-events: none;",
             )
 
             // Arrow marker at target
-            if props.edge.animated {
+            if edge.animated {
                 circle(
-                    r="4",
-                    fill="var(--color-edge-default)",
+                    r: "4",
+                    fill: "var(--color-edge-default)",
                 ) {
                     animateMotion(
-                        dur="2s",
-                        repeatCount="indefinite",
-                        path=calculate_bezier_path(&source, &target),
+                        dur: "2s",
+                        repeatCount: "indefinite",
+                        path: calculate_bezier_path(&source, &target),
                     )
                 }
             }

@@ -3,9 +3,8 @@
 use rsc::prelude::*;
 
 /// Token preview category.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PreviewCategory {
-    #[default]
     Colors,
     Spacing,
     Typography,
@@ -13,15 +12,10 @@ pub enum PreviewCategory {
     Radius,
 }
 
-/// Token preview props.
-#[derive(Props)]
-pub struct TokenPreviewProps {
-    /// Which category to preview
-    #[prop(default)]
-    pub category: PreviewCategory,
-    /// Design tokens as CSS variables (for injection)
-    #[prop(default)]
-    pub tokens: Vec<(String, String)>,
+impl Default for PreviewCategory {
+    fn default() -> Self {
+        PreviewCategory::Colors
+    }
 }
 
 /// TokenPreview component for visualizing design tokens in context.
@@ -37,16 +31,24 @@ pub struct TokenPreviewProps {
 /// }
 /// ```
 #[component]
-pub fn TokenPreview(props: TokenPreviewProps) -> Element {
+pub fn TokenPreview(
+    /// Which category to preview
+    category: Option<PreviewCategory>,
+    /// Design tokens as CSS variables (for injection)
+    tokens: Option<Vec<(String, String)>>,
+) -> Element {
+    let category = category.unwrap_or(PreviewCategory::default());
+    let tokens = tokens.unwrap_or(vec![]);
+
     // Build inline style from tokens
-    let token_style = props.tokens.iter()
+    let token_style = tokens.iter()
         .map(|(name, value)| format!("{}: {};", name, value))
         .collect::<Vec<_>>()
         .join(" ");
 
     rsx! {
-        div(class="token-preview", style=styles::container(&token_style)) {
-            match props.category {
+        div(class: "token-preview", style: styles::container(&token_style)) {
+            match category {
                 PreviewCategory::Colors => rsx! { ColorPreview {} },
                 PreviewCategory::Spacing => rsx! { SpacingPreview {} },
                 PreviewCategory::Typography => rsx! { TypographyPreview {} },
@@ -60,36 +62,36 @@ pub fn TokenPreview(props: TokenPreviewProps) -> Element {
 #[component]
 fn ColorPreview() -> Element {
     rsx! {
-        div(class="color-preview", style=styles::preview_grid()) {
+        div(class: "color-preview", style: styles::preview_grid()) {
             // Primary colors
-            div(class="color-preview-section", style=styles::section()) {
-                h4(style=styles::section_title()) { "Primary" }
-                div(style=styles::color_row()) {
-                    div(style=styles::color_swatch("var(--color-primary)"))
-                    div(style=styles::color_swatch("var(--color-primary-hover)"))
+            div(class: "color-preview-section", style: styles::section()) {
+                h4(style: styles::section_title()) { "Primary" }
+                div(style: styles::color_row()) {
+                    div(style: styles::color_swatch("var(--color-primary)"))
+                    div(style: styles::color_swatch("var(--color-primary-hover)"))
                 }
             }
 
             // Semantic colors
-            div(class="color-preview-section", style=styles::section()) {
-                h4(style=styles::section_title()) { "Semantic" }
-                div(style=styles::color_row()) {
-                    div(style=styles::color_swatch("var(--color-success)"))
-                    div(style=styles::color_swatch("var(--color-warning)"))
-                    div(style=styles::color_swatch("var(--color-error)"))
-                    div(style=styles::color_swatch("var(--color-info)"))
+            div(class: "color-preview-section", style: styles::section()) {
+                h4(style: styles::section_title()) { "Semantic" }
+                div(style: styles::color_row()) {
+                    div(style: styles::color_swatch("var(--color-success)"))
+                    div(style: styles::color_swatch("var(--color-warning)"))
+                    div(style: styles::color_swatch("var(--color-error)"))
+                    div(style: styles::color_swatch("var(--color-info)"))
                 }
             }
 
             // Sample card
-            div(class="color-preview-card", style=styles::sample_card()) {
-                div(style=styles::card_header()) { "Sample Card" }
-                p(style=styles::card_body()) {
+            div(class: "color-preview-card", style: styles::sample_card()) {
+                div(style: styles::card_header()) { "Sample Card" }
+                p(style: styles::card_body()) {
                     "This card demonstrates how colors work together in a real component."
                 }
-                div(style=styles::card_actions()) {
-                    button(style=styles::primary_button()) { "Primary" }
-                    button(style=styles::secondary_button()) { "Secondary" }
+                div(style: styles::card_actions()) {
+                    button(style: styles::primary_button()) { "Primary" }
+                    button(style: styles::secondary_button()) { "Secondary" }
                 }
             }
         }
@@ -101,21 +103,21 @@ fn SpacingPreview() -> Element {
     let sizes = ["xs", "sm", "md", "lg", "xl", "2xl"];
 
     rsx! {
-        div(class="spacing-preview", style=styles::preview_column()) {
+        div(class: "spacing-preview", style: styles::preview_column()) {
             for size in sizes.iter() {
-                div(style=styles::spacing_item()) {
-                    span(style=styles::spacing_label()) { { format!("--spacing-{}", size) } }
-                    div(style=styles::spacing_bar(*size))
+                div(style: styles::spacing_item()) {
+                    span(style: styles::spacing_label()) { { format!("--spacing-{}", size) } }
+                    div(style: styles::spacing_bar(*size))
                 }
             }
 
             // Box model preview
-            div(style=styles::box_model_preview()) {
-                div(style=styles::box_outer()) {
-                    span(style=styles::box_label()) { "margin" }
-                    div(style=styles::box_inner()) {
-                        span(style=styles::box_label()) { "padding" }
-                        div(style=styles::box_content()) { "Content" }
+            div(style: styles::box_model_preview()) {
+                div(style: styles::box_outer()) {
+                    span(style: styles::box_label()) { "margin" }
+                    div(style: styles::box_inner()) {
+                        span(style: styles::box_label()) { "padding" }
+                        div(style: styles::box_content()) { "Content" }
                     }
                 }
             }
@@ -126,21 +128,21 @@ fn SpacingPreview() -> Element {
 #[component]
 fn TypographyPreview() -> Element {
     rsx! {
-        div(class="typography-preview", style=styles::preview_column()) {
-            h1(style=styles::heading_1()) { "Heading 1" }
-            h2(style=styles::heading_2()) { "Heading 2" }
-            h3(style=styles::heading_3()) { "Heading 3" }
-            p(style=styles::body_text()) {
+        div(class: "typography-preview", style: styles::preview_column()) {
+            h1(style: styles::heading_1()) { "Heading 1" }
+            h2(style: styles::heading_2()) { "Heading 2" }
+            h3(style: styles::heading_3()) { "Heading 3" }
+            p(style: styles::body_text()) {
                 "Body text demonstrates the default reading experience. "
                 strong { "Bold text" }
                 " and "
                 em { "italic text" }
                 " provide emphasis."
             }
-            p(style=styles::small_text()) {
+            p(style: styles::small_text()) {
                 "Small text is used for captions and secondary information."
             }
-            code(style=styles::code_text()) { "const code = 'monospace';" }
+            code(style: styles::code_text()) { "const code = 'monospace';" }
         }
     }
 }
@@ -150,9 +152,9 @@ fn ShadowPreview() -> Element {
     let shadows = ["sm", "md", "lg", "xl"];
 
     rsx! {
-        div(class="shadow-preview", style=styles::shadow_grid()) {
+        div(class: "shadow-preview", style: styles::shadow_grid()) {
             for shadow in shadows.iter() {
-                div(style=styles::shadow_box(*shadow)) {
+                div(style: styles::shadow_box(*shadow)) {
                     span { { format!("shadow-{}", shadow) } }
                 }
             }
@@ -165,9 +167,9 @@ fn RadiusPreview() -> Element {
     let radii = ["none", "sm", "md", "lg", "xl", "full"];
 
     rsx! {
-        div(class="radius-preview", style=styles::radius_grid()) {
+        div(class: "radius-preview", style: styles::radius_grid()) {
             for radius in radii.iter() {
-                div(style=styles::radius_box(*radius)) {
+                div(style: styles::radius_box(*radius)) {
                     span { { *radius } }
                 }
             }

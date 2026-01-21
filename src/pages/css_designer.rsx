@@ -7,18 +7,12 @@ use rsc_studio::designer::css::{TokenCategory, TokenValue, PreviewMode};
 use crate::components::{TokenEditor, Toolbar, ToolbarGroup, ToolbarButton, ToolbarDivider, Button, ButtonVariant, Icon, Tabs, Tab};
 use crate::hooks::StudioStore;
 
-/// CSS designer page props.
-#[derive(Props)]
-pub struct CssDesignerPageProps {
-    pub store: StudioStore,
-}
-
 /// CSS designer page.
 #[component]
-pub fn CssDesignerPage(props: CssDesignerPageProps) -> Element {
+pub fn CssDesignerPage(store: StudioStore) -> Element {
     let selected_category = use_signal(|| TokenCategory::Colors);
     let preview_mode = use_signal(|| PreviewMode::Both);
-    let tokens = props.store.design_tokens();
+    let tokens = store.design_tokens();
 
     let categories = vec![
         Tab {
@@ -65,7 +59,7 @@ pub fn CssDesignerPage(props: CssDesignerPageProps) -> Element {
     };
 
     let on_token_change = {
-        let store = props.store.clone();
+        let store = store.clone();
         move |(path, value): (String, TokenValue)| {
             let full_path = format!("{}.{}", active_tab.get(), path);
             store.update_token(&full_path, value);
@@ -73,7 +67,7 @@ pub fn CssDesignerPage(props: CssDesignerPageProps) -> Element {
     };
 
     rsx! {
-        div(class="css-designer-page", style=styles::container()) {
+        div(class: "css-designer-page", style: styles::container()) {
             // Toolbar
             Toolbar {
                 ToolbarGroup {
@@ -81,19 +75,19 @@ pub fn CssDesignerPage(props: CssDesignerPageProps) -> Element {
                         icon: "sun".to_string(),
                         label: Some("Light".to_string()),
                         active: preview_mode.get() == PreviewMode::Light,
-                        on_click: move |_| preview_mode.set(PreviewMode::Light),
+                        onclick: move |_| preview_mode.set(PreviewMode::Light),
                     }
                     ToolbarButton {
                         icon: "moon".to_string(),
                         label: Some("Dark".to_string()),
                         active: preview_mode.get() == PreviewMode::Dark,
-                        on_click: move |_| preview_mode.set(PreviewMode::Dark),
+                        onclick: move |_| preview_mode.set(PreviewMode::Dark),
                     }
                     ToolbarButton {
                         icon: "columns".to_string(),
                         label: Some("Both".to_string()),
                         active: preview_mode.get() == PreviewMode::Both,
-                        on_click: move |_| preview_mode.set(PreviewMode::Both),
+                        onclick: move |_| preview_mode.set(PreviewMode::Both),
                     }
                 }
 
@@ -103,14 +97,14 @@ pub fn CssDesignerPage(props: CssDesignerPageProps) -> Element {
                     ToolbarButton {
                         icon: "download".to_string(),
                         label: Some("Export".to_string()),
-                        on_click: move |_| {
+                        onclick: move |_| {
                             // Export tokens to YAML
                         },
                     }
                     ToolbarButton {
                         icon: "upload".to_string(),
                         label: Some("Import".to_string()),
-                        on_click: move |_| {
+                        onclick: move |_| {
                             // Import tokens from YAML
                         },
                     }
@@ -118,27 +112,27 @@ pub fn CssDesignerPage(props: CssDesignerPageProps) -> Element {
             }
 
             // Main content area
-            div(class="css-designer-content", style=styles::content()) {
+            div(class: "css-designer-content", style: styles::content()) {
                 // Token editor panel
-                div(class="token-panel", style=styles::token_panel()) {
+                div(class: "token-panel", style: styles::token_panel()) {
                     Tabs {
                         tabs: categories,
                         active: active_tab.clone(),
-                        on_change: on_tab_change,
+                        onchange: on_tab_change,
                     }
 
-                    div(class="token-list", style=styles::token_list()) {
+                    div(class: "token-list", style: styles::token_list()) {
                         TokenEditor {
                             tokens: tokens.clone(),
                             category: selected_category.get(),
-                            on_change: on_token_change,
+                            onchange: on_token_change,
                         }
                     }
                 }
 
                 // Preview panel
-                div(class="preview-panel", style=styles::preview_panel()) {
-                    h3(style=styles::preview_title()) { "Preview" }
+                div(class: "preview-panel", style: styles::preview_panel()) {
+                    h3(style: styles::preview_title()) { "Preview" }
 
                     match preview_mode.get() {
                         PreviewMode::Light => {
@@ -154,7 +148,7 @@ pub fn CssDesignerPage(props: CssDesignerPageProps) -> Element {
                             }
                         }
                         PreviewMode::Both => {
-                            div(class="preview-split", style=styles::preview_split()) {
+                            div(class: "preview-split", style: styles::preview_split()) {
                                 PreviewPane {
                                     mode: PreviewMode::Light,
                                     tokens: tokens.clone(),
@@ -173,71 +167,65 @@ pub fn CssDesignerPage(props: CssDesignerPageProps) -> Element {
 }
 
 /// Preview pane component.
-#[derive(Props)]
-struct PreviewPaneProps {
-    mode: PreviewMode,
-    tokens: Signal<rsc_studio::designer::css::DesignTokens>,
-}
-
 #[component]
-fn PreviewPane(props: PreviewPaneProps) -> Element {
-    let mode_label = match props.mode {
+fn PreviewPane(mode: PreviewMode, tokens: Signal<rsc_studio::designer::css::DesignTokens>) -> Element {
+    let mode_label = match mode {
         PreviewMode::Light => "Light Mode",
         PreviewMode::Dark => "Dark Mode",
         PreviewMode::Both => "Preview",
     };
 
-    let bg_class = match props.mode {
+    let bg_class = match mode {
         PreviewMode::Light => "light",
         PreviewMode::Dark => "dark",
         PreviewMode::Both => "light",
     };
 
     rsx! {
-        div(class=format!("preview-pane preview-pane-{}", bg_class), style=styles::preview_pane(&props.mode)) {
-            span(class="preview-mode-label", style=styles::mode_label()) {
+        div(class: format!("preview-pane preview-pane-{}", bg_class), style: styles::preview_pane(&mode)) {
+            span(class: "preview-mode-label", style: styles::mode_label()) {
                 { mode_label }
             }
 
             // Sample UI elements
-            div(class="preview-elements", style=styles::preview_elements()) {
+            div(class: "preview-elements", style: styles::preview_elements()) {
                 // Buttons
-                div(class="preview-section") {
+                div(class: "preview-section") {
                     h4 { "Buttons" }
-                    div(style=styles::preview_row()) {
-                        button(style=styles::sample_button_primary()) { "Primary" }
-                        button(style=styles::sample_button_secondary()) { "Secondary" }
-                        button(style=styles::sample_button_ghost()) { "Ghost" }
+                    div(style: styles::preview_row()) {
+                        button(style: styles::sample_button_primary()) { "Primary" }
+                        button(style: styles::sample_button_secondary()) { "Secondary" }
+                        button(style: styles::sample_button_ghost()) { "Ghost" }
                     }
                 }
 
                 // Colors
-                div(class="preview-section") {
+                div(class: "preview-section") {
                     h4 { "Color Swatches" }
-                    div(style=styles::color_swatches()) {
-                        div(style=styles::swatch("var(--color-primary)"))
-                        div(style=styles::swatch("var(--color-success)"))
-                        div(style=styles::swatch("var(--color-warning)"))
-                        div(style=styles::swatch("var(--color-error)"))
+                    div(style: styles::color_swatches()) {
+                        div(style: styles::swatch("var(--color-primary)"))
+                        div(style: styles::swatch("var(--color-success)"))
+                        div(style: styles::swatch("var(--color-warning)"))
+                        div(style: styles::swatch("var(--color-error)"))
                     }
                 }
 
                 // Card
-                div(class="preview-section") {
+                div(class: "preview-section") {
                     h4 { "Card" }
-                    div(style=styles::sample_card()) {
+                    div(style: styles::sample_card()) {
                         h5 { "Card Title" }
                         p { "This is a sample card component." }
                     }
                 }
 
                 // Input
-                div(class="preview-section") {
+                div(class: "preview-section") {
                     h4 { "Input" }
                     input(
-                        type="text",
-                        placeholder="Sample input...",
-                        style=styles::sample_input(),
+                        type: "text",
+                        placeholder: "Sample input...",
+                        style: styles::sample_input(),
                     )
                 }
             }
