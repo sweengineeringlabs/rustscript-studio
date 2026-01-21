@@ -91,7 +91,7 @@ pub fn Input(
     on_focus: Option<Callback<()>>,
     on_blur: Option<Callback<()>>,
     on_submit: Option<Callback<String>>,
-    class: Option<String>,
+    css_class: Option<String>,
     autofocus: Option<bool>,
 ) -> Element {
     let value = value.unwrap_or(String::new());
@@ -106,7 +106,7 @@ pub fn Input(
 
     let is_focused = state(false);
     let style = get_input_style(variant, size, disabled, error, is_focused.get());
-    let extra_class = class.unwrap_or_default();
+    let extra_class = css_class.unwrap_or_default();
 
     let handle_input = {
         let on_change = on_change.clone();

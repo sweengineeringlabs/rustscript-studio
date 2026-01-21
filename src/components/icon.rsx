@@ -8,7 +8,7 @@ use rsc::prelude::*;
 pub fn Icon(
     name: String,
     size: Option<u32>,
-    class: Option<String>,
+    css_class: Option<String>,
 ) -> Element {
     let size = size.unwrap_or(20);
     let class = class.unwrap_or_default();

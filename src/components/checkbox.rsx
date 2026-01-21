@@ -37,7 +37,7 @@ pub fn Checkbox(
     label: Option<String>,
     description: Option<String>,
     on_change: Option<Callback<bool>>,
-    class: Option<String>,
+    css_class: Option<String>,
 ) -> Element {
     let checked = checked.unwrap_or(false);
     let indeterminate = indeterminate.unwrap_or(false);
@@ -46,7 +46,7 @@ pub fn Checkbox(
     let error = error.unwrap_or(false);
 
     let is_focused = state(false);
-    let extra_class = class.unwrap_or_default();
+    let extra_class = css_class.unwrap_or_default();
 
     let handle_change = {
         let on_change = on_change.clone();
@@ -322,14 +322,14 @@ pub fn Switch(
     disabled: Option<bool>,
     label: Option<String>,
     on_change: Option<Callback<bool>>,
-    class: Option<String>,
+    css_class: Option<String>,
 ) -> Element {
     let checked = checked.unwrap_or(false);
     let size = size.unwrap_or(CheckboxSize::Md);
     let disabled = disabled.unwrap_or(false);
 
     let is_focused = state(false);
-    let extra_class = class.unwrap_or_default();
+    let extra_class = css_class.unwrap_or_default();
 
     let handle_click = {
         let on_change = on_change.clone();

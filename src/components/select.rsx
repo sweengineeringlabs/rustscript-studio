@@ -92,7 +92,7 @@ pub fn Select(
     /// Callback when select loses focus
     on_blur: Option<Callback<()>>,
     /// Additional CSS class
-    class: Option<String>,
+    css_class: Option<String>,
 ) -> Element {
     let value = value.unwrap_or(String::new());
     let size = size.unwrap_or(SelectSize::default());

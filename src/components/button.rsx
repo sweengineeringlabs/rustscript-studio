@@ -25,7 +25,7 @@ pub fn Button(
     variant: Option<ButtonVariant>,
     size: Option<ButtonSize>,
     disabled: Option<bool>,
-    class: Option<String>,
+    css_class: Option<String>,
     onclick: Option<Callback<()>>,
     children: Children,
 ) -> Element {
