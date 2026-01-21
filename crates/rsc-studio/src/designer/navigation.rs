@@ -54,6 +54,8 @@ impl NavigationDesigner {
         )
         .with_data(NavigationNodeData {
             entity_type: EntityType::Workflow,
+            entity_id: workflow.id.clone(),
+            parent_id: None,
             label: workflow.name.clone(),
             icon: workflow.icon.clone(),
             description: workflow.description.clone(),
@@ -75,6 +77,8 @@ impl NavigationDesigner {
         )
         .with_data(NavigationNodeData {
             entity_type: EntityType::Context,
+            entity_id: context.id.clone(),
+            parent_id: Some(parent_id.to_string()),
             label: context.name.clone(),
             icon: context.icon.clone(),
             description: context.description.clone(),
@@ -89,7 +93,7 @@ impl NavigationDesigner {
     }
 
     /// Add a preset node.
-    fn add_preset_node(&mut self, preset: &Preset, parent_id: &str) {
+    fn add_preset_node(&mut self, preset: &Preset, context_id: &str) {
         let node = Node::new(
             &preset.id,
             NodeType::Custom("preset".to_string()),
@@ -97,13 +101,15 @@ impl NavigationDesigner {
         )
         .with_data(NavigationNodeData {
             entity_type: EntityType::Preset,
+            entity_id: preset.id.clone(),
+            parent_id: Some(context_id.to_string()),
             label: preset.name.clone(),
             icon: preset.icon.clone(),
             description: preset.description.clone(),
         });
 
         self.canvas.add_node(node);
-        self.canvas.add_edge(Edge::auto(parent_id, &preset.id));
+        self.canvas.add_edge(Edge::auto(context_id, &preset.id));
     }
 
     /// Get the entity at a node.
@@ -126,6 +132,8 @@ impl NavigationDesigner {
 #[derive(Debug, Clone)]
 pub struct NavigationNodeData {
     pub entity_type: EntityType,
+    pub entity_id: String,
+    pub parent_id: Option<String>,
     pub label: String,
     pub icon: Option<String>,
     pub description: Option<String>,

@@ -6,7 +6,7 @@ use rsc_flow::prelude::{FlowCanvas as RscFlowCanvas, LayoutConfig as FlowLayoutC
 use rsc_studio::designer::navigation::{NavigationDesigner, NavigationNodeData, EntityType};
 use rsc_studio::entity::LayoutConfig as PresetLayoutConfig;
 
-use crate::components::{FlowCanvasView, Toolbar, ToolbarGroup, ToolbarButton, ToolbarDivider, Button, ButtonVariant, ButtonSize, Icon, Input, Modal, PresetLayoutEditor};
+use crate::components::{NavigationCanvasView, Toolbar, ToolbarGroup, ToolbarButton, ToolbarDivider, Button, ButtonVariant, ButtonSize, Icon, Input, Modal, PresetLayoutEditor};
 use crate::hooks::StudioStore;
 
 /// Navigation designer page.
@@ -295,7 +295,7 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
 
             // Canvas area
             div(class: "canvas-container", style: styles::canvas_container()) {
-                FlowCanvasView {
+                NavigationCanvasView {
                     canvas: canvas.clone(),
                     on_node_select: Some(Callback::new(move |id: String| {
                         selected_node.set(Some(id));

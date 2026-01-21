@@ -195,13 +195,13 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | [x] | Configure preset layout (activity bar, sidebar, panels) | 2026-01-21 | 2026-01-21 |
 | [x] | Delete preset | 2026-01-21 | 2026-01-21 |
 | [x] | Duplicate preset | 2026-01-21 | 2026-01-21 |
-| [ ] | Visual preset node rendering | 2026-01-21 | |
+| [x] | Visual preset node rendering | 2026-01-21 | 2026-01-21 |
 
 ### 3.4 Visual Flow Editor
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
-| [ ] | Render workflow hierarchy as flow graph | 2026-01-21 | |
+| [x] | Render workflow hierarchy as flow graph | 2026-01-21 | 2026-01-21 |
 | [x] | Auto-layout on structure change | 2026-01-21 | 2026-01-21 |
 | [ ] | Manual node positioning with persistence | 2026-01-21 | |
 | [ ] | Edge routing (bezier curves) | 2026-01-21 | |
