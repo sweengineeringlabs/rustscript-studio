@@ -131,9 +131,9 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | [x] | Input component | 2026-01-21 | 2026-01-21 |
 | [x] | Select component | 2026-01-21 | 2026-01-21 |
 | [x] | Checkbox component | 2026-01-21 | 2026-01-21 |
-| [ ] | Modal/Dialog component | 2026-01-21 | |
-| [ ] | Tooltip component | 2026-01-21 | |
-| [ ] | Context menu component | 2026-01-21 | |
+| [x] | Modal/Dialog component | 2026-01-21 | 2026-01-21 |
+| [x] | Tooltip component | 2026-01-21 | 2026-01-21 |
+| [x] | Context menu component | 2026-01-21 | 2026-01-21 |
 
 ### 2.3 Flow Components
 
@@ -145,11 +145,11 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | [x] | Implement canvas pan/zoom gestures | 2026-01-21 | 2026-01-21 |
 | [x] | Implement node drag with snap-to-grid | 2026-01-21 | 2026-01-21 |
 | [x] | Implement edge creation by dragging | 2026-01-21 | 2026-01-21 |
-| [ ] | Implement node selection (single/multi) | 2026-01-21 | |
-| [ ] | Implement edge selection | 2026-01-21 | |
-| [ ] | Implement minimap | 2026-01-21 | |
-| [ ] | Implement zoom controls | 2026-01-21 | |
-| [ ] | Implement fit-to-view | 2026-01-21 | |
+| [x] | Implement node selection (single/multi) | 2026-01-21 | 2026-01-21 |
+| [x] | Implement edge selection | 2026-01-21 | 2026-01-21 |
+| [x] | Implement minimap | 2026-01-21 | 2026-01-21 |
+| [x] | Implement zoom controls | 2026-01-21 | 2026-01-21 |
+| [x] | Implement fit-to-view | 2026-01-21 | 2026-01-21 |
 
 ### 2.4 Token Editor Components
 
@@ -158,9 +158,9 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | [x] | TokenEditor component (scaffold) | 2026-01-21 | 2026-01-21 |
 | [x] | ColorPicker component | 2026-01-21 | 2026-01-21 |
 | [x] | SpacingEditor component | 2026-01-21 | 2026-01-21 |
-| [ ] | ShadowEditor component | 2026-01-21 | |
-| [ ] | TypographyEditor component | 2026-01-21 | |
-| [ ] | Token preview with live updates | 2026-01-21 | |
+| [x] | ShadowEditor component | 2026-01-21 | 2026-01-21 |
+| [x] | TypographyEditor component | 2026-01-21 | 2026-01-21 |
+| [x] | Token preview with live updates | 2026-01-21 | 2026-01-21 |
 
 ---
 
@@ -428,22 +428,22 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | Phase | Total | Done | Progress |
 |-------|-------|------|----------|
 | Phase 1: Foundation | 35 | 35 | 100% |
-| Phase 2: UI Components | 28 | 20 | 71% |
+| Phase 2: UI Components | 28 | 28 | 100% |
 | Phase 3: Navigation | 19 | 0 | 0% |
 | Phase 4: CSS Designer | 17 | 0 | 0% |
 | Phase 5: Integration | 14 | 0 | 0% |
 | Phase 6: Advanced | 18 | 0 | 0% |
 | Phase 7: Testing | 13 | 3 | 23% |
 | Phase 8: Polish | 14 | 0 | 0% |
-| **Total** | **158** | **58** | **37%** |
+| **Total** | **158** | **66** | **42%** |
 
 ---
 
 ## Current Sprint
 
-**Focus:** Phase 2 - Core UI Components
+**Focus:** Phase 2 Complete - Starting Phase 3
 
-**Completed:**
+**Phase 2 Completed:**
 - [x] Implement canvas pan/zoom gestures (2026-01-21)
 - [x] Implement node drag with snap-to-grid (2026-01-21)
 - [x] Input component (2026-01-21)
@@ -452,14 +452,25 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 - [x] Checkbox component (2026-01-21)
 - [x] SpacingEditor component (2026-01-21)
 - [x] Implement edge creation by dragging (2026-01-21)
+- [x] Modal/Dialog component (2026-01-21)
+- [x] Tooltip component (2026-01-21)
+- [x] Context menu component (2026-01-21)
+- [x] Implement node selection (single/multi) (2026-01-21)
+- [x] Implement edge selection (2026-01-21)
+- [x] Implement minimap (2026-01-21)
+- [x] Implement zoom controls (2026-01-21)
+- [x] Implement fit-to-view (2026-01-21)
+- [x] ShadowEditor component (2026-01-21)
+- [x] TypographyEditor component (2026-01-21)
+- [x] Token preview with live updates (2026-01-21)
 
 **Next Tasks:**
 | Task | Assignee | Started |
 |------|----------|---------|
-| Modal/Dialog component | - | - |
-| Tooltip component | - | - |
-| Implement node selection (single/multi) | - | - |
-| ShadowEditor component | - | - |
+| Create new workflow | - | - |
+| Edit workflow properties | - | - |
+| Create new context within workflow | - | - |
+| Visual context node rendering | - | - |
 
 ---
 
