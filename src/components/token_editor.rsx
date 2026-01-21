@@ -41,6 +41,16 @@ pub fn TokenEditor(
             .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect(),
+        TokenCategory::Transitions => tokens_data
+            .transitions
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect(),
+        TokenCategory::ZIndex => tokens_data
+            .z_index
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect(),
     };
 
     rsx! {

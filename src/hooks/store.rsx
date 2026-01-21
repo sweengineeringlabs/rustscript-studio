@@ -379,8 +379,44 @@ impl StudioStore {
                     "shadows" => {
                         s.design_tokens.shadows.insert(parts[1].to_string(), value);
                     }
+                    "transitions" => {
+                        s.design_tokens.transitions.insert(parts[1].to_string(), value);
+                    }
+                    "z-index" => {
+                        s.design_tokens.z_index.insert(parts[1].to_string(), value);
+                    }
                     _ => {}
                 }
+            }
+        });
+    }
+
+    /// Add a new token to a category.
+    pub fn add_token(&self, category: &str, name: &str, value: rsc_studio::designer::css::TokenValue) {
+        self.inner.update(|s| {
+            match category {
+                "colors" => { s.design_tokens.colors.insert(name.to_string(), value); }
+                "spacing" => { s.design_tokens.spacing.insert(name.to_string(), value); }
+                "radius" => { s.design_tokens.radius.insert(name.to_string(), value); }
+                "shadows" => { s.design_tokens.shadows.insert(name.to_string(), value); }
+                "transitions" => { s.design_tokens.transitions.insert(name.to_string(), value); }
+                "z-index" => { s.design_tokens.z_index.insert(name.to_string(), value); }
+                _ => {}
+            }
+        });
+    }
+
+    /// Remove a token from a category.
+    pub fn remove_token(&self, category: &str, name: &str) {
+        self.inner.update(|s| {
+            match category {
+                "colors" => { s.design_tokens.colors.shift_remove(name); }
+                "spacing" => { s.design_tokens.spacing.shift_remove(name); }
+                "radius" => { s.design_tokens.radius.shift_remove(name); }
+                "shadows" => { s.design_tokens.shadows.shift_remove(name); }
+                "transitions" => { s.design_tokens.transitions.shift_remove(name); }
+                "z-index" => { s.design_tokens.z_index.shift_remove(name); }
+                _ => {}
             }
         });
     }

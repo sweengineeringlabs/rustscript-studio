@@ -226,13 +226,13 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
-| [ ] | Colors editor with color picker | 2026-01-21 | |
-| [ ] | Spacing editor with visual scale | 2026-01-21 | |
-| [ ] | Border radius editor | 2026-01-21 | |
-| [ ] | Shadow editor with visual preview | 2026-01-21 | |
-| [ ] | Typography editor (fonts, sizes, weights) | 2026-01-21 | |
-| [ ] | Transitions/animations editor | 2026-01-21 | |
-| [ ] | Z-index scale editor | 2026-01-21 | |
+| [x] | Colors editor with color picker | 2026-01-21 | 2026-01-21 |
+| [x] | Spacing editor with visual scale | 2026-01-21 | 2026-01-21 |
+| [x] | Border radius editor | 2026-01-21 | 2026-01-21 |
+| [x] | Shadow editor with visual preview | 2026-01-21 | 2026-01-21 |
+| [x] | Typography editor (fonts, sizes, weights) | 2026-01-21 | 2026-01-21 |
+| [x] | Transitions/animations editor | 2026-01-21 | 2026-01-21 |
+| [x] | Z-index scale editor | 2026-01-21 | 2026-01-21 |
 
 ### 4.2 Adaptive Theming
 
@@ -430,12 +430,12 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | Phase 1: Foundation | 35 | 35 | 100% |
 | Phase 2: UI Components | 28 | 28 | 100% |
 | Phase 3: Navigation | 19 | 19 | 100% |
-| Phase 4: CSS Designer | 17 | 0 | 0% |
+| Phase 4: CSS Designer | 17 | 7 | 41% |
 | Phase 5: Integration | 14 | 0 | 0% |
 | Phase 6: Advanced | 18 | 0 | 0% |
 | Phase 7: Testing | 13 | 3 | 23% |
 | Phase 8: Polish | 14 | 0 | 0% |
-| **Total** | **158** | **85** | **54%** |
+| **Total** | **158** | **92** | **58%** |
 
 ---
 

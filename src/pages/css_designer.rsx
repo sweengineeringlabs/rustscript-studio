@@ -4,7 +4,7 @@ use rsc::prelude::*;
 
 use rsc_studio::designer::css::{TokenCategory, TokenValue, PreviewMode};
 
-use crate::components::{TokenEditor, Toolbar, ToolbarGroup, ToolbarButton, ToolbarDivider, Button, ButtonVariant, Icon, Tabs, Tab};
+use crate::components::{TokenEditor, Toolbar, ToolbarGroup, ToolbarButton, ToolbarDivider, Button, ButtonVariant, ButtonSize, Icon, Tabs, Tab, Input, Modal, ModalSize};
 use crate::hooks::StudioStore;
 
 /// CSS designer page.
@@ -13,6 +13,10 @@ pub fn CssDesignerPage(store: StudioStore) -> Element {
     let selected_category = use_signal(|| TokenCategory::Colors);
     let preview_mode = use_signal(|| PreviewMode::Both);
     let tokens = store.design_tokens();
+    let show_add_token_modal = use_signal(|| false);
+    let new_token_name = use_signal(String::new);
+    let new_token_value = use_signal(String::new);
+    let show_css_output = use_signal(|| false);
 
     let categories = vec![
         Tab {
@@ -40,6 +44,16 @@ pub fn CssDesignerPage(store: StudioStore) -> Element {
             label: "Typography".to_string(),
             icon: Some("type".to_string()),
         },
+        Tab {
+            id: "transitions".to_string(),
+            label: "Transitions".to_string(),
+            icon: Some("zap".to_string()),
+        },
+        Tab {
+            id: "z-index".to_string(),
+            label: "Z-Index".to_string(),
+            icon: Some("layers".to_string()),
+        },
     ];
 
     let active_tab = use_signal(|| "colors".to_string());
@@ -53,6 +67,8 @@ pub fn CssDesignerPage(store: StudioStore) -> Element {
             "radius" => TokenCategory::Radius,
             "shadows" => TokenCategory::Shadows,
             "typography" => TokenCategory::Typography,
+            "transitions" => TokenCategory::Transitions,
+            "z-index" => TokenCategory::ZIndex,
             _ => TokenCategory::Colors,
         };
         selected_category.set(category);
@@ -66,10 +82,42 @@ pub fn CssDesignerPage(store: StudioStore) -> Element {
         }
     };
 
+    // Add token handler
+    let on_add_token = {
+        let store = store.clone();
+        let active_tab = active_tab.clone();
+        let new_token_name = new_token_name.clone();
+        let new_token_value = new_token_value.clone();
+        let show_add_token_modal = show_add_token_modal.clone();
+        move |_| {
+            let name = new_token_name.get();
+            let value = new_token_value.get();
+            if !name.is_empty() && !value.is_empty() {
+                store.add_token(&active_tab.get(), &name, TokenValue::Simple(value));
+                new_token_name.set(String::new());
+                new_token_value.set(String::new());
+                show_add_token_modal.set(false);
+            }
+        }
+    };
+
     rsx! {
         div(class: "css-designer-page", style: styles::container()) {
             // Toolbar
             Toolbar {
+                ToolbarGroup {
+                    ToolbarButton {
+                        icon: "plus".to_string(),
+                        label: Some("Add Token".to_string()),
+                        onclick: {
+                            let show_add_token_modal = show_add_token_modal.clone();
+                            move |_| show_add_token_modal.set(true)
+                        },
+                    }
+                }
+
+                ToolbarDivider {}
+
                 ToolbarGroup {
                     ToolbarButton {
                         icon: "sun".to_string(),
@@ -88,6 +136,20 @@ pub fn CssDesignerPage(store: StudioStore) -> Element {
                         label: Some("Both".to_string()),
                         active: preview_mode.get() == PreviewMode::Both,
                         onclick: move |_| preview_mode.set(PreviewMode::Both),
+                    }
+                }
+
+                ToolbarDivider {}
+
+                ToolbarGroup {
+                    ToolbarButton {
+                        icon: "code".to_string(),
+                        label: Some("CSS Output".to_string()),
+                        active: show_css_output.get(),
+                        onclick: {
+                            let show_css_output = show_css_output.clone();
+                            move |_| show_css_output.update(|v| *v = !*v)
+                        },
                     }
                 }
 
@@ -161,6 +223,91 @@ pub fn CssDesignerPage(store: StudioStore) -> Element {
                         }
                     }
                 }
+
+                // CSS Output panel (collapsible)
+                if show_css_output.get() {
+                    CssOutputPanel {
+                        store: store.clone(),
+                    }
+                }
+            }
+
+            // Add Token Modal
+            if show_add_token_modal.get() {
+                Modal {
+                    title: format!("Add {} Token", active_tab.get()).to_string(),
+                    size: ModalSize::Sm,
+                    on_close: {
+                        let show_add_token_modal = show_add_token_modal.clone();
+                        move |_| show_add_token_modal.set(false)
+                    },
+                } {
+                    div(style: styles::modal_content()) {
+                        div(style: styles::form_field()) {
+                            label(style: styles::form_label()) { "Token Name" }
+                            Input {
+                                value: new_token_name.get(),
+                                placeholder: Some("e.g., primary, lg, base".to_string()),
+                                onchange: {
+                                    let new_token_name = new_token_name.clone();
+                                    Callback::new(move |v: String| new_token_name.set(v))
+                                },
+                            }
+                        }
+                        div(style: styles::form_field()) {
+                            label(style: styles::form_label()) { "Token Value" }
+                            Input {
+                                value: new_token_value.get(),
+                                placeholder: Some(match selected_category.get() {
+                                    TokenCategory::Colors => "#3b82f6",
+                                    TokenCategory::Spacing => "1rem",
+                                    TokenCategory::Radius => "8px",
+                                    TokenCategory::Shadows => "0 2px 4px rgba(0,0,0,0.1)",
+                                    TokenCategory::Typography => "16px",
+                                    TokenCategory::Transitions => "0.15s ease",
+                                    TokenCategory::ZIndex => "100",
+                                }.to_string()),
+                                onchange: {
+                                    let new_token_value = new_token_value.clone();
+                                    Callback::new(move |v: String| new_token_value.set(v))
+                                },
+                            }
+                        }
+                        div(style: styles::modal_actions()) {
+                            Button {
+                                variant: ButtonVariant::Secondary,
+                                size: ButtonSize::Sm,
+                                onclick: {
+                                    let show_add_token_modal = show_add_token_modal.clone();
+                                    move |_| show_add_token_modal.set(false)
+                                },
+                            } { "Cancel" }
+                            Button {
+                                variant: ButtonVariant::Primary,
+                                size: ButtonSize::Sm,
+                                onclick: on_add_token,
+                            } { "Add Token" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// CSS Output panel component.
+#[component]
+fn CssOutputPanel(store: StudioStore) -> Element {
+    let css = store.get_generated_css();
+
+    rsx! {
+        div(class: "css-output-panel", style: styles::css_output_panel()) {
+            div(class: "css-output-header", style: styles::css_output_header()) {
+                Icon { name: "code".to_string(), size: 16 }
+                span { "Generated CSS" }
+            }
+            pre(style: styles::css_output_code()) {
+                code { { css } }
             }
         }
     }
@@ -428,6 +575,78 @@ mod styles {
             color: inherit;
             border: 1px solid var(--color-border, #e2e8f0);
             border-radius: var(--radius-md, 6px);
+        "#
+    }
+
+    pub fn modal_content() -> &'static str {
+        r#"
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+        "#
+    }
+
+    pub fn form_field() -> &'static str {
+        r#"
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-xs);
+        "#
+    }
+
+    pub fn form_label() -> &'static str {
+        r#"
+            font-size: var(--font-size-sm);
+            font-weight: var(--font-weight-medium);
+            color: var(--color-text-secondary);
+        "#
+    }
+
+    pub fn modal_actions() -> &'static str {
+        r#"
+            display: flex;
+            justify-content: flex-end;
+            gap: var(--spacing-sm);
+            margin-top: var(--spacing-md);
+        "#
+    }
+
+    pub fn css_output_panel() -> &'static str {
+        r#"
+            width: 400px;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        "#
+    }
+
+    pub fn css_output_header() -> &'static str {
+        r#"
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: var(--color-bg-secondary);
+            border-bottom: 1px solid var(--color-border);
+            font-size: var(--font-size-sm);
+            font-weight: var(--font-weight-medium);
+        "#
+    }
+
+    pub fn css_output_code() -> &'static str {
+        r#"
+            flex: 1;
+            margin: 0;
+            padding: var(--spacing-md);
+            background: var(--color-bg-tertiary);
+            font-family: var(--font-mono);
+            font-size: var(--font-size-xs);
+            line-height: 1.6;
+            overflow: auto;
+            white-space: pre-wrap;
         "#
     }
 }

@@ -128,6 +128,10 @@ pub struct DesignTokens {
     pub shadows: IndexMap<String, TokenValue>,
     #[serde(default)]
     pub typography: TypographyTokens,
+    #[serde(default)]
+    pub transitions: IndexMap<String, TokenValue>,
+    #[serde(default)]
+    pub z_index: IndexMap<String, TokenValue>,
 }
 
 /// Typography tokens.
@@ -165,6 +169,8 @@ pub enum TokenCategory {
     Radius,
     Shadows,
     Typography,
+    Transitions,
+    ZIndex,
 }
 
 /// Preview mode.
