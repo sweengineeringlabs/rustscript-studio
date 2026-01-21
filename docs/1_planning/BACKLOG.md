@@ -190,11 +190,11 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
-| [x] | Create new preset within context | 2026-01-21 | |
-| [x] | Edit preset properties | 2026-01-21 | |
-| [ ] | Configure preset layout (activity bar, sidebar, panels) | 2026-01-21 | |
-| [x] | Delete preset | 2026-01-21 | |
-| [ ] | Duplicate preset | 2026-01-21 | |
+| [x] | Create new preset within context | 2026-01-21 | 2026-01-21 |
+| [x] | Edit preset properties | 2026-01-21 | 2026-01-21 |
+| [x] | Configure preset layout (activity bar, sidebar, panels) | 2026-01-21 | 2026-01-21 |
+| [x] | Delete preset | 2026-01-21 | 2026-01-21 |
+| [x] | Duplicate preset | 2026-01-21 | 2026-01-21 |
 | [ ] | Visual preset node rendering | 2026-01-21 | |
 
 ### 3.4 Visual Flow Editor
@@ -205,8 +205,8 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | [ ] | Auto-layout on structure change | 2026-01-21 | |
 | [ ] | Manual node positioning with persistence | 2026-01-21 | |
 | [ ] | Edge routing (bezier curves) | 2026-01-21 | |
-| [ ] | Zoom to selection | 2026-01-21 | |
-| [ ] | Search/filter nodes | 2026-01-21 | |
+| [x] | Zoom to selection | 2026-01-21 | 2026-01-21 |
+| [x] | Search/filter nodes | 2026-01-21 | 2026-01-21 |
 | [ ] | Keyboard navigation | 2026-01-21 | |
 
 ### 3.5 Navigation Preview

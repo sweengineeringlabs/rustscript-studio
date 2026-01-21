@@ -2,10 +2,11 @@
 
 use rsc::prelude::*;
 
-use rsc_flow::prelude::{FlowCanvas as RscFlowCanvas, LayoutConfig, LayoutDirection};
+use rsc_flow::prelude::{FlowCanvas as RscFlowCanvas, LayoutConfig as FlowLayoutConfig, LayoutDirection};
 use rsc_studio::designer::navigation::{NavigationDesigner, NavigationNodeData, EntityType};
+use rsc_studio::entity::LayoutConfig as PresetLayoutConfig;
 
-use crate::components::{FlowCanvasView, Toolbar, ToolbarGroup, ToolbarButton, ToolbarDivider, Button, ButtonVariant, ButtonSize, Icon, Input, Modal};
+use crate::components::{FlowCanvasView, Toolbar, ToolbarGroup, ToolbarButton, ToolbarDivider, Button, ButtonVariant, ButtonSize, Icon, Input, Modal, PresetLayoutEditor};
 use crate::hooks::StudioStore;
 
 /// Navigation designer page.
@@ -71,7 +72,7 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
 
     let on_auto_layout = move |_| {
         canvas.update(|c| {
-            c.auto_layout(LayoutConfig {
+            c.auto_layout(FlowLayoutConfig {
                 direction: LayoutDirection::TopToBottom,
                 node_sep: 80.0,
                 rank_sep: 120.0,
@@ -372,6 +373,15 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
                             reload_canvas();
                         }
                     },
+                    on_layout_change: Some({
+                        let store = store.clone();
+                        Callback::new(move |(preset_id, layout): (String, PresetLayoutConfig)| {
+                            // Find the preset location and update the layout
+                            if let Some((wf_id, ctx_id)) = store.find_preset_location(&preset_id) {
+                                store.update_preset_layout(&wf_id, &ctx_id, &preset_id, layout);
+                            }
+                        })
+                    }),
                 }
             }
         }
@@ -446,6 +456,7 @@ fn NodeDetailsPanel(
     on_add_context: Callback<String>,
     on_add_preset: Callback<(String, String)>,
     on_duplicate: Callback<(String, EntityType, Option<String>)>,
+    on_layout_change: Option<Callback<(String, PresetLayoutConfig)>>,
 ) -> Element {
     let canvas_value = canvas.get();
     let node = canvas_value.nodes.get(&node_id);
@@ -678,6 +689,44 @@ fn NodeDetailsPanel(
                     } {
                         Icon { name: "trash".to_string() }
                         "Delete"
+                    }
+                }
+
+                // Layout editor for Presets
+                if entity_type == EntityType::Preset && !is_editing.get() {
+                    {
+                        // Get the preset layout
+                        let preset_layout = {
+                            let location = store.find_preset_location(&entity_id);
+                            if let Some((wf_id, ctx_id)) = location {
+                                store.get_preset(&wf_id, &ctx_id, &entity_id)
+                                    .map(|p| p.layout)
+                                    .unwrap_or_default()
+                            } else {
+                                PresetLayoutConfig::default()
+                            }
+                        };
+
+                        rsx! {
+                            div(class: "layout-editor-section", style: styles::layout_editor_section()) {
+                                h4(style: styles::section_title()) {
+                                    Icon { name: "layout".to_string(), size: 16 }
+                                    span { "Layout Configuration" }
+                                }
+                                PresetLayoutEditor {
+                                    layout: preset_layout,
+                                    on_change: {
+                                        let on_layout_change = on_layout_change.clone();
+                                        let entity_id = entity_id.clone();
+                                        Callback::new(move |new_layout: PresetLayoutConfig| {
+                                            if let Some(ref callback) = on_layout_change {
+                                                callback.call((entity_id.clone(), new_layout));
+                                            }
+                                        })
+                                    },
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -922,6 +971,26 @@ mod styles {
             padding-top: var(--spacing-md);
             border-top: 1px solid var(--color-border);
             margin-top: var(--spacing-sm);
+        "#
+    }
+
+    pub fn layout_editor_section() -> &'static str {
+        r#"
+            margin-top: var(--spacing-lg);
+            padding-top: var(--spacing-md);
+            border-top: 1px solid var(--color-border);
+        "#
+    }
+
+    pub fn section_title() -> &'static str {
+        r#"
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            margin: 0 0 var(--spacing-md) 0;
+            font-size: var(--font-size-sm);
+            font-weight: var(--font-weight-semibold);
+            color: var(--color-text-primary);
         "#
     }
 }

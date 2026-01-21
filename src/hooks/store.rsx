@@ -2,7 +2,7 @@
 
 use rsc::prelude::*;
 
-use rsc_studio::entity::{Workflow, Context, Preset};
+use rsc_studio::entity::{Workflow, Context, Preset, LayoutConfig, LayoutVariant, Position, ActivityBarConfig, SidebarConfig, BottomPanelConfig};
 use rsc_studio::designer::css::DesignTokens;
 
 /// Studio store for global application state.
@@ -222,6 +222,42 @@ impl StudioStore {
                 }
             }
         });
+    }
+
+    /// Update preset layout configuration.
+    pub fn update_preset_layout(&self, workflow_id: &str, context_id: &str, preset_id: &str, layout: LayoutConfig) {
+        self.inner.update(|s| {
+            if let Some(workflow) = s.workflows.iter_mut().find(|w| w.id == workflow_id) {
+                if let Some(context) = workflow.contexts.get_mut(context_id) {
+                    if let Some(preset) = context.presets.get_mut(preset_id) {
+                        preset.layout = layout;
+                    }
+                }
+            }
+        });
+    }
+
+    /// Get preset by ID.
+    pub fn get_preset(&self, workflow_id: &str, context_id: &str, preset_id: &str) -> Option<Preset> {
+        let inner = self.inner.get();
+        inner.workflows.iter()
+            .find(|w| w.id == workflow_id)
+            .and_then(|w| w.contexts.get(context_id))
+            .and_then(|c| c.presets.get(preset_id))
+            .cloned()
+    }
+
+    /// Find preset location (returns workflow_id, context_id).
+    pub fn find_preset_location(&self, preset_id: &str) -> Option<(String, String)> {
+        let inner = self.inner.get();
+        for workflow in &inner.workflows {
+            for (ctx_id, context) in &workflow.contexts {
+                if context.presets.contains_key(preset_id) {
+                    return Some((workflow.id.clone(), ctx_id.clone()));
+                }
+            }
+        }
+        None
     }
 
     /// Duplicate a preset.
