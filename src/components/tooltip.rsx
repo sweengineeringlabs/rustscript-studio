@@ -21,86 +21,65 @@ impl Default for TooltipPlacement {
 ///
 /// ## Example
 /// ```rust,ignore
-/// Tooltip {
-///     content: "Click to save".to_string(),
-///     placement: TooltipPlacement::Top,
-///     children: rsx! {
-///         Button { on_click: save, children: rsx! { "Save" } }
-///     }
-/// }
+/// <Tooltip content={"Click to save".to_string()} placement={TooltipPlacement::Top}>
+///     <Button on_click={save}>Save</Button>
+/// </Tooltip>
 /// ```
-#[component]
-pub fn Tooltip(
+component Tooltip(
     /// Tooltip content text
     content: String,
     /// Tooltip placement
-    placement: Option<TooltipPlacement>,
+    placement?: TooltipPlacement,
     /// Delay before showing tooltip (ms)
-    delay: Option<u32>,
+    delay?: u32,
     /// Whether the tooltip is disabled
-    disabled: Option<bool>,
+    disabled?: bool,
     /// The element to wrap with tooltip
     children: Element,
-) -> Element {
+) {
     let placement = placement.unwrap_or(TooltipPlacement::default());
     let delay = delay.unwrap_or(300);
     let disabled = disabled.unwrap_or(false);
 
-    let is_visible = use_signal(|| false);
-    let timeout_id = use_signal(|| None::<i32>);
+    let is_visible = signal(false);
+    let timeout_id = signal(None::<i32>);
 
-    let on_mouse_enter = {
-        let delay = delay;
-        let disabled = disabled;
-        move |_: MouseEvent| {
-            if disabled {
-                return;
-            }
-            // In a real implementation, we'd use setTimeout
-            // For now, show immediately (delay would be handled by JS interop)
-            is_visible.set(true);
-        }
-    };
-
-    let on_mouse_leave = move |_: MouseEvent| {
-        is_visible.set(false);
-    };
-
-    let on_focus = {
-        let disabled = disabled;
-        move |_: FocusEvent| {
-            if !disabled {
-                is_visible.set(true);
-            }
-        }
-    };
-
-    let on_blur = move |_: FocusEvent| {
-        is_visible.set(false);
-    };
-
-    rsx! {
-        div(
-            class: "tooltip-wrapper",
-            style: styles::wrapper(),
-            onmouseenter: on_mouse_enter,
-            onmouseleave: on_mouse_leave,
-            onfocus: on_focus,
-            onblur: on_blur,
-        ) {
-            { children }
-
-            if is_visible.get() && !disabled {
-                div(
-                    class: "tooltip",
-                    style: styles::tooltip(placement),
-                    role: "tooltip",
-                ) {
-                    { content.clone() }
-                    div(class: "tooltip-arrow", style: styles::arrow(placement))
+    render {
+        <div
+            class="tooltip-wrapper"
+            style={styles::wrapper()}
+            on:mouseenter={|| {
+                if !disabled {
+                    // In a real implementation, we'd use setTimeout
+                    // For now, show immediately (delay would be handled by JS interop)
+                    is_visible.set(true);
                 }
+            }}
+            on:mouseleave={|| {
+                is_visible.set(false);
+            }}
+            on:focus={|| {
+                if !disabled {
+                    is_visible.set(true);
+                }
+            }}
+            on:blur={|| {
+                is_visible.set(false);
+            }}
+        >
+            {children}
+
+            @if is_visible.get() && !disabled {
+                <div
+                    class="tooltip"
+                    style={styles::tooltip(placement)}
+                    role="tooltip"
+                >
+                    {content.clone()}
+                    <div class="tooltip-arrow" style={styles::arrow(placement)} />
+                </div>
             }
-        }
+        </div>
     }
 }
 

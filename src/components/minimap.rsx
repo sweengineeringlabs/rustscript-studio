@@ -2,41 +2,37 @@
 
 use rsc::prelude::*;
 
-use rsc_flow::prelude::{FlowCanvas, Position, Dimensions};
+use rsc_flow::prelude::{FlowCanvas, Position, Dimensions, NodeType};
+use super::flow_canvas::StudioCanvas;
 
 /// Minimap component showing an overview of the flow canvas.
 ///
 /// ## Example
 /// ```rust,ignore
-/// Minimap {
-///     canvas: canvas_signal,
-///     width: 200.0,
-///     height: 150.0,
-///     on_viewport_change: Callback::new(move |pos| {
+/// <Minimap
+///     canvas={canvas_signal}
+///     width={200.0}
+///     height={150.0}
+///     on_viewport_change={Callback::new(move |pos| {
 ///         canvas.update(|c| c.viewport.transform.x = pos.x);
-///     }),
-/// }
+///     })}
+/// />
 /// ```
-#[component]
-pub fn Minimap<N, E>(
+component Minimap(
     /// Canvas data
-    canvas: Signal<FlowCanvas<N, E>>,
+    canvas: Signal<StudioCanvas>,
     /// Minimap width
-    width: Option<f64>,
+    width?: f64,
     /// Minimap height
-    height: Option<f64>,
+    height?: f64,
     /// Callback when viewport position changes via minimap click
-    on_viewport_change: Option<Callback<Position>>,
-) -> Element
-where
-    N: Clone + 'static,
-    E: Clone + 'static,
-{
+    on_viewport_change?: Callback<Position>,
+) {
     let width = width.unwrap_or(200.0);
     let height = height.unwrap_or(150.0);
 
     let canvas = canvas.get();
-    let is_dragging = use_signal(|| false);
+    let is_dragging = signal(false);
 
     // Calculate bounds of all nodes
     let bounds = canvas.get_bounds();
@@ -66,85 +62,75 @@ where
     let viewport_w = viewport_width * scale;
     let viewport_h = viewport_height * scale;
 
-    let on_mouse_down = {
-        let on_change = on_viewport_change.clone();
-        move |e: MouseEvent| {
-            is_dragging.set(true);
-            handle_minimap_click(&e, min_x, min_y, scale, &on_change);
-        }
-    };
-
-    let on_mouse_move = {
-        let on_change = on_viewport_change.clone();
-        move |e: MouseEvent| {
-            if is_dragging.get() {
-                handle_minimap_click(&e, min_x, min_y, scale, &on_change);
-            }
-        }
-    };
-
-    let on_mouse_up = move |_: MouseEvent| {
-        is_dragging.set(false);
-    };
-
-    rsx! {
-        div(
-            class: "minimap",
-            style: styles::container(width, height),
-            onmousedown: on_mouse_down,
-            onmousemove: on_mouse_move,
-            onmouseup: on_mouse_up,
-            onmouseleave: on_mouse_up,
-        ) {
+    render {
+        <div
+            class="minimap"
+            style={styles::container(width, height)}
+            on:mousedown={|e: MouseEvent| {
+                is_dragging.set(true);
+                handle_minimap_click(&e, min_x, min_y, scale, &on_viewport_change);
+            }}
+            on:mousemove={|e: MouseEvent| {
+                if is_dragging.get() {
+                    handle_minimap_click(&e, min_x, min_y, scale, &on_viewport_change);
+                }
+            }}
+            on:mouseup={|_: MouseEvent| {
+                is_dragging.set(false);
+            }}
+            on:mouseleave={|_: MouseEvent| {
+                is_dragging.set(false);
+            }}
+        >
             // Node indicators
-            svg(
-                width: width.to_string(),
-                height: height.to_string(),
-                style: styles::svg(),
-            ) {
+            <svg
+                width={width.to_string()}
+                height={height.to_string()}
+                style={styles::svg()}
+            >
                 // Nodes
-                for node in canvas.nodes.values() {
-                    rect(
-                        x: ((node.position.x - min_x) * scale).to_string(),
-                        y: ((node.position.y - min_y) * scale).to_string(),
-                        width: (node.dimensions.unwrap_or(Dimensions::new(160.0, 50.0)).width * scale).to_string(),
-                        height: (node.dimensions.unwrap_or(Dimensions::new(160.0, 50.0)).height * scale).to_string(),
-                        fill: get_node_color(&node.node_type),
-                        rx: "2",
-                    )
+                @for node in canvas.nodes.values() {
+                    <rect
+                        x={((node.position.x - min_x) * scale).to_string()}
+                        y={((node.position.y - min_y) * scale).to_string()}
+                        width={(node.dimensions.unwrap_or(Dimensions::new(160.0, 50.0)).width * scale).to_string()}
+                        height={(node.dimensions.unwrap_or(Dimensions::new(160.0, 50.0)).height * scale).to_string()}
+                        fill={get_node_color(&node.node_type)}
+                        rx="2"
+                    />
                 }
 
                 // Edges
-                for edge in canvas.edges.values() {
-                    if let (Some(source), Some(target)) = (
+                @for edge in canvas.edges.values() {
+                    @if let (Some(source), Some(target)) = (
                         canvas.get_node_center(&edge.source),
                         canvas.get_node_center(&edge.target)
                     ) {
-                        line(
-                            x1: ((source.x - min_x) * scale).to_string(),
-                            y1: ((source.y - min_y) * scale).to_string(),
-                            x2: ((target.x - min_x) * scale).to_string(),
-                            y2: ((target.y - min_y) * scale).to_string(),
-                            stroke: "var(--color-edge-default)",
-                            stroke-width: "1",
-                            opacity: "0.5",
-                        )
+                        <line
+                            x1={((source.x - min_x) * scale).to_string()}
+                            y1={((source.y - min_y) * scale).to_string()}
+                            x2={((target.x - min_x) * scale).to_string()}
+                            y2={((target.y - min_y) * scale).to_string()}
+                            stroke="var(--color-edge-default)"
+                            stroke-width="1"
+                            opacity="0.5"
+                        />
                     }
                 }
 
                 // Viewport rectangle
-                rect(
-                    x: viewport_x.to_string(),
-                    y: viewport_y.to_string(),
-                    width: viewport_w.to_string(),
-                    height: viewport_h.to_string(),
-                    fill: "transparent",
-                    stroke: "var(--color-primary)",
-                    stroke-width: "2",
-                    rx: "2",
-                )
-            }
-        }
+                <rect
+                    x={viewport_x.to_string()}
+                    y={viewport_y.to_string()}
+                    width={viewport_w.to_string()}
+                    height={viewport_h.to_string()}
+                    fill="transparent"
+                    stroke="var(--color-primary)"
+                    stroke-width="2"
+                    rx="2"
+                />
+            </svg>
+        </div>
     }
 }
 
@@ -162,15 +148,16 @@ fn handle_minimap_click(
     }
 }
 
-fn get_node_color(node_type: &rsc_flow::prelude::NodeType) -> &'static str {
-    match node_type {
-        rsc_flow::prelude::NodeType::Custom(t) => match t.as_str() {
+fn get_node_color(node_type: &NodeType) -> &'static str {
+    if let NodeType::Custom(t) = node_type {
+        match t.as_str() {
             "workflow" => "var(--color-node-workflow)",
             "context" => "var(--color-node-context)",
             "preset" => "var(--color-node-preset)",
-            _ => "var(--color-text-muted)",
-        },
-        _ => "var(--color-text-muted)",
+            other => "var(--color-text-muted)",
+        }
+    } else {
+        "var(--color-text-muted)"
     }
 }
 

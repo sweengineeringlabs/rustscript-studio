@@ -90,15 +90,14 @@ impl ShadowValue {
 ///     on_change: Callback::new(move |v| shadow.set(v)),
 /// }
 /// ```
-#[component]
-pub fn ShadowEditor(
+component ShadowEditor(
     value: String,
-    label: Option<String>,
-    disabled: Option<bool>,
-    on_change: Option<Callback<String>>,
-) -> Element {
+    label?: String,
+    disabled?: bool,
+    on_change?: Callback<String>,
+) {
     let disabled = disabled.unwrap_or(false);
-    let shadow = use_signal(|| ShadowValue::from_css(&value).unwrap_or_default());
+    let shadow = signal(ShadowValue::from_css(&value).unwrap_or_default());
 
     let emit_change = {
         let on_change = on_change.clone();
@@ -174,102 +173,102 @@ pub fn ShadowEditor(
 
     let current = shadow.get();
 
-    rsx! {
-        div(class: "shadow-editor", style: styles::container(disabled)) {
+    render {
+        <div class="shadow-editor" style={styles::container(disabled)}>
             // Label
-            if let Some(ref label) = label {
-                label(class: "shadow-editor-label", style: styles::label()) {
-                    { label.clone() }
-                }
+            @if let Some(ref label) = label {
+                <label class="shadow-editor-label" style={styles::label()}>
+                    {label.clone()}
+                </label>
             }
 
             // Preview
-            div(class: "shadow-editor-preview", style: styles::preview_container()) {
-                div(class: "shadow-editor-preview-box", style: styles::preview_box(&current))
-            }
+            <div class="shadow-editor-preview" style={styles::preview_container()}>
+                <div class="shadow-editor-preview-box" style={styles::preview_box(&current)} />
+            </div>
 
             // Controls grid
-            div(class: "shadow-editor-controls", style: styles::controls()) {
+            <div class="shadow-editor-controls" style={styles::controls()}>
                 // X offset
-                div(class: "shadow-editor-field", style: styles::field()) {
-                    label(style: styles::field_label()) { "X" }
-                    input(
-                        type: "number",
-                        value: current.x.to_string(),
-                        disabled: disabled,
-                        style: styles::number_input(),
-                        oninput: on_x_change,
-                    )
-                }
+                <div class="shadow-editor-field" style={styles::field()}>
+                    <label style={styles::field_label()}>X</label>
+                    <input
+                        type="number"
+                        value={current.x.to_string()}
+                        disabled={disabled}
+                        style={styles::number_input()}
+                        on:input={on_x_change}
+                    />
+                </div>
 
                 // Y offset
-                div(class: "shadow-editor-field", style: styles::field()) {
-                    label(style: styles::field_label()) { "Y" }
-                    input(
-                        type: "number",
-                        value: current.y.to_string(),
-                        disabled: disabled,
-                        style: styles::number_input(),
-                        oninput: on_y_change,
-                    )
-                }
+                <div class="shadow-editor-field" style={styles::field()}>
+                    <label style={styles::field_label()}>Y</label>
+                    <input
+                        type="number"
+                        value={current.y.to_string()}
+                        disabled={disabled}
+                        style={styles::number_input()}
+                        on:input={on_y_change}
+                    />
+                </div>
 
                 // Blur
-                div(class: "shadow-editor-field", style: styles::field()) {
-                    label(style: styles::field_label()) { "Blur" }
-                    input(
-                        type: "number",
-                        min: "0",
-                        value: current.blur.to_string(),
-                        disabled: disabled,
-                        style: styles::number_input(),
-                        oninput: on_blur_change,
-                    )
-                }
+                <div class="shadow-editor-field" style={styles::field()}>
+                    <label style={styles::field_label()}>Blur</label>
+                    <input
+                        type="number"
+                        min="0"
+                        value={current.blur.to_string()}
+                        disabled={disabled}
+                        style={styles::number_input()}
+                        on:input={on_blur_change}
+                    />
+                </div>
 
                 // Spread
-                div(class: "shadow-editor-field", style: styles::field()) {
-                    label(style: styles::field_label()) { "Spread" }
-                    input(
-                        type: "number",
-                        value: current.spread.to_string(),
-                        disabled: disabled,
-                        style: styles::number_input(),
-                        oninput: on_spread_change,
-                    )
-                }
-            }
+                <div class="shadow-editor-field" style={styles::field()}>
+                    <label style={styles::field_label()}>Spread</label>
+                    <input
+                        type="number"
+                        value={current.spread.to_string()}
+                        disabled={disabled}
+                        style={styles::number_input()}
+                        on:input={on_spread_change}
+                    />
+                </div>
+            </div>
 
             // Color input
-            div(class: "shadow-editor-color", style: styles::color_row()) {
-                label(style: styles::field_label()) { "Color" }
-                input(
-                    type: "text",
-                    value: current.color.clone(),
-                    disabled: disabled,
-                    style: styles::color_input(),
-                    oninput: on_color_change,
-                )
-            }
+            <div class="shadow-editor-color" style={styles::color_row()}>
+                <label style={styles::field_label()}>Color</label>
+                <input
+                    type="text"
+                    value={current.color.clone()}
+                    disabled={disabled}
+                    style={styles::color_input()}
+                    on:input={on_color_change}
+                />
+            </div>
 
             // Inset toggle
-            div(class: "shadow-editor-inset", style: styles::inset_row()) {
-                label(style: styles::checkbox_label()) {
-                    input(
-                        type: "checkbox",
-                        checked: current.inset,
-                        disabled: disabled,
-                        onchange: on_inset_change,
-                    )
-                    span { "Inset shadow" }
-                }
-            }
+            <div class="shadow-editor-inset" style={styles::inset_row()}>
+                <label style={styles::checkbox_label()}>
+                    <input
+                        type="checkbox"
+                        checked={current.inset}
+                        disabled={disabled}
+                        on:change={on_inset_change}
+                    />
+                    <span>Inset shadow</span>
+                </label>
+            </div>
 
             // CSS output
-            div(class: "shadow-editor-output", style: styles::output()) {
-                code(style: styles::code()) { { current.to_css() } }
-            }
-        }
+            <div class="shadow-editor-output" style={styles::output()}>
+                <code style={styles::code()}>{current.to_css()}</code>
+            </div>
+        </div>
     }
 }
 

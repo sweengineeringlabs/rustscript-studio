@@ -2,8 +2,9 @@
 
 use rsc::prelude::*;
 
-use rsc_flow::prelude::{Node, Position};
+use rsc_flow::prelude::{Node, Position, NodeType};
 use super::Icon;
+use super::flow_canvas::StudioNode;
 
 /// Snap a value to the nearest grid line.
 fn snap_to_grid_value(value: f64, grid_size: f64) -> f64 {
@@ -18,191 +19,155 @@ fn snap_to_grid_value(value: f64, grid_size: f64) -> f64 {
 /// - Optional snap-to-grid when `snap_to_grid` is enabled
 /// - Drag from handles to create connections
 /// - Visual feedback when node is a valid connection target
-#[component]
-pub fn FlowNode<T: Clone + 'static>(
-    node: Node<T>,
+component FlowNode(
+    node: StudioNode,
     /// Current viewport zoom level (for scaling drag deltas)
-    zoom: Option<f64>,
+    zoom?: f64,
     /// Whether snap-to-grid is enabled
-    snap_to_grid: Option<bool>,
+    snap_to_grid?: bool,
     /// Grid size in pixels for snapping
-    grid_size: Option<f64>,
-    on_select: Option<Callback<String>>,
-    on_move: Option<Callback<(String, Position)>>,
+    grid_size?: f64,
+    on_select?: Callback<String>,
+    on_move?: Callback<(String, Position)>,
     /// Callback when connection drag starts from this node (node_id, from_top, position)
-    on_connection_start: Option<Callback<(String, bool, Position)>>,
+    on_connection_start?: Callback<(String, bool, Position)>,
     /// Callback when connection ends on this node (node_id)
-    on_connection_end: Option<Callback<String>>,
+    on_connection_end?: Callback<String>,
     /// Whether this node is a valid connection target (while another node is being connected)
-    is_connection_target: Option<bool>,
-) -> Element {
+    is_connection_target?: bool,
+) {
     let zoom = zoom.unwrap_or(1.0);
     let snap_to_grid = snap_to_grid.unwrap_or(false);
     let grid_size = grid_size.unwrap_or(20.0);
     let is_connection_target = is_connection_target.unwrap_or(false);
 
-    let is_dragging = use_signal(|| false);
-    let drag_start = use_signal(|| Position::zero());
-    let node_start = use_signal(|| Position::zero());
-    let is_handle_hovered = use_signal(|| false);
+    let is_dragging = signal(false);
+    let drag_start = signal(Position::zero());
+    let node_start = signal(Position::zero());
+    let is_handle_hovered = signal(false);
 
-    let node_type = match &node.node_type {
-        rsc_flow::prelude::NodeType::Custom(t) => t.as_str(),
-        _ => "default",
+    let node_type = if let NodeType::Custom(t) = &node.node_type {
+        t.as_str()
+    } else {
+        "default"
     };
 
-    // Node drag handlers
-    let on_mouse_down = {
-        let id = node.id.clone();
-        let pos = node.position;
-        let draggable = node.draggable;
-        move |e: MouseEvent| {
-            if e.button() == 0 && draggable {
-                e.stop_propagation();
-                is_dragging.set(true);
-                drag_start.set(Position::new(e.client_x() as f64, e.client_y() as f64));
-                node_start.set(pos);
-
-                if let Some(ref on_select) = on_select {
-                    on_select.call(id.clone());
-                }
-            }
-        }
-    };
-
-    let on_mouse_move = {
-        let id = node.id.clone();
-        let zoom = zoom;
-        let snap_enabled = snap_to_grid;
-        let grid_size = grid_size;
-        move |e: MouseEvent| {
-            if is_dragging.get() {
-                let dx = (e.client_x() as f64 - drag_start.get().x) / zoom;
-                let dy = (e.client_y() as f64 - drag_start.get().y) / zoom;
-
-                let mut new_x = node_start.get().x + dx;
-                let mut new_y = node_start.get().y + dy;
-
-                if snap_enabled {
-                    new_x = snap_to_grid_value(new_x, grid_size);
-                    new_y = snap_to_grid_value(new_y, grid_size);
-                }
-
-                let new_pos = Position::new(new_x, new_y);
-
-                if let Some(ref on_move) = on_move {
-                    on_move.call((id.clone(), new_pos));
-                }
-            }
-        }
-    };
-
-    let on_mouse_up = move |_: MouseEvent| {
-        is_dragging.set(false);
-    };
-
-    // Handle mouse events for connection handles
-    let on_handle_top_mouse_down = {
-        let id = node.id.clone();
-        let pos = node.position;
-        let connectable = node.connectable;
-        let on_connection_start = on_connection_start.clone();
-        move |e: MouseEvent| {
-            if e.button() == 0 && connectable {
-                e.stop_propagation();
-                e.prevent_default();
-                if let Some(ref callback) = on_connection_start {
-                    // Top handle position
-                    let handle_pos = Position::new(pos.x + 80.0, pos.y); // Approximate center
-                    callback.call((id.clone(), true, handle_pos));
-                }
-            }
-        }
-    };
-
-    let on_handle_bottom_mouse_down = {
-        let id = node.id.clone();
-        let pos = node.position;
-        let connectable = node.connectable;
-        let on_connection_start = on_connection_start.clone();
-        move |e: MouseEvent| {
-            if e.button() == 0 && connectable {
-                e.stop_propagation();
-                e.prevent_default();
-                if let Some(ref callback) = on_connection_start {
-                    // Bottom handle position (approximate)
-                    let handle_pos = Position::new(pos.x + 80.0, pos.y + 50.0);
-                    callback.call((id.clone(), false, handle_pos));
-                }
-            }
-        }
-    };
-
-    // When this node is a connection target, handle mouse up to complete the connection
-    let on_handle_mouse_up = {
-        let id = node.id.clone();
-        let on_connection_end = on_connection_end.clone();
-        let is_target = is_connection_target;
-        move |e: MouseEvent| {
-            if is_target {
-                e.stop_propagation();
-                if let Some(ref callback) = on_connection_end {
-                    callback.call(id.clone());
-                }
-            }
-        }
-    };
-
-    let on_handle_mouse_enter = move |_: MouseEvent| {
-        is_handle_hovered.set(true);
-    };
-
-    let on_handle_mouse_leave = move |_: MouseEvent| {
-        is_handle_hovered.set(false);
-    };
-
-    rsx! {
-        div(
-            class: format!("flow-node flow-node-{}", node_type),
-            style: styles::node(
+    render {
+        <div
+            class={format!("flow-node flow-node-{}", node_type)}
+            style={styles::node(
                 &node.position,
                 node_type,
                 node.selected,
                 is_dragging.get(),
                 is_connection_target,
-            ),
-            onmousedown: on_mouse_down,
-            onmousemove: on_mouse_move,
-            onmouseup: on_mouse_up,
-        ) {
-            // Header
-            div(class: "flow-node-header", style: styles::header(node_type)) {
-                Icon { name: get_node_icon(node_type).to_string(), size: 16 }
-                span(style: styles::label()) {
-                    { node.id.clone() }
+            )}
+            on:mousedown={|e: MouseEvent| {
+                if e.button() == 0 && node.draggable {
+                    e.stop_propagation();
+                    is_dragging.set(true);
+                    drag_start.set(Position::new(e.client_x() as f64, e.client_y() as f64));
+                    node_start.set(node.position);
+
+                    if let Some(ref on_select) = on_select {
+                        on_select.call(node.id.clone());
+                    }
                 }
-            }
+            }}
+            on:mousemove={|e: MouseEvent| {
+                if is_dragging.get() {
+                    let dx = (e.client_x() as f64 - drag_start.get().x) / zoom;
+                    let dy = (e.client_y() as f64 - drag_start.get().y) / zoom;
+
+                    let mut new_x = node_start.get().x + dx;
+                    let mut new_y = node_start.get().y + dy;
+
+                    if snap_to_grid {
+                        new_x = snap_to_grid_value(new_x, grid_size);
+                        new_y = snap_to_grid_value(new_y, grid_size);
+                    }
+
+                    let new_pos = Position::new(new_x, new_y);
+
+                    if let Some(ref on_move) = on_move {
+                        on_move.call((node.id.clone(), new_pos));
+                    }
+                }
+            }}
+            on:mouseup={|_: MouseEvent| {
+                is_dragging.set(false);
+            }}
+        >
+            // Header
+            <div class="flow-node-header" style={styles::header(node_type)}>
+                <Icon name={get_node_icon(node_type).to_string()} size={16} />
+                <span style={styles::label()}>
+                    {node.id.clone()}
+                </span>
+            </div>
 
             // Top connection handle (input)
-            div(
-                class: "flow-node-handle flow-node-handle-top",
-                style: styles::handle_top(is_connection_target, is_handle_hovered.get()),
-                onmousedown: on_handle_top_mouse_down,
-                onmouseup: on_handle_mouse_up.clone(),
-                onmouseenter: on_handle_mouse_enter,
-                onmouseleave: on_handle_mouse_leave,
-            )
+            <div
+                class="flow-node-handle flow-node-handle-top"
+                style={styles::handle_top(is_connection_target, is_handle_hovered.get())}
+                on:mousedown={|e: MouseEvent| {
+                    if e.button() == 0 && node.connectable {
+                        e.stop_propagation();
+                        e.prevent_default();
+                        if let Some(ref callback) = on_connection_start {
+                            // Top handle position
+                            let handle_pos = Position::new(node.position.x + 80.0, node.position.y);
+                            callback.call((node.id.clone(), true, handle_pos));
+                        }
+                    }
+                }}
+                on:mouseup={|e: MouseEvent| {
+                    if is_connection_target {
+                        e.stop_propagation();
+                        if let Some(ref callback) = on_connection_end {
+                            callback.call(node.id.clone());
+                        }
+                    }
+                }}
+                on:mouseenter={|_: MouseEvent| {
+                    is_handle_hovered.set(true);
+                }}
+                on:mouseleave={|_: MouseEvent| {
+                    is_handle_hovered.set(false);
+                }}
+            />
 
             // Bottom connection handle (output)
-            div(
-                class: "flow-node-handle flow-node-handle-bottom",
-                style: styles::handle_bottom(is_connection_target, is_handle_hovered.get()),
-                onmousedown: on_handle_bottom_mouse_down,
-                onmouseup: on_handle_mouse_up,
-                onmouseenter: on_handle_mouse_enter,
-                onmouseleave: on_handle_mouse_leave,
-            )
-        }
+            <div
+                class="flow-node-handle flow-node-handle-bottom"
+                style={styles::handle_bottom(is_connection_target, is_handle_hovered.get())}
+                on:mousedown={|e: MouseEvent| {
+                    if e.button() == 0 && node.connectable {
+                        e.stop_propagation();
+                        e.prevent_default();
+                        if let Some(ref callback) = on_connection_start {
+                            // Bottom handle position (approximate)
+                            let handle_pos = Position::new(node.position.x + 80.0, node.position.y + 50.0);
+                            callback.call((node.id.clone(), false, handle_pos));
+                        }
+                    }
+                }}
+                on:mouseup={|e: MouseEvent| {
+                    if is_connection_target {
+                        e.stop_propagation();
+                        if let Some(ref callback) = on_connection_end {
+                            callback.call(node.id.clone());
+                        }
+                    }
+                }}
+                on:mouseenter={|_: MouseEvent| {
+                    is_handle_hovered.set(true);
+                }}
+                on:mouseleave={|_: MouseEvent| {
+                    is_handle_hovered.set(false);
+                }}
+            />
+        </div>
     }
 }
 

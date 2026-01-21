@@ -41,7 +41,7 @@ impl Default for Theme {
 impl StudioStore {
     fn new() -> Self {
         Self {
-            inner: use_signal(StudioStoreInner::default),
+            inner: signal(StudioStoreInner::default()),
         }
     }
 
@@ -339,7 +339,7 @@ impl StudioStore {
         new_context.name = format!("{} (Copy)", context.name);
         // Update all preset IDs in the duplicated context
         let mut new_presets = indexmap::IndexMap::new();
-        for (_, preset) in &new_context.presets {
+        for preset in new_context.presets.values() {
             let mut new_preset = preset.clone();
             new_preset.id = uuid::Uuid::new_v4().to_string();
             new_presets.insert(new_preset.id.clone(), new_preset);
@@ -359,7 +359,7 @@ impl StudioStore {
     /// Get the design tokens.
     pub fn design_tokens(&self) -> Signal<DesignTokens> {
         let tokens = self.inner.get().design_tokens.clone();
-        use_signal(|| tokens)
+        signal(tokens)
     }
 
     /// Update a design token.
@@ -427,13 +427,13 @@ impl StudioStore {
     /// Get the component styles.
     pub fn component_styles(&self) -> Signal<ComponentStyles> {
         let styles = self.inner.get().component_styles.clone();
-        use_signal(|| styles)
+        signal(styles)
     }
 
     /// Update a component style.
-    pub fn update_component_style(&self, name: &str, style: ComponentStyle) {
+    pub fn update_component_style(&self, name: &str, component_style: ComponentStyle) {
         self.inner.update(|s| {
-            s.component_styles.set(name.to_string(), style);
+            s.component_styles.set(name.to_string(), component_style);
         });
     }
 
@@ -581,12 +581,11 @@ pub fn use_studio_store() -> StudioStore {
     // Create or get the store from context
     let store = use_context::<StudioStore>();
 
-    match store {
-        Some(s) => s,
-        None => {
-            let new_store = StudioStore::new();
-            provide_context(new_store.clone());
-            new_store
-        }
+    if let Some(s) = store {
+        s
+    } else {
+        let new_store = StudioStore::new();
+        provide_context(new_store.clone());
+        new_store
     }
 }

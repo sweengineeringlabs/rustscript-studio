@@ -24,19 +24,18 @@ pub type NodeMoveCallback = Callback<(String, Position)>;
 pub type EdgeCreateCallback = Callback<(String, String)>;
 
 /// Flow canvas component with pan/zoom gesture support and edge creation
-#[component]
-pub fn FlowCanvasView(
+component FlowCanvasView(
     canvas: Signal<StudioCanvas>,
-    on_node_select: Option<Callback<String>>,
-    on_node_move: Option<NodeMoveCallback>,
-    on_edge_select: Option<Callback<String>>,
-    on_edge_create: Option<EdgeCreateCallback>,
-) -> Element {
+    on_node_select?: Callback<String>,
+    on_node_move?: NodeMoveCallback,
+    on_edge_select?: Callback<String>,
+    on_edge_create?: EdgeCreateCallback,
+) {
     let canvas_data = canvas.get();
-    let is_panning = state(false);
-    let pan_start = state(Position::zero());
-    let viewport_start = state((0.0f64, 0.0f64));
-    let connection = state(ConnectionState::default());
+    let is_panning = signal(false);
+    let pan_start = signal(Position::zero());
+    let viewport_start = signal((0.0f64, 0.0f64));
+    let connection = signal(ConnectionState::default());
 
     // Handle mouse down for panning (middle mouse button)
     let on_mouse_down = {
@@ -157,7 +156,15 @@ pub fn FlowCanvasView(
         move |e: KeyboardEvent| {
             let key = e.key();
             match key.as_str() {
-                "+" | "=" => {
+                "+" => {
+                    e.prevent_default();
+                    canvas.update(|c| {
+                        if c.viewport.zoom_enabled {
+                            c.viewport.zoom_in(1.2);
+                        }
+                    });
+                }
+                "=" => {
                     e.prevent_default();
                     canvas.update(|c| {
                         if c.viewport.zoom_enabled {
@@ -192,12 +199,12 @@ pub fn FlowCanvasView(
     // Connection callbacks
     let on_connection_start = {
         let connection = connection.clone();
-        Callback::new(move |(node_id, from_top, pos): (String, bool, Position)| {
+        Callback::new(move |args: (String, bool, Position)| {
             connection.set(ConnectionState {
                 is_connecting: true,
-                source_node: Some(node_id),
-                from_top,
-                current_pos: pos,
+                source_node: Some(args.0),
+                from_top: args.1,
+                current_pos: args.2,
             });
         })
     };
@@ -242,80 +249,79 @@ pub fn FlowCanvasView(
         None
     };
 
-    rsx! {
-        div(
-            class: "flow-canvas",
-            style: styles::container(is_panning.get(), conn_state.is_connecting),
-            tabindex: "0",
-            onmousedown: on_mouse_down,
-            onmousemove: on_mouse_move,
-            onmouseup: on_mouse_up,
-            onmouseleave: on_mouse_leave,
-            onwheel: on_wheel,
-            onkeydown: on_key_down,
-            oncontextmenu: on_context_menu
-        ) {
+    render {
+        <div
+            class="flow-canvas"
+            style={styles::container(is_panning.get(), conn_state.is_connecting)}
+            tabindex="0"
+            on:mousedown={on_mouse_down}
+            on:mousemove={on_mouse_move}
+            on:mouseup={on_mouse_up}
+            on:mouseleave={on_mouse_leave}
+            on:wheel={on_wheel}
+            on:keydown={on_key_down}
+            on:contextmenu={on_context_menu}
+        >
             // Background grid layer
-            div(class: "flow-grid", style: styles::grid(&canvas_data.viewport, &canvas_data.config))
+            <div class="flow-grid" style={styles::grid(&canvas_data.viewport, &canvas_data.config)} />
 
             // SVG layer for edges
-            svg(
-                class: "flow-edges",
-                style: styles::edges_layer(&canvas_data.viewport)
-            ) {
-                for edge in canvas_data.edges.values() {
-                    FlowEdge(
-                        edge: edge.clone(),
-                        source_pos: canvas_data.get_node_center(&edge.source),
-                        target_pos: canvas_data.get_node_center(&edge.target),
-                        on_select: on_edge_select.clone()
-                    )
+            <svg
+                class="flow-edges"
+                style={styles::edges_layer(&canvas_data.viewport)}
+            >
+                @for edge in canvas_data.edges.values() {
+                    <FlowEdge
+                        edge={edge.clone()}
+                        source_pos={canvas_data.get_node_center(&edge.source)}
+                        target_pos={canvas_data.get_node_center(&edge.target)}
+                        on_select={on_edge_select.clone()}
+                    />
                 }
 
-                if conn_state.is_connecting {
-                    if let Some(source_pos) = connection_source_pos {
-                        ConnectionLine(source: source_pos, target: conn_state.current_pos.clone())
+                @if conn_state.is_connecting {
+                    @if let Some(source_pos) = connection_source_pos {
+                        <ConnectionLine source={source_pos} target={conn_state.current_pos.clone()} />
                     }
                 }
-            }
+            </svg>
 
             // Node layer with viewport transform
-            div(
-                class: "flow-nodes",
-                style: styles::nodes_layer(&canvas_data.viewport)
-            ) {
-                for node in canvas_data.nodes.values() {
-                    FlowNode(
-                        node: node.clone(),
-                        zoom: canvas_data.viewport.transform.zoom,
-                        snap_to_grid: canvas_data.config.snap_to_grid,
-                        grid_size: canvas_data.config.grid_size,
-                        on_select: on_node_select.clone(),
-                        on_move: on_node_move.clone(),
-                        on_connection_start: Some(on_connection_start.clone()),
-                        on_connection_end: Some(on_connection_end.clone()),
-                        is_connection_target: conn_state.is_connecting && conn_state.source_node.as_ref() != Some(&node.id)
-                    )
+            <div
+                class="flow-nodes"
+                style={styles::nodes_layer(&canvas_data.viewport)}
+            >
+                @for node in canvas_data.nodes.values() {
+                    <FlowNode
+                        node={node.clone()}
+                        zoom={canvas_data.viewport.transform.zoom}
+                        snap_to_grid={canvas_data.config.snap_to_grid}
+                        grid_size={canvas_data.config.grid_size}
+                        on_select={on_node_select.clone()}
+                        on_move={on_node_move.clone()}
+                        on_connection_start={Some(on_connection_start.clone())}
+                        on_connection_end={Some(on_connection_end.clone())}
+                        is_connection_target={conn_state.is_connecting && conn_state.source_node.as_ref() != Some(&node.id)}
+                    />
                 }
-            }
-        }
+            </div>
+        </div>
     }
 }
 
 /// Connection line component for showing edge preview while dragging
-#[component]
-fn ConnectionLine(source: Position, target: Position) -> Element {
+component ConnectionLine(source: Position, target: Position) {
     let path = calculate_bezier_path(&source, &target);
 
-    rsx! {
-        path(
-            d: path,
-            fill: "none",
-            stroke: "var(--color-primary)",
-            stroke_width: "2",
-            stroke_dasharray: "5,5",
-            style: "pointer-events: none; opacity: 0.7;"
-        )
+    render {
+        <path
+            d={path}
+            fill="none"
+            stroke="var(--color-primary)"
+            stroke-width="2"
+            stroke-dasharray="5,5"
+            style="pointer-events: none; opacity: 0.7;"
+        />
     }
 }
 

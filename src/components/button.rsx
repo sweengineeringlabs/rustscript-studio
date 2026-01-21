@@ -20,37 +20,36 @@ pub enum ButtonSize {
 }
 
 /// Button component
-#[component]
-pub fn Button(
-    variant: Option<ButtonVariant>,
-    size: Option<ButtonSize>,
-    disabled: Option<bool>,
-    css_class: Option<String>,
-    onclick: Option<Callback<()>>,
+component Button(
+    variant?: ButtonVariant,
+    size?: ButtonSize,
+    disabled?: bool,
+    css_class?: String,
+    onclick?: Callback<()>,
     children: Children,
-) -> Element {
+) {
     let variant = variant.unwrap_or(ButtonVariant::Primary);
     let size = size.unwrap_or(ButtonSize::Md);
     let disabled = disabled.unwrap_or(false);
-    let class = class.unwrap_or_default();
+    let extra_class = css_class.unwrap_or_default();
 
-    let style = get_button_style(variant, size, disabled);
+    let btn_style = get_button_style(variant, size, disabled);
 
-    rsx! {
-        button(
-            class: format!("button {}", class),
-            style: style,
-            disabled: disabled,
-            onclick: move |_| {
+    render {
+        <button
+            class={format!("button {}", extra_class)}
+            style={btn_style}
+            disabled={disabled}
+            on:click={|| {
                 if !disabled {
                     if let Some(ref cb) = onclick {
                         cb.call(());
                     }
                 }
-            }
-        ) {
+            }}
+        >
             {children}
-        }
+        </button>
     }
 }
 

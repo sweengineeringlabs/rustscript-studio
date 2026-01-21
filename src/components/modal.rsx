@@ -24,135 +24,113 @@ impl Default for ModalSize {
 ///
 /// ## Example
 /// ```rust,ignore
-/// Modal {
-///     is_open: show_modal.get(),
-///     title: Some("Confirm Action".to_string()),
-///     on_close: Callback::new(move |_| show_modal.set(false)),
-///     children: rsx! {
-///         p { "Are you sure you want to proceed?" }
-///     }
-/// }
+/// <Modal
+///     is_open={show_modal.get()}
+///     title={"Confirm Action".to_string()}
+///     on_close={Callback::new(move |_| show_modal.set(false))}
+/// >
+///     <p>Are you sure you want to proceed?</p>
+/// </Modal>
 /// ```
-#[component]
-pub fn Modal(
+component Modal(
     /// Whether the modal is open
     is_open: bool,
     /// Modal title
-    title: Option<String>,
+    title?: String,
     /// Modal size
-    size: Option<ModalSize>,
+    size?: ModalSize,
     /// Whether clicking the overlay closes the modal
-    close_on_overlay_click: Option<bool>,
+    close_on_overlay_click?: bool,
     /// Whether pressing Escape closes the modal
-    close_on_escape: Option<bool>,
+    close_on_escape?: bool,
     /// Whether to show the close button
-    show_close_button: Option<bool>,
+    show_close_button?: bool,
     /// Callback when modal should close
-    on_close: Option<Callback<()>>,
+    on_close?: Callback<()>,
     /// Modal content
     children: Element,
-) -> Element {
+) {
     let size = size.unwrap_or(ModalSize::default());
     let close_on_overlay_click = close_on_overlay_click.unwrap_or(true);
     let close_on_escape = close_on_escape.unwrap_or(true);
     let show_close_button = show_close_button.unwrap_or(true);
 
-    if !is_open {
-        return rsx! {};
+    @if !is_open {
+        return render {};
     }
 
-    let on_overlay_click = {
-        let on_close = on_close.clone();
-        let close_on_overlay = close_on_overlay_click;
-        move |_: MouseEvent| {
-            if close_on_overlay {
-                if let Some(ref callback) = on_close {
-                    callback.call(());
-                }
-            }
-        }
-    };
-
-    let on_content_click = move |e: MouseEvent| {
-        e.stop_propagation();
-    };
-
-    let on_close_click = {
-        let on_close = on_close.clone();
-        move |_: MouseEvent| {
-            if let Some(ref callback) = on_close {
-                callback.call(());
-            }
-        }
-    };
-
-    let on_key_down = {
-        let on_close = on_close.clone();
-        let close_on_escape = close_on_escape;
-        move |e: KeyboardEvent| {
-            if close_on_escape && e.key() == "Escape" {
-                if let Some(ref callback) = on_close {
-                    callback.call(());
-                }
-            }
-        }
-    };
-
-    rsx! {
-        div(
-            class: "modal-overlay",
-            style: styles::overlay(),
-            onclick: on_overlay_click,
-            onkeydown: on_key_down,
-            tabindex: "-1",
-        ) {
-            div(
-                class: "modal-content",
-                style: styles::content(size),
-                onclick: on_content_click,
-                role: "dialog",
-                aria-modal: "true",
-            ) {
-                // Header
-                if title.is_some() || show_close_button {
-                    div(class: "modal-header", style: styles::header()) {
-                        if let Some(ref title) = title {
-                            h2(style: styles::title()) { { title.clone() } }
-                        }
-                        if show_close_button {
-                            button(
-                                class: "modal-close",
-                                style: styles::close_button(),
-                                onclick: on_close_click,
-                                aria-label: "Close",
-                            ) {
-                                svg(
-                                    width: "20",
-                                    height: "20",
-                                    viewBox: "0 0 24 24",
-                                    fill: "none",
-                                    stroke: "currentColor",
-                                    stroke-width: "2",
-                                ) {
-                                    path(d: "M18 6L6 18M6 6l12 12")
-                                }
-                            }
-                        }
+    render {
+        <div
+            class="modal-overlay"
+            style={styles::overlay()}
+            on:click={|_: MouseEvent| {
+                if close_on_overlay_click {
+                    if let Some(ref callback) = on_close {
+                        callback.call(());
                     }
+                }
+            }}
+            on:keydown={|e: KeyboardEvent| {
+                if close_on_escape && e.key() == "Escape" {
+                    if let Some(ref callback) = on_close {
+                        callback.call(());
+                    }
+                }
+            }}
+            tabindex="-1"
+        >
+            <div
+                class="modal-content"
+                style={styles::content(size)}
+                on:click={|e: MouseEvent| {
+                    e.stop_propagation();
+                }}
+                role="dialog"
+                aria-modal="true"
+            >
+                // Header
+                @if title.is_some() || show_close_button {
+                    <div class="modal-header" style={styles::header()}>
+                        @if let Some(ref title) = title {
+                            <h2 style={styles::title()}>{title.clone()}</h2>
+                        }
+                        @if show_close_button {
+                            <button
+                                class="modal-close"
+                                style={styles::close_button()}
+                                on:click={|_: MouseEvent| {
+                                    if let Some(ref callback) = on_close {
+                                        callback.call(());
+                                    }
+                                }}
+                                aria-label="Close"
+                            >
+                                <svg
+                                    width="20"
+                                    height="20"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <path d="M18 6L6 18M6 6l12 12" />
+                                </svg>
+                            </button>
+                        }
+                    </div>
                 }
 
                 // Body
-                div(class: "modal-body", style: styles::body()) {
-                    { children }
-                }
-            }
-        }
+                <div class="modal-body" style={styles::body()}>
+                    {children}
+                </div>
+            </div>
+        </div>
     }
 }
 
 /// Pre-built confirmation dialog.
-#[component]
-pub fn ConfirmDialog(
+component ConfirmDialog(
     /// Whether the dialog is open
     is_open: bool,
     /// Dialog title
@@ -160,60 +138,51 @@ pub fn ConfirmDialog(
     /// Confirmation message
     message: String,
     /// Confirm button text
-    confirm_text: Option<String>,
+    confirm_text?: String,
     /// Cancel button text
-    cancel_text: Option<String>,
+    cancel_text?: String,
     /// Whether the action is destructive (shows red confirm button)
-    destructive: Option<bool>,
+    destructive?: bool,
     /// Callback when confirmed
-    on_confirm: Option<Callback<()>>,
+    on_confirm?: Callback<()>,
     /// Callback when cancelled
-    on_cancel: Option<Callback<()>>,
-) -> Element {
+    on_cancel?: Callback<()>,
+) {
     let confirm_text = confirm_text.unwrap_or("Confirm".to_string());
     let cancel_text = cancel_text.unwrap_or("Cancel".to_string());
     let destructive = destructive.unwrap_or(false);
 
-    let on_confirm_handler = {
-        let callback = on_confirm.clone();
-        move |_| {
-            if let Some(ref cb) = callback {
-                cb.call(());
-            }
-        }
-    };
-
-    let on_cancel_handler = {
-        let callback = on_cancel.clone();
-        move |_| {
-            if let Some(ref cb) = callback {
-                cb.call(());
-            }
-        }
-    };
-
-    rsx! {
-        Modal {
-            is_open: is_open,
-            title: Some(title.clone()),
-            size: ModalSize::Sm,
-            on_close: on_cancel.clone(),
-            children: rsx! {
-                p(style: styles::message()) { { message.clone() } }
-                div(style: styles::actions()) {
-                    Button {
-                        variant: ButtonVariant::Secondary,
-                        on_click: Callback::new(on_cancel_handler),
-                        children: rsx! { { cancel_text.clone() } }
-                    }
-                    Button {
-                        variant: if destructive { ButtonVariant::Danger } else { ButtonVariant::Primary },
-                        on_click: Callback::new(on_confirm_handler),
-                        children: rsx! { { confirm_text.clone() } }
-                    }
-                }
-            }
-        }
+    render {
+        <Modal
+            is_open={is_open}
+            title={title.clone()}
+            size={ModalSize::Sm}
+            on_close={on_cancel.clone()}
+        >
+            <p style={styles::message()}>{message.clone()}</p>
+            <div style={styles::actions()}>
+                <Button
+                    variant={ButtonVariant::Secondary}
+                    on_click={Callback::new(|| {
+                        if let Some(ref cb) = on_cancel {
+                            cb.call(());
+                        }
+                    })}
+                >
+                    {cancel_text.clone()}
+                </Button>
+                <Button
+                    variant={if destructive { ButtonVariant::Danger } else { ButtonVariant::Primary }}
+                    on_click={Callback::new(|| {
+                        if let Some(ref cb) = on_confirm {
+                            cb.call(());
+                        }
+                    })}
+                >
+                    {confirm_text.clone()}
+                </Button>
+            </div>
+        </Modal>
     }
 }
 

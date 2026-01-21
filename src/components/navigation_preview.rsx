@@ -21,14 +21,13 @@ struct PreviewState {
 }
 
 /// Navigation preview component.
-#[component]
-pub fn NavigationPreview(
+component NavigationPreview(
     store: StudioStore,
     /// Optional callback when preview state changes
-    on_state_change: Option<Callback<(Option<String>, Option<String>, Option<String>)>>,
-) -> Element {
-    let preview_state = use_signal(PreviewState::default);
-    let show_layout_preview = use_signal(|| true);
+    on_state_change?: Callback<(Option<String>, Option<String>, Option<String>)>,
+) {
+    let preview_state = signal(PreviewState::default());
+    let show_layout_preview = signal(true);
 
     // Get current entities based on state
     let workflows = store.workflows();
@@ -120,178 +119,178 @@ pub fn NavigationPreview(
         }
     };
 
-    rsx! {
-        div(class: "navigation-preview", style: styles::container()) {
+    render {
+        <div class="navigation-preview" style={styles::container()}>
             // Header
-            div(class: "preview-header", style: styles::header()) {
-                div(style: "display: flex; align-items: center; gap: var(--spacing-sm);") {
-                    Icon { name: "play-circle".to_string(), size: 20 }
-                    h3(style: styles::title()) { "Navigation Preview" }
-                }
-                div(style: "display: flex; gap: var(--spacing-xs);") {
-                    Button {
-                        variant: ButtonVariant::Ghost,
-                        size: ButtonSize::Sm,
-                        onclick: {
+            <div class="preview-header" style={styles::header()}>
+                <div style="display: flex; align-items: center; gap: var(--spacing-sm);">
+                    <Icon name={"play-circle".to_string()} size={20} />
+                    <h3 style={styles::title()}>Navigation Preview</h3>
+                </div>
+                <div style="display: flex; gap: var(--spacing-xs);">
+                    <Button
+                        variant={ButtonVariant::Ghost}
+                        size={ButtonSize::Sm}
+                        onclick={{
                             let show_layout_preview = show_layout_preview.clone();
                             move |_| show_layout_preview.update(|v| *v = !*v)
-                        },
-                    } {
-                        Icon {
-                            name: if show_layout_preview.get() { "eye".to_string() } else { "eye-off".to_string() },
-                            size: 16
-                        }
-                    }
-                    Button {
-                        variant: ButtonVariant::Ghost,
-                        size: ButtonSize::Sm,
-                        onclick: reset,
-                    } {
-                        Icon { name: "refresh-cw".to_string(), size: 16 }
-                    }
-                }
-            }
+                        }}
+                    >
+                        <Icon
+                            name={if show_layout_preview.get() { "eye".to_string() } else { "eye-off".to_string() }}
+                            size={16}
+                        />
+                    </Button>
+                    <Button
+                        variant={ButtonVariant::Ghost}
+                        size={ButtonSize::Sm}
+                        onclick={Callback::new(reset.clone())}
+                    >
+                        <Icon name={"refresh-cw".to_string()} size={16} />
+                    </Button>
+                </div>
+            </div>
 
             // Breadcrumb navigation
-            div(class: "preview-breadcrumb", style: styles::breadcrumb()) {
-                span(
-                    class: "breadcrumb-item",
-                    style: styles::breadcrumb_item(preview_state.get().workflow_id.is_none()),
-                    onclick: {
+            <div class="preview-breadcrumb" style={styles::breadcrumb()}>
+                <span
+                    class="breadcrumb-item"
+                    style={styles::breadcrumb_item(preview_state.get().workflow_id.is_none())}
+                    on:click={{
                         let reset = reset.clone();
                         move |_| reset(())
-                    }
-                ) {
-                    Icon { name: "home".to_string(), size: 14 }
-                    "Workflows"
-                }
+                    }}
+                >
+                    <Icon name={"home".to_string()} size={14} />
+                    Workflows
+                </span>
 
-                if let Some(ref wf) = current_workflow {
-                    span(style: styles::breadcrumb_separator()) { "/" }
-                    span(
-                        class: "breadcrumb-item",
-                        style: styles::breadcrumb_item(preview_state.get().context_id.is_none()),
-                        onclick: {
+                @if let Some(ref wf) = current_workflow {
+                    <span style={styles::breadcrumb_separator()}>/</span>
+                    <span
+                        class="breadcrumb-item"
+                        style={styles::breadcrumb_item(preview_state.get().context_id.is_none())}
+                        on:click={{
                             let id = wf.id.clone();
                             let select_workflow = select_workflow.clone();
                             move |_| select_workflow(id.clone())
-                        }
-                    ) {
-                        Icon { name: "git-branch".to_string(), size: 14 }
-                        { wf.name.clone() }
-                    }
+                        }}
+                    >
+                        <Icon name={"git-branch".to_string()} size={14} />
+                        {wf.name.clone()}
+                    </span>
                 }
 
-                if let Some(ref ctx) = current_context {
-                    span(style: styles::breadcrumb_separator()) { "/" }
-                    span(
-                        class: "breadcrumb-item",
-                        style: styles::breadcrumb_item(preview_state.get().preset_id.is_none()),
-                        onclick: {
+                @if let Some(ref ctx) = current_context {
+                    <span style={styles::breadcrumb_separator()}>/</span>
+                    <span
+                        class="breadcrumb-item"
+                        style={styles::breadcrumb_item(preview_state.get().preset_id.is_none())}
+                        on:click={{
                             let id = ctx.id.clone();
                             let select_context = select_context.clone();
                             move |_| select_context(id.clone())
-                        }
-                    ) {
-                        Icon { name: "layers".to_string(), size: 14 }
-                        { ctx.name.clone() }
-                    }
+                        }}
+                    >
+                        <Icon name={"layers".to_string()} size={14} />
+                        {ctx.name.clone()}
+                    </span>
                 }
 
-                if let Some(ref preset) = current_preset {
-                    span(style: styles::breadcrumb_separator()) { "/" }
-                    span(
-                        class: "breadcrumb-item",
-                        style: styles::breadcrumb_item(true),
-                    ) {
-                        Icon { name: "layout".to_string(), size: 14 }
-                        { preset.name.clone() }
-                    }
+                @if let Some(ref preset) = current_preset {
+                    <span style={styles::breadcrumb_separator()}>/</span>
+                    <span
+                        class="breadcrumb-item"
+                        style={styles::breadcrumb_item(true)}
+                    >
+                        <Icon name={"layout".to_string()} size={14} />
+                        {preset.name.clone()}
+                    </span>
                 }
-            }
+            </div>
 
             // Content area
-            div(class: "preview-content", style: styles::content()) {
+            <div class="preview-content" style={styles::content()}>
                 // Show items to navigate to
-                if preview_state.get().workflow_id.is_none() {
+                @if preview_state.get().workflow_id.is_none() {
                     // Show workflows
-                    NavigationList {
-                        title: "Select a Workflow".to_string(),
-                        items: workflows.iter().map(|w| NavigationItem {
+                    <NavigationList
+                        title={"Select a Workflow".to_string()}
+                        items={workflows.iter().map(|w| NavigationItem {
                             id: w.id.clone(),
                             name: w.name.clone(),
                             description: w.description.clone(),
                             icon: w.icon.clone().unwrap_or_else(|| "git-branch".to_string()),
                             item_type: ItemType::Workflow,
-                        }).collect(),
-                        on_select: select_workflow.clone(),
-                    }
+                        }).collect()}
+                        on_select={Callback::new(select_workflow.clone())}
+                    />
                 } else if preview_state.get().context_id.is_none() {
                     // Show contexts in selected workflow
-                    if let Some(ref wf) = current_workflow {
-                        NavigationList {
-                            title: format!("Contexts in '{}'", wf.name),
-                            items: wf.contexts.values().map(|c| NavigationItem {
+                    @if let Some(ref wf) = current_workflow {
+                        <NavigationList
+                            title={format!("Contexts in '{}'", wf.name)}
+                            items={wf.contexts.values().map(|c| NavigationItem {
                                 id: c.id.clone(),
                                 name: c.name.clone(),
                                 description: c.description.clone(),
                                 icon: c.icon.clone().unwrap_or_else(|| "layers".to_string()),
                                 item_type: ItemType::Context,
-                            }).collect(),
-                            on_select: select_context.clone(),
-                        }
+                            }).collect()}
+                            on_select={Callback::new(select_context.clone())}
+                        />
                     }
                 } else if preview_state.get().preset_id.is_none() {
                     // Show presets in selected context
-                    if let Some(ref ctx) = current_context {
-                        NavigationList {
-                            title: format!("Presets in '{}'", ctx.name),
-                            items: ctx.presets.values().map(|p| NavigationItem {
+                    @if let Some(ref ctx) = current_context {
+                        <NavigationList
+                            title={format!("Presets in '{}'", ctx.name)}
+                            items={ctx.presets.values().map(|p| NavigationItem {
                                 id: p.id.clone(),
                                 name: p.name.clone(),
                                 description: p.description.clone(),
                                 icon: "layout".to_string(),
                                 item_type: ItemType::Preset,
-                            }).collect(),
-                            on_select: select_preset.clone(),
-                        }
+                            }).collect()}
+                            on_select={Callback::new(select_preset.clone())}
+                        />
                     }
                 } else {
                     // Show preset details and layout preview
-                    if let Some(ref preset) = current_preset {
-                        PresetPreview {
-                            preset: preset.clone(),
-                            show_layout: show_layout_preview.get(),
-                        }
+                    @if let Some(ref preset) = current_preset {
+                        <PresetPreview
+                            preset={preset.clone()}
+                            show_layout={show_layout_preview.get()}
+                        />
                     }
                 }
 
                 // Back button when not at root
-                if preview_state.get().workflow_id.is_some() {
-                    div(style: styles::back_button_container()) {
-                        Button {
-                            variant: ButtonVariant::Secondary,
-                            size: ButtonSize::Sm,
-                            onclick: go_back,
-                        } {
-                            Icon { name: "arrow-left".to_string() }
-                            "Back"
-                        }
-                    }
+                @if preview_state.get().workflow_id.is_some() {
+                    <div style={styles::back_button_container()}>
+                        <Button
+                            variant={ButtonVariant::Secondary}
+                            size={ButtonSize::Sm}
+                            onclick={Callback::new(go_back)}
+                        >
+                            <Icon name={"arrow-left".to_string()} />
+                            Back
+                        </Button>
+                    </div>
                 }
-            }
+            </div>
 
             // Status bar
-            div(class: "preview-status", style: styles::status()) {
-                span {
-                    { format!("{} workflows • {} contexts • {} presets",
+            <div class="preview-status" style={styles::status()}>
+                <span>
+                    {format!("{} workflows • {} contexts • {} presets",
                         workflows.len(),
                         workflows.iter().map(|w| w.contexts.len()).sum::<usize>(),
                         workflows.iter().flat_map(|w| w.contexts.values().map(|c| c.presets.len())).sum::<usize>()
                     )}
-                }
-            }
-        }
+                </span>
+            </div>
+        </div>
     }
 }
 
@@ -312,130 +311,127 @@ struct NavigationItem {
 }
 
 /// Navigation list for selecting items.
-#[component]
-fn NavigationList(
+component NavigationList(
     title: String,
     items: Vec<NavigationItem>,
     on_select: Callback<String>,
-) -> Element {
-    rsx! {
-        div(class: "navigation-list", style: list_styles::container()) {
-            h4(style: list_styles::title()) { { title } }
+) {
+    render {
+        <div class="navigation-list" style={list_styles::container()}>
+            <h4 style={list_styles::title()}>{title}</h4>
 
-            if items.is_empty() {
-                div(class: "empty-list", style: list_styles::empty()) {
-                    Icon { name: "inbox".to_string(), size: 32 }
-                    p { "No items available" }
-                }
+            @if items.is_empty() {
+                <div class="empty-list" style={list_styles::empty()}>
+                    <Icon name={"inbox".to_string()} size={32} />
+                    <p>No items available</p>
+                </div>
             } else {
-                div(class: "list-items", style: list_styles::items()) {
-                    for item in items {
-                        div(
-                            class: "list-item",
-                            style: list_styles::item(item.item_type),
-                            onclick: {
+                <div class="list-items" style={list_styles::items()}>
+                    @for item in items {
+                        <div
+                            class="list-item"
+                            style={list_styles::item(item.item_type)}
+                            on:click={{
                                 let id = item.id.clone();
                                 let on_select = on_select.clone();
                                 move |_| on_select.call(id.clone())
-                            }
-                        ) {
-                            div(class: "item-icon", style: list_styles::item_icon(item.item_type)) {
-                                Icon { name: item.icon.clone(), size: 20 }
-                            }
-                            div(class: "item-content", style: list_styles::item_content()) {
-                                span(class: "item-name", style: list_styles::item_name()) {
-                                    { item.name.clone() }
+                            }}
+                        >
+                            <div class="item-icon" style={list_styles::item_icon(item.item_type)}>
+                                <Icon name={item.icon.clone()} size={20} />
+                            </div>
+                            <div class="item-content" style={list_styles::item_content()}>
+                                <span class="item-name" style={list_styles::item_name()}>
+                                    {item.name.clone()}
+                                </span>
+                                @if let Some(ref desc) = item.description {
+                                    <span class="item-description" style={list_styles::item_description()}>
+                                        {desc.clone()}
+                                    </span>
                                 }
-                                if let Some(ref desc) = item.description {
-                                    span(class: "item-description", style: list_styles::item_description()) {
-                                        { desc.clone() }
-                                    }
-                                }
-                            }
-                            Icon { name: "chevron-right".to_string(), size: 16 }
-                        }
+                            </div>
+                            <Icon name={"chevron-right".to_string()} size={16} />
+                        </div>
                     }
-                }
+                </div>
             }
-        }
+        </div>
     }
 }
 
 /// Preset preview with layout visualization.
-#[component]
-fn PresetPreview(preset: Preset, show_layout: bool) -> Element {
+component PresetPreview(preset: Preset, show_layout: bool) {
     let layout = &preset.layout;
 
-    rsx! {
-        div(class: "preset-preview", style: preset_styles::container()) {
+    render {
+        <div class="preset-preview" style={preset_styles::container()}>
             // Preset info
-            div(class: "preset-info", style: preset_styles::info()) {
-                h4(style: preset_styles::name()) {
-                    Icon { name: "layout".to_string(), size: 20 }
-                    { preset.name.clone() }
+            <div class="preset-info" style={preset_styles::info()}>
+                <h4 style={preset_styles::name()}>
+                    <Icon name={"layout".to_string()} size={20} />
+                    {preset.name.clone()}
+                </h4>
+                @if let Some(ref desc) = preset.description {
+                    <p style={preset_styles::description()}>{desc.clone()}</p>
                 }
-                if let Some(ref desc) = preset.description {
-                    p(style: preset_styles::description()) { { desc.clone() } }
-                }
-            }
+            </div>
 
             // Layout configuration details
-            div(class: "preset-config", style: preset_styles::config()) {
-                h5(style: preset_styles::config_title()) { "Layout Configuration" }
+            <div class="preset-config" style={preset_styles::config()}>
+                <h5 style={preset_styles::config_title()}>Layout Configuration</h5>
 
                 // Activity Bar
-                div(class: "config-row", style: preset_styles::config_row()) {
-                    span(style: preset_styles::config_label()) { "Activity Bar" }
-                    span(style: preset_styles::config_value(layout.activity_bar.visible)) {
-                        if layout.activity_bar.visible {
-                            { format!("{:?}", layout.activity_bar.position) }
+                <div class="config-row" style={preset_styles::config_row()}>
+                    <span style={preset_styles::config_label()}>Activity Bar</span>
+                    <span style={preset_styles::config_value(layout.activity_bar.visible)}>
+                        @if layout.activity_bar.visible {
+                            {format!("{:?}", layout.activity_bar.position)}
                         } else {
-                            "Hidden"
+                            Hidden
                         }
-                    }
-                }
+                    </span>
+                </div>
 
                 // Sidebar
-                div(class: "config-row", style: preset_styles::config_row()) {
-                    span(style: preset_styles::config_label()) { "Sidebar" }
-                    span(style: preset_styles::config_value(layout.sidebar.visible)) {
-                        if layout.sidebar.visible {
-                            { format!("{:?} ({}px)", layout.sidebar.position, layout.sidebar.width) }
+                <div class="config-row" style={preset_styles::config_row()}>
+                    <span style={preset_styles::config_label()}>Sidebar</span>
+                    <span style={preset_styles::config_value(layout.sidebar.visible)}>
+                        @if layout.sidebar.visible {
+                            {format!("{:?} ({}px)", layout.sidebar.position, layout.sidebar.width)}
                         } else {
-                            "Hidden"
+                            Hidden
                         }
-                    }
-                }
+                    </span>
+                </div>
 
                 // Bottom Panel
-                div(class: "config-row", style: preset_styles::config_row()) {
-                    span(style: preset_styles::config_label()) { "Bottom Panel" }
-                    span(style: preset_styles::config_value(layout.bottom_panel.visible)) {
-                        if layout.bottom_panel.visible {
-                            { format!("{}px", layout.bottom_panel.height) }
+                <div class="config-row" style={preset_styles::config_row()}>
+                    <span style={preset_styles::config_label()}>Bottom Panel</span>
+                    <span style={preset_styles::config_value(layout.bottom_panel.visible)}>
+                        @if layout.bottom_panel.visible {
+                            {format!("{}px", layout.bottom_panel.height)}
                         } else {
-                            "Hidden"
+                            Hidden
                         }
-                    }
-                }
-            }
+                    </span>
+                </div>
+            </div>
 
             // Visual layout preview
-            if show_layout {
-                div(class: "layout-preview", style: preset_styles::layout_container()) {
-                    h5(style: preset_styles::config_title()) { "Layout Preview" }
-                    LayoutPreviewVisual {
-                        layout: layout.clone(),
-                    }
-                }
+            @if show_layout {
+                <div class="layout-preview" style={preset_styles::layout_container()}>
+                    <h5 style={preset_styles::config_title()}>Layout Preview</h5>
+                    <LayoutPreviewVisual
+                        layout={layout.clone()}
+                    />
+                </div>
             }
-        }
+        </div>
     }
 }
 
 /// Visual representation of a layout configuration.
-#[component]
-fn LayoutPreviewVisual(layout: LayoutConfig) -> Element {
+component LayoutPreviewVisual(layout: LayoutConfig) {
     // Determine the flex direction based on activity bar and sidebar positions
     let activity_bar_left = layout.activity_bar.visible &&
         matches!(layout.activity_bar.position, Position::Left);
@@ -446,60 +442,60 @@ fn LayoutPreviewVisual(layout: LayoutConfig) -> Element {
     let sidebar_right = layout.sidebar.visible &&
         matches!(layout.sidebar.position, Position::Right);
 
-    rsx! {
-        div(class: "layout-visual", style: visual_styles::container()) {
+    render {
+        <div class="layout-visual" style={visual_styles::container()}>
             // Header area
-            div(style: visual_styles::header()) {
-                span(style: visual_styles::header_text()) { "Header" }
-            }
+            <div style={visual_styles::header()}>
+                <span style={visual_styles::header_text()}>Header</span>
+            </div>
 
             // Main content row
-            div(style: visual_styles::main_row()) {
+            <div style={visual_styles::main_row()}>
                 // Activity bar (left)
-                if activity_bar_left {
-                    div(style: visual_styles::activity_bar()) {
-                        div(style: visual_styles::activity_icon())
-                        div(style: visual_styles::activity_icon())
-                        div(style: visual_styles::activity_icon())
-                    }
+                @if activity_bar_left {
+                    <div style={visual_styles::activity_bar()}>
+                        <div style={visual_styles::activity_icon()} />
+                        <div style={visual_styles::activity_icon()} />
+                        <div style={visual_styles::activity_icon()} />
+                    </div>
                 }
 
                 // Sidebar (left)
-                if sidebar_left {
-                    div(style: visual_styles::sidebar(layout.sidebar.width as f64 / 300.0 * 100.0)) {
-                        span(style: visual_styles::sidebar_text()) { "Sidebar" }
-                    }
+                @if sidebar_left {
+                    <div style={visual_styles::sidebar(layout.sidebar.width as f64 / 300.0 * 100.0)}>
+                        <span style={visual_styles::sidebar_text()}>Sidebar</span>
+                    </div>
                 }
 
                 // Main content area
-                div(style: visual_styles::main_content()) {
-                    span(style: visual_styles::main_text()) { "Main Content" }
-                }
+                <div style={visual_styles::main_content()}>
+                    <span style={visual_styles::main_text()}>Main Content</span>
+                </div>
 
                 // Sidebar (right)
-                if sidebar_right {
-                    div(style: visual_styles::sidebar(layout.sidebar.width as f64 / 300.0 * 100.0)) {
-                        span(style: visual_styles::sidebar_text()) { "Sidebar" }
-                    }
+                @if sidebar_right {
+                    <div style={visual_styles::sidebar(layout.sidebar.width as f64 / 300.0 * 100.0)}>
+                        <span style={visual_styles::sidebar_text()}>Sidebar</span>
+                    </div>
                 }
 
                 // Activity bar (right)
-                if activity_bar_right {
-                    div(style: visual_styles::activity_bar()) {
-                        div(style: visual_styles::activity_icon())
-                        div(style: visual_styles::activity_icon())
-                        div(style: visual_styles::activity_icon())
-                    }
+                @if activity_bar_right {
+                    <div style={visual_styles::activity_bar()}>
+                        <div style={visual_styles::activity_icon()} />
+                        <div style={visual_styles::activity_icon()} />
+                        <div style={visual_styles::activity_icon()} />
+                    </div>
                 }
-            }
+            </div>
 
             // Bottom panel
-            if layout.bottom_panel.visible {
-                div(style: visual_styles::bottom_panel(layout.bottom_panel.height as f64 / 300.0 * 100.0)) {
-                    span(style: visual_styles::panel_text()) { "Bottom Panel" }
-                }
+            @if layout.bottom_panel.visible {
+                <div style={visual_styles::bottom_panel(layout.bottom_panel.height as f64 / 300.0 * 100.0)}>
+                    <span style={visual_styles::panel_text()}>Bottom Panel</span>
+                </div>
             }
-        }
+        </div>
     }
 }
 

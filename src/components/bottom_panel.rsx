@@ -6,10 +6,9 @@ use crate::hooks::StudioStore;
 use super::{Tabs, Tab, Icon};
 
 /// Bottom panel component.
-#[component]
-pub fn BottomPanel(store: StudioStore) -> Element {
-    let active_tab = use_signal(|| "output".to_string());
-    let height = use_signal(|| 200);
+component BottomPanel(store: StudioStore) {
+    let active_tab = signal("output".to_string());
+    let height = signal(200);
 
     let tabs = vec![
         Tab {
@@ -29,84 +28,81 @@ pub fn BottomPanel(store: StudioStore) -> Element {
         },
     ];
 
-    rsx! {
-        div(
-            class: "bottom-panel",
-            style: styles::container(height.get()),
-        ) {
+    render {
+        <div
+            class="bottom-panel"
+            style={styles::container(height.get())}
+        >
             // Resize handle
-            div(
-                class: "resize-handle",
-                style: styles::resize_handle(),
+            <div
+                class="resize-handle"
+                style={styles::resize_handle()}
                 // TODO: Add drag handlers for resizing
-            )
+            />
 
             // Tab bar
-            Tabs {
-                tabs: tabs,
-                active: active_tab.clone(),
-                on_change: move |id| active_tab.set(id),
-            }
+            <Tabs
+                tabs={tabs}
+                active={active_tab.clone()}
+                on_change={Callback::new(|id| active_tab.set(id))}
+            />
 
             // Content
-            div(class: "bottom-panel-content", style: styles::content()) {
-                match active_tab.get().as_str() {
+            <div class="bottom-panel-content" style={styles::content()}>
+                @match active_tab.get().as_str() {
                     "output" => {
-                        OutputPanel {}
+                        <OutputPanel />
                     }
                     "problems" => {
-                        ProblemsPanel {}
+                        <ProblemsPanel />
                     }
                     "css-preview" => {
-                        CssPreviewPanel { store: store.clone() }
+                        <CssPreviewPanel store={store.clone()} />
                     }
                     _ => {
-                        div { "Unknown tab" }
+                        <div>Unknown tab</div>
                     }
                 }
-            }
-        }
+            </div>
+        </div>
     }
 }
 
 /// Output panel for logs and messages.
-#[component]
-fn OutputPanel() -> Element {
-    rsx! {
-        div(class: "output-panel", style: styles::output_panel()) {
-            pre(style: styles::output_text()) {
+component OutputPanel() {
+    render {
+        <div class="output-panel" style={styles::output_panel()}>
+            <pre style={styles::output_text()}>
                 "[info] RustScript Studio started\n"
                 "[info] Design tokens loaded from design/theme.yaml\n"
                 "[info] Ready"
-            }
-        }
+            </pre>
+        </div>
     }
 }
 
 /// Problems panel for validation errors.
-#[component]
-fn ProblemsPanel() -> Element {
-    rsx! {
-        div(class: "problems-panel", style: styles::problems_panel()) {
-            div(class: "no-problems", style: styles::no_problems()) {
-                Icon { name: "check-circle".to_string() }
-                span { "No problems detected" }
-            }
-        }
+component ProblemsPanel() {
+    render {
+        <div class="problems-panel" style={styles::problems_panel()}>
+            <div class="no-problems" style={styles::no_problems()}>
+                <Icon name={"check-circle".to_string()} />
+                <span>No problems detected</span>
+            </div>
+        </div>
     }
 }
 
 /// CSS preview panel.
-#[component]
-fn CssPreviewPanel(store: StudioStore) -> Element {
+component CssPreviewPanel(store: StudioStore) {
     let css = store.get_generated_css();
 
-    rsx! {
-        div(class: "css-preview-panel", style: styles::css_preview()) {
-            pre(style: styles::css_code()) {
-                { css }
-            }
-        }
+    render {
+        <div class="css-preview-panel" style={styles::css_preview()}>
+            <pre style={styles::css_code()}>
+                {css}
+            </pre>
+        </div>
     }
 }
 

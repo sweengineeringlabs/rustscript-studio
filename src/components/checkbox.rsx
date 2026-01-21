@@ -20,131 +20,110 @@ impl Default for CheckboxSize {
 ///
 /// ## Example
 /// ```rust,ignore
-/// Checkbox(
-///     checked: is_enabled.get(),
-///     label: Some("Enable notifications".to_string()),
-///     description: Some("Receive email updates".to_string()),
-///     on_change: Some(Callback::new(move |v| is_enabled.set(v))),
-/// )
+/// <Checkbox
+///     checked={is_enabled.get()}
+///     label={"Enable notifications".to_string()}
+///     description={"Receive email updates".to_string()}
+///     on_change={Callback::new(move |v| is_enabled.set(v))}
+/// />
 /// ```
-#[component]
-pub fn Checkbox(
-    checked: Option<bool>,
-    indeterminate: Option<bool>,
-    size: Option<CheckboxSize>,
-    disabled: Option<bool>,
-    error: Option<bool>,
-    label: Option<String>,
-    description: Option<String>,
-    on_change: Option<Callback<bool>>,
-    css_class: Option<String>,
-) -> Element {
+component Checkbox(
+    checked?: bool,
+    indeterminate?: bool,
+    size?: CheckboxSize,
+    disabled?: bool,
+    error?: bool,
+    label?: String,
+    description?: String,
+    on_change?: Callback<bool>,
+    css_class?: String,
+) {
     let checked = checked.unwrap_or(false);
     let indeterminate = indeterminate.unwrap_or(false);
     let size = size.unwrap_or(CheckboxSize::Md);
     let disabled = disabled.unwrap_or(false);
     let error = error.unwrap_or(false);
 
-    let is_focused = state(false);
+    let is_focused = signal(false);
     let extra_class = css_class.unwrap_or_default();
 
-    let handle_change = {
-        let on_change = on_change.clone();
-        move |_: InputEvent| {
-            if let Some(ref callback) = on_change {
-                callback.call(!checked);
-            }
-        }
-    };
-
-    let handle_focus = {
-        let is_focused = is_focused.clone();
-        move |_: FocusEvent| {
-            is_focused.set(true);
-        }
-    };
-
-    let handle_blur = {
-        let is_focused = is_focused.clone();
-        move |_: FocusEvent| {
-            is_focused.set(false);
-        }
-    };
-
-    let handle_click = {
-        let on_change = on_change.clone();
-        move |_: MouseEvent| {
-            if !disabled {
-                if let Some(ref callback) = on_change {
-                    callback.call(!checked);
+    render {
+        <label
+            class={format!("checkbox-wrapper {}", extra_class)}
+            style={styles::wrapper(disabled)}
+            on:click={|_: MouseEvent| {
+                if !disabled {
+                    if let Some(ref callback) = on_change {
+                        callback.call(!checked);
+                    }
                 }
-            }
-        }
-    };
-
-    rsx! {
-        label(
-            class: format!("checkbox-wrapper {}", extra_class),
-            style: styles::wrapper(disabled),
-            onclick: handle_click
-        ) {
+            }}
+        >
             // Hidden native checkbox for accessibility
-            input(
-                type: "checkbox",
-                checked: checked,
-                disabled: disabled,
-                style: styles::hidden_input(),
-                onchange: handle_change,
-                onfocus: handle_focus,
-                onblur: handle_blur
-            )
+            <input
+                type="checkbox"
+                checked={checked}
+                disabled={disabled}
+                style={styles::hidden_input()}
+                on:change={|_: InputEvent| {
+                    if let Some(ref callback) = on_change {
+                        callback.call(!checked);
+                    }
+                }}
+                on:focus={|_: FocusEvent| {
+                    is_focused.set(true);
+                }}
+                on:blur={|_: FocusEvent| {
+                    is_focused.set(false);
+                }}
+            />
 
             // Custom checkbox visual
-            div(
-                class: "checkbox-box",
-                style: styles::box_style(size, checked, indeterminate, disabled, error, is_focused.get())
-            ) {
-                if checked {
+            <div
+                class="checkbox-box"
+                style={styles::box_style(size, checked, indeterminate, disabled, error, is_focused.get())}
+            >
+                @if checked {
                     // Checkmark icon
-                    svg(
-                        viewBox: "0 0 24 24",
-                        fill: "none",
-                        stroke: "currentColor",
-                        stroke_width: "3",
-                        style: styles::icon(size)
-                    ) {
-                        path(d: "M5 12l5 5L20 7")
-                    }
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        style={styles::icon(size)}
+                    >
+                        <path d="M5 12l5 5L20 7" />
+                    </svg>
                 } else if indeterminate {
                     // Indeterminate line
-                    svg(
-                        viewBox: "0 0 24 24",
-                        fill: "none",
-                        stroke: "currentColor",
-                        stroke_width: "3",
-                        style: styles::icon(size)
-                    ) {
-                        path(d: "M5 12h14")
-                    }
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        style={styles::icon(size)}
+                    >
+                        <path d="M5 12h14" />
+                    </svg>
                 }
-            }
+            </div>
 
             // Label and description
-            if label.is_some() || description.is_some() {
-                div(class: "checkbox-content", style: styles::content()) {
-                    if let Some(ref lbl) = label {
-                        span(class: "checkbox-label", style: styles::label(size, disabled)) {
+            @if label.is_some() || description.is_some() {
+                <div class="checkbox-content" style={styles::content()}>
+                    @if let Some(ref lbl) = label {
+                        <span class="checkbox-label" style={styles::label(size, disabled)}>
                             {lbl.clone()}
-                        }
+                        </span>
                     }
-                    if let Some(ref desc) = description {
-                        span(class: "checkbox-description", style: styles::description(disabled)) {
+                    @if let Some(ref desc) = description {
+                        <span class="checkbox-description" style={styles::description(disabled)}>
                             {desc.clone()}
-                        }
+                        </span>
                     }
-                }
+                </div>
             }
-        }
+        </label>
     }
 }
 
@@ -309,88 +288,72 @@ mod styles {
 ///
 /// ## Example
 /// ```rust,ignore
-/// Switch(
-///     checked: dark_mode.get(),
-///     label: Some("Dark mode".to_string()),
-///     on_change: Some(Callback::new(move |v| dark_mode.set(v))),
-/// )
+/// <Switch
+///     checked={dark_mode.get()}
+///     label={"Dark mode".to_string()}
+///     on_change={Callback::new(move |v| dark_mode.set(v))}
+/// />
 /// ```
-#[component]
-pub fn Switch(
-    checked: Option<bool>,
-    size: Option<CheckboxSize>,
-    disabled: Option<bool>,
-    label: Option<String>,
-    on_change: Option<Callback<bool>>,
-    css_class: Option<String>,
-) -> Element {
+component Switch(
+    checked?: bool,
+    size?: CheckboxSize,
+    disabled?: bool,
+    label?: String,
+    on_change?: Callback<bool>,
+    css_class?: String,
+) {
     let checked = checked.unwrap_or(false);
     let size = size.unwrap_or(CheckboxSize::Md);
     let disabled = disabled.unwrap_or(false);
 
-    let is_focused = state(false);
+    let is_focused = signal(false);
     let extra_class = css_class.unwrap_or_default();
 
-    let handle_click = {
-        let on_change = on_change.clone();
-        move |_: MouseEvent| {
-            if !disabled {
-                if let Some(ref callback) = on_change {
-                    callback.call(!checked);
+    render {
+        <label
+            class={format!("switch-wrapper {}", extra_class)}
+            style={switch_styles::wrapper(disabled)}
+            on:click={|_: MouseEvent| {
+                if !disabled {
+                    if let Some(ref callback) = on_change {
+                        callback.call(!checked);
+                    }
                 }
-            }
-        }
-    };
-
-    let handle_focus = {
-        let is_focused = is_focused.clone();
-        move |_: FocusEvent| {
-            is_focused.set(true);
-        }
-    };
-
-    let handle_blur = {
-        let is_focused = is_focused.clone();
-        move |_: FocusEvent| {
-            is_focused.set(false);
-        }
-    };
-
-    rsx! {
-        label(
-            class: format!("switch-wrapper {}", extra_class),
-            style: switch_styles::wrapper(disabled),
-            onclick: handle_click
-        ) {
+            }}
+        >
             // Hidden native checkbox for accessibility
-            input(
-                type: "checkbox",
-                checked: checked,
-                disabled: disabled,
-                style: styles::hidden_input(),
-                onfocus: handle_focus,
-                onblur: handle_blur
-            )
+            <input
+                type="checkbox"
+                checked={checked}
+                disabled={disabled}
+                style={styles::hidden_input()}
+                on:focus={|_: FocusEvent| {
+                    is_focused.set(true);
+                }}
+                on:blur={|_: FocusEvent| {
+                    is_focused.set(false);
+                }}
+            />
 
             // Switch track
-            div(
-                class: "switch-track",
-                style: switch_styles::track(size, checked, disabled, is_focused.get())
-            ) {
+            <div
+                class="switch-track"
+                style={switch_styles::track(size, checked, disabled, is_focused.get())}
+            >
                 // Switch thumb
-                div(
-                    class: "switch-thumb",
-                    style: switch_styles::thumb(size, checked)
-                )
-            }
+                <div
+                    class="switch-thumb"
+                    style={switch_styles::thumb(size, checked)}
+                />
+            </div>
 
             // Label
-            if let Some(ref lbl) = label {
-                span(class: "switch-label", style: switch_styles::label(size, disabled)) {
+            @if let Some(ref lbl) = label {
+                <span class="switch-label" style={switch_styles::label(size, disabled)}>
                     {lbl.clone()}
-                }
+                </span>
             }
-        }
+        </label>
     }
 }
 

@@ -3,6 +3,7 @@
 use rsc::prelude::*;
 
 use rsc_flow::prelude::{Edge, Position};
+use super::flow_canvas::StudioEdge;
 
 /// Edge style variants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -19,91 +20,88 @@ impl Default for EdgeStyle {
 }
 
 /// Flow edge component with bezier curve routing and arrow markers.
-#[component]
-pub fn FlowEdge<T: Clone + 'static>(
-    edge: Edge<T>,
-    source_pos: Option<Position>,
-    target_pos: Option<Position>,
-    on_select: Option<Callback<String>>,
+component FlowEdge(
+    edge: StudioEdge,
+    source_pos?: Position,
+    target_pos?: Position,
+    on_select?: Callback<String>,
     /// Optional edge style for different connection types
-    style: Option<EdgeStyle>,
-) -> Element {
-    let (source, target) = match (source_pos, target_pos) {
-        (Some(s), Some(t)) => (s, t),
-        _ => return rsx! {},
+    edge_variant?: EdgeStyle,
+) {
+    let source = match source_pos {
+        Some(s) => s,
+        None => return render {},
+    };
+    let target = match target_pos {
+        Some(t) => t,
+        None => return render {},
     };
 
-    let edge_style = style.unwrap_or_default();
+    let edge_style = edge_variant.unwrap_or_default();
     let path = calculate_bezier_path(&source, &target);
     let arrow_path = calculate_arrow_path(&source, &target);
 
     // Get colors based on style
+    let workflow_style = EdgeStyle::Workflow;
+    let context_style = EdgeStyle::Context;
     let (stroke_color, arrow_color) = if edge.selected {
         ("var(--color-primary)", "var(--color-primary)")
+    } else if edge_style == workflow_style {
+        ("var(--color-secondary)", "var(--color-secondary)")
+    } else if edge_style == context_style {
+        ("var(--color-accent)", "var(--color-accent)")
     } else {
-        match edge_style {
-            EdgeStyle::Workflow => ("var(--color-secondary)", "var(--color-secondary)"),
-            EdgeStyle::Context => ("var(--color-accent)", "var(--color-accent)"),
-            EdgeStyle::Default => ("var(--color-border)", "var(--color-border)"),
-        }
+        ("var(--color-border)", "var(--color-border)")
     };
 
     let stroke_width = if edge.selected { "3" } else { "2" };
 
-    let on_click = {
-        let id = edge.id.clone();
-        move |_: MouseEvent| {
+    render {
+        <g class={format!("flow-edge {}", if edge.selected { "selected" } else { "" })} on:click={|| {
             if let Some(ref on_select) = on_select {
-                on_select.call(id.clone());
+                on_select.call(edge.id.clone());
             }
-        }
-    };
-
-    rsx! {
-        g(class: format!("flow-edge {}", if edge.selected { "selected" } else { "" }), onclick: on_click) {
+        }}>
             // Invisible wider path for easier clicking
-            path(
-                d: path.clone(),
-                fill: "none",
-                stroke: "transparent",
-                stroke_width: "20",
-                style: "cursor: pointer; pointer-events: stroke;",
-            )
+            <path
+                d={path.clone()}
+                fill="none"
+                stroke="transparent"
+                stroke-width="20"
+                style="cursor: pointer; pointer-events: stroke;"
+            />
 
             // Visible edge path with gradient
-            path(
-                class: "edge-line",
-                d: path.clone(),
-                fill: "none",
-                stroke: stroke_color,
-                stroke_width: stroke_width,
-                stroke_linecap: "round",
-                style: "pointer-events: none; transition: stroke 0.15s ease, stroke-width 0.15s ease;",
-            )
+            <path
+                class="edge-line"
+                d={path.clone()}
+                fill="none"
+                stroke={stroke_color}
+                stroke-width={stroke_width}
+                stroke-linecap="round"
+                style="pointer-events: none; transition: stroke 0.15s ease, stroke-width 0.15s ease;"
+            />
 
             // Arrow marker at target
-            path(
-                class: "edge-arrow",
-                d: arrow_path,
-                fill: arrow_color,
-                stroke: "none",
-                style: "pointer-events: none; transition: fill 0.15s ease;",
-            )
+            <path
+                class="edge-arrow"
+                d={arrow_path}
+                fill={arrow_color}
+                stroke="none"
+                style="pointer-events: none; transition: fill 0.15s ease;"
+            />
 
             // Animated dot for active connections
-            if edge.animated {
-                circle(
-                    r: "4",
-                    fill: stroke_color,
-                ) {
-                    animateMotion(
-                        dur: "1.5s",
-                        repeatCount: "indefinite",
-                        path: path,
-                    )
-                }
+            @if edge.animated {
+                <circle r="4" fill={stroke_color}>
+                    <animateMotion
+                        dur="1.5s"
+                        repeatCount="indefinite"
+                        path={path}
+                    />
+                </circle>
             }
-        }
+        </g>
     }
 }
 

@@ -100,35 +100,34 @@ impl SpacingValue {
 ///     on_change: Callback::new(move |v| spacing.set(v)),
 /// }
 /// ```
-#[component]
-pub fn SpacingEditor(
+component SpacingEditor(
     /// Current spacing value (e.g., "1rem", "16px")
     value: String,
     /// Label for the spacing value
-    label: Option<String>,
+    label?: String,
     /// Minimum value
-    min: Option<f64>,
+    min?: f64,
     /// Maximum value
-    max: Option<f64>,
+    max?: f64,
     /// Step increment
-    step: Option<f64>,
+    step?: f64,
     /// Whether to show the visual preview
-    show_preview: Option<bool>,
+    show_preview?: bool,
     /// Whether the editor is disabled
     disabled: bool,
     /// Callback when value changes
-    on_change: Option<Callback<String>>,
-) -> Element {
+    on_change?: Callback<String>,
+) {
     let min = min.unwrap_or(0.0);
     let max = max.unwrap_or(10.0);
     let step = step.unwrap_or(0.25);
     let show_preview = show_preview.unwrap_or(true);
 
-    let parsed = use_signal(|| SpacingValue::from_str(&value).unwrap_or_default());
+    let parsed = signal(SpacingValue::from_str(&value).unwrap_or_default());
     let base_font_size = 16.0; // Standard base font size
 
     // Update internal state when prop changes
-    use_effect(move || {
+    effect(move || {
         if let Some(new_parsed) = SpacingValue::from_str(&value) {
             parsed.set(new_parsed);
         }
@@ -176,63 +175,63 @@ pub fn SpacingEditor(
     let current = parsed.get();
     let preview_px = current.to_px(base_font_size);
 
-    rsx! {
-        div(class: "spacing-editor", style: styles::container(disabled)) {
+    render {
+        <div class="spacing-editor" style={styles::container(disabled)}>
             // Label
-            if let Some(ref label) = label {
-                label(class: "spacing-editor-label", style: styles::label()) {
-                    { label.clone() }
-                }
+            @if let Some(ref label) = label {
+                <label class="spacing-editor-label" style={styles::label()}>
+                    {label.clone()}
+                </label>
             }
 
             // Visual preview
-            if show_preview {
-                div(class: "spacing-editor-preview", style: styles::preview_container()) {
-                    div(class: "spacing-editor-preview-bar", style: styles::preview_bar(preview_px))
-                    span(class: "spacing-editor-preview-value", style: styles::preview_value()) {
-                        { format!("{}px", preview_px as i32) }
-                    }
-                }
+            @if show_preview {
+                <div class="spacing-editor-preview" style={styles::preview_container()}>
+                    <div class="spacing-editor-preview-bar" style={styles::preview_bar(preview_px)} />
+                    <span class="spacing-editor-preview-value" style={styles::preview_value()}>
+                        {format!("{}px", preview_px as i32)}
+                    </span>
+                </div>
             }
 
             // Slider
-            div(class: "spacing-editor-slider", style: styles::slider_container()) {
-                input(
-                    type: "range",
-                    min: min.to_string(),
-                    max: max.to_string(),
-                    step: step.to_string(),
-                    value: current.value.to_string(),
-                    disabled: disabled,
-                    style: styles::slider(),
-                    oninput: on_slider_input,
-                )
-            }
+            <div class="spacing-editor-slider" style={styles::slider_container()}>
+                <input
+                    type="range"
+                    min={min.to_string()}
+                    max={max.to_string()}
+                    step={step.to_string()}
+                    value={current.value.to_string()}
+                    disabled={disabled}
+                    style={styles::slider()}
+                    on:input={on_slider_input}
+                />
+            </div>
 
             // Value input and unit selector
-            div(class: "spacing-editor-inputs", style: styles::inputs_row()) {
-                input(
-                    type: "number",
-                    min: min.to_string(),
-                    max: max.to_string(),
-                    step: step.to_string(),
-                    value: current.value.to_string(),
-                    disabled: disabled,
-                    style: styles::value_input(),
-                    oninput: on_value_input,
-                )
+            <div class="spacing-editor-inputs" style={styles::inputs_row()}>
+                <input
+                    type="number"
+                    min={min.to_string()}
+                    max={max.to_string()}
+                    step={step.to_string()}
+                    value={current.value.to_string()}
+                    disabled={disabled}
+                    style={styles::value_input()}
+                    on:input={on_value_input}
+                />
 
-                select(
-                    disabled: disabled,
-                    style: styles::unit_select(),
-                    onchange: on_unit_change,
-                ) {
-                    option(value: "rem", selected: current.unit == SpacingUnit::Rem) { "rem" }
-                    option(value: "px", selected: current.unit == SpacingUnit::Px) { "px" }
-                    option(value: "em", selected: current.unit == SpacingUnit::Em) { "em" }
-                }
-            }
-        }
+                <select
+                    disabled={disabled}
+                    style={styles::unit_select()}
+                    on:change={on_unit_change}
+                >
+                    <option value="rem" selected={current.unit == SpacingUnit::Rem}>rem</option>
+                    <option value="px" selected={current.unit == SpacingUnit::Px}>px</option>
+                    <option value="em" selected={current.unit == SpacingUnit::Em}>em</option>
+                </select>
+            </div>
+        </div>
     }
 }
 
@@ -349,24 +348,23 @@ mod styles {
 }
 
 /// SpacingScale component for editing multiple spacing tokens at once.
-#[component]
-pub fn SpacingScale(
+component SpacingScale(
     /// Spacing scale values (e.g., {"xs": "0.25rem", "sm": "0.5rem", ...})
     values: Vec<(String, String)>,
     /// Whether the editor is disabled
     disabled: bool,
     /// Callback when a value changes (token_name, new_value)
-    on_change: Option<Callback<(String, String)>>,
-) -> Element {
-    rsx! {
-        div(class: "spacing-scale", style: scale_styles::container()) {
-            for (name, value) in values.iter() {
-                div(class: "spacing-scale-item", style: scale_styles::item()) {
-                    SpacingEditor {
-                        value: value.clone(),
-                        label: Some(name.clone()),
-                        disabled: disabled,
-                        on_change: {
+    on_change?: Callback<(String, String)>,
+) {
+    render {
+        <div class="spacing-scale" style={scale_styles::container()}>
+            @for (name, value) in values.iter() {
+                <div class="spacing-scale-item" style={scale_styles::item()}>
+                    <SpacingEditor
+                        value={value.clone()}
+                        label={Some(name.clone())}
+                        disabled={disabled}
+                        on_change={{
                             let name = name.clone();
                             let on_change = on_change.clone();
                             Callback::new(move |new_value: String| {
@@ -374,11 +372,11 @@ pub fn SpacingScale(
                                     callback.call((name.clone(), new_value));
                                 }
                             })
-                        },
-                    }
-                }
+                        }}
+                    />
+                </div>
             }
-        }
+        </div>
     }
 }
 

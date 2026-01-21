@@ -57,43 +57,42 @@ impl SelectOption {
 ///
 /// ## Example
 /// ```rust,ignore
-/// Select {
-///     value: selected.get(),
-///     options: vec![
+/// <Select
+///     value={selected.get()}
+///     options={vec![
 ///         SelectOption::new("opt1", "Option 1"),
 ///         SelectOption::new("opt2", "Option 2"),
-///     ],
-///     placeholder: Some("Choose an option".to_string()),
-///     on_change: Callback::new(move |v| selected.set(v)),
-/// }
+///     ]}
+///     placeholder={"Choose an option".to_string()}
+///     on_change={Callback::new(move |v| selected.set(v))}
+/// />
 /// ```
-#[component]
-pub fn Select(
+component Select(
     /// Currently selected value
-    value: Option<String>,
+    value?: String,
     /// Available options
     options: Vec<SelectOption>,
     /// Placeholder text when no value is selected
-    placeholder: Option<String>,
+    placeholder?: String,
     /// Select size
-    size: Option<SelectSize>,
+    size?: SelectSize,
     /// Select variant
-    variant: Option<SelectVariant>,
+    variant?: SelectVariant,
     /// Whether the select is disabled
-    disabled: Option<bool>,
+    disabled?: bool,
     /// Whether the select is required
-    required: Option<bool>,
+    required?: bool,
     /// Whether the select has an error state
-    error: Option<bool>,
+    error?: bool,
     /// Callback when selection changes
-    on_change: Option<Callback<String>>,
+    on_change?: Callback<String>,
     /// Callback when select receives focus
-    on_focus: Option<Callback<()>>,
+    on_focus?: Callback<()>,
     /// Callback when select loses focus
-    on_blur: Option<Callback<()>>,
+    on_blur?: Callback<()>,
     /// Additional CSS class
-    css_class: Option<String>,
-) -> Element {
+    css_class?: String,
+) {
     let value = value.unwrap_or(String::new());
     let size = size.unwrap_or(SelectSize::default());
     let variant = variant.unwrap_or(SelectVariant::default());
@@ -101,94 +100,79 @@ pub fn Select(
     let required = required.unwrap_or(false);
     let error = error.unwrap_or(false);
 
-    let is_focused = use_signal(|| false);
-    let style = get_select_style(
+    let is_focused = signal(false);
+    let select_style = get_select_style(
         variant,
         size,
         disabled,
         error,
         is_focused.get(),
     );
-    let class = class.clone().unwrap_or_default();
+    let extra_class = css_class.unwrap_or_default();
 
-    let on_change_handler = {
-        let on_change = on_change.clone();
-        move |e: InputEvent| {
-            if let Some(ref callback) = on_change {
-                callback.call(e.value());
-            }
-        }
-    };
-
-    let on_focus_handler = {
-        let on_focus_cb = on_focus.clone();
-        move |_: FocusEvent| {
-            is_focused.set(true);
-            if let Some(ref callback) = on_focus_cb {
-                callback.call(());
-            }
-        }
-    };
-
-    let on_blur_handler = {
-        let on_blur_cb = on_blur.clone();
-        move |_: FocusEvent| {
-            is_focused.set(false);
-            if let Some(ref callback) = on_blur_cb {
-                callback.call(());
-            }
-        }
-    };
-
-    rsx! {
-        div(class: format!("select-wrapper {}", class), style: styles::wrapper()) {
-            select(
-                class: "select",
-                style: style,
-                disabled: disabled,
-                required: required,
-                onchange: on_change_handler,
-                onfocus: on_focus_handler,
-                onblur: on_blur_handler,
-            ) {
-                // Placeholder option
-                if let Some(ref placeholder) = placeholder {
-                    option(
-                        value: "",
-                        disabled: true,
-                        selected: value.is_empty(),
-                        style: styles::placeholder_option(),
-                    ) {
-                        { placeholder.clone() }
+    render {
+        <div class={format!("select-wrapper {}", extra_class)} style={styles::wrapper()}>
+            <select
+                class="select"
+                style={select_style}
+                disabled={disabled}
+                required={required}
+                on:change={|e: InputEvent| {
+                    if let Some(ref callback) = on_change {
+                        callback.call(e.value());
                     }
+                }}
+                on:focus={|_: FocusEvent| {
+                    is_focused.set(true);
+                    if let Some(ref callback) = on_focus {
+                        callback.call(());
+                    }
+                }}
+                on:blur={|_: FocusEvent| {
+                    is_focused.set(false);
+                    if let Some(ref callback) = on_blur {
+                        callback.call(());
+                    }
+                }}
+            >
+                // Placeholder option
+                @if let Some(ref placeholder) = placeholder {
+                    <option
+                        value=""
+                        disabled={true}
+                        selected={value.is_empty()}
+                        style={styles::placeholder_option()}
+                    >
+                        {placeholder.clone()}
+                    </option>
                 }
 
                 // Options
-                for opt in options.iter() {
-                    option(
-                        value: opt.value.clone(),
-                        disabled: opt.disabled,
-                        selected: value == opt.value,
-                    ) {
-                        { opt.label.clone() }
-                    }
+                @for opt in options.iter() {
+                    <option
+                        value={opt.value.clone()}
+                        disabled={opt.disabled}
+                        selected={value == opt.value}
+                    >
+                        {opt.label.clone()}
+                    </option>
                 }
-            }
+            </select>
 
             // Chevron icon
-            div(class: "select-icon", style: styles::icon()) {
-                svg(
-                    width: "16",
-                    height: "16",
-                    viewBox: "0 0 24 24",
-                    fill: "none",
-                    stroke: "currentColor",
-                    stroke-width: "2",
-                ) {
-                    path(d: "M6 9l6 6 6-6")
-                }
-            }
-        }
+            <div class="select-icon" style={styles::icon()}>
+                <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                >
+                    <path d="M6 9l6 6 6-6" />
+                </svg>
+            </div>
+        </div>
     }
 }
 
@@ -290,38 +274,37 @@ mod styles {
 }
 
 /// Labeled select wrapper that provides consistent label, helper text, and error styling.
-#[component]
-pub fn LabeledSelect(
+component LabeledSelect(
     /// Label text
     label: String,
     /// Optional helper text
-    helper: Option<String>,
+    helper?: String,
     /// Optional error message
-    error_message: Option<String>,
+    error_message?: String,
     /// Whether the field is required
-    required: Option<bool>,
+    required?: bool,
     /// The select element
     children: Element,
-) -> Element {
+) {
     let required = required.unwrap_or(false);
 
-    rsx! {
-        div(class: "labeled-select", style: label_styles::wrapper()) {
-            label(style: label_styles::label()) {
-                { label.clone() }
-                if required {
-                    span(style: label_styles::required()) { " *" }
+    render {
+        <div class="labeled-select" style={label_styles::wrapper()}>
+            <label style={label_styles::label()}>
+                {label.clone()}
+                @if required {
+                    <span style={label_styles::required()}>" *"</span>
                 }
-            }
+            </label>
 
-            { children }
+            {children}
 
-            if let Some(ref error) = error_message {
-                span(style: label_styles::error_text()) { { error.clone() } }
+            @if let Some(ref error) = error_message {
+                <span style={label_styles::error_text()}>{error.clone()}</span>
             } else if let Some(ref helper) = helper {
-                span(style: label_styles::helper_text()) { { helper.clone() } }
+                <span style={label_styles::helper_text()}>{helper.clone()}</span>
             }
-        }
+        </div>
     }
 }
 

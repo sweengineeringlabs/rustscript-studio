@@ -66,34 +66,33 @@ impl Default for InputVariant {
 ///
 /// ## Example
 /// ```rust,ignore
-/// Input(
-///     value: name.get(),
-///     placeholder: Some("Enter your name".to_string()),
-///     on_change: Some(Callback::new(move |v| name.set(v))),
-/// )
+/// <Input
+///     value={name.get()}
+///     placeholder={"Enter your name".to_string()}
+///     on_change={Callback::new(move |v| name.set(v))}
+/// />
 /// ```
-#[component]
-pub fn Input(
-    value: Option<String>,
-    input_type: Option<InputType>,
-    size: Option<InputSize>,
-    variant: Option<InputVariant>,
-    placeholder: Option<String>,
-    disabled: Option<bool>,
-    readonly: Option<bool>,
-    required: Option<bool>,
-    error: Option<bool>,
-    min: Option<f64>,
-    max: Option<f64>,
-    step: Option<f64>,
-    maxlength: Option<u32>,
-    on_change: Option<Callback<String>>,
-    on_focus: Option<Callback<()>>,
-    on_blur: Option<Callback<()>>,
-    on_submit: Option<Callback<String>>,
-    css_class: Option<String>,
-    autofocus: Option<bool>,
-) -> Element {
+component Input(
+    value?: String,
+    input_type?: InputType,
+    size?: InputSize,
+    variant?: InputVariant,
+    placeholder?: String,
+    disabled?: bool,
+    readonly?: bool,
+    required?: bool,
+    error?: bool,
+    min?: f64,
+    max?: f64,
+    step?: f64,
+    maxlength?: u32,
+    on_change?: Callback<String>,
+    on_focus?: Callback<()>,
+    on_blur?: Callback<()>,
+    on_submit?: Callback<String>,
+    css_class?: String,
+    autofocus?: bool,
+) {
     let value = value.unwrap_or(String::new());
     let input_type = input_type.unwrap_or(InputType::Text);
     let size = size.unwrap_or(InputSize::Md);
@@ -104,73 +103,50 @@ pub fn Input(
     let error = error.unwrap_or(false);
     let autofocus = autofocus.unwrap_or(false);
 
-    let is_focused = state(false);
+    let is_focused = signal(false);
     let input_style = get_input_style(variant, size, disabled, error, is_focused.get());
     let extra_class = css_class.unwrap_or_default();
 
-    let handle_input = {
-        let on_change = on_change.clone();
-        move |e: InputEvent| {
-            if let Some(ref callback) = on_change {
-                callback.call(e.value());
-            }
-        }
-    };
-
-    let handle_focus = {
-        let on_focus_cb = on_focus.clone();
-        let is_focused = is_focused.clone();
-        move |_: FocusEvent| {
-            is_focused.set(true);
-            if let Some(ref callback) = on_focus_cb {
-                callback.call(());
-            }
-        }
-    };
-
-    let handle_blur = {
-        let on_blur_cb = on_blur.clone();
-        let is_focused = is_focused.clone();
-        move |_: FocusEvent| {
-            is_focused.set(false);
-            if let Some(ref callback) = on_blur_cb {
-                callback.call(());
-            }
-        }
-    };
-
-    let handle_keydown = {
-        let on_submit = on_submit.clone();
-        let value = value.clone();
-        move |e: KeyboardEvent| {
-            if e.key() == "Enter" {
-                if let Some(ref callback) = on_submit {
-                    callback.call(value.clone());
+    render {
+        <input
+            class={format!("input {}", extra_class)}
+            style={input_style}
+            type={input_type.as_str()}
+            value={value.clone()}
+            placeholder={placeholder.clone().unwrap_or_default()}
+            disabled={disabled}
+            readonly={readonly}
+            required={required}
+            autofocus={autofocus}
+            min={min.map(|v| v.to_string()).unwrap_or_default()}
+            max={max.map(|v| v.to_string()).unwrap_or_default()}
+            step={step.map(|v| v.to_string()).unwrap_or_default()}
+            maxlength={maxlength.map(|v| v.to_string()).unwrap_or_default()}
+            on:input={|e: InputEvent| {
+                if let Some(ref callback) = on_change {
+                    callback.call(e.value());
                 }
-            }
-        }
-    };
-
-    rsx! {
-        input(
-            class: format!("input {}", extra_class),
-            style: input_style,
-            type: input_type.as_str(),
-            value: value.clone(),
-            placeholder: placeholder.clone().unwrap_or_default(),
-            disabled: disabled,
-            readonly: readonly,
-            required: required,
-            autofocus: autofocus,
-            min: min.map(|v| v.to_string()).unwrap_or_default(),
-            max: max.map(|v| v.to_string()).unwrap_or_default(),
-            step: step.map(|v| v.to_string()).unwrap_or_default(),
-            maxlength: maxlength.map(|v| v.to_string()).unwrap_or_default(),
-            oninput: handle_input,
-            onfocus: handle_focus,
-            onblur: handle_blur,
-            onkeydown: handle_keydown
-        )
+            }}
+            on:focus={|_: FocusEvent| {
+                is_focused.set(true);
+                if let Some(ref callback) = on_focus {
+                    callback.call(());
+                }
+            }}
+            on:blur={|_: FocusEvent| {
+                is_focused.set(false);
+                if let Some(ref callback) = on_blur {
+                    callback.call(());
+                }
+            }}
+            on:keydown={|e: KeyboardEvent| {
+                if e.key() == "Enter" {
+                    if let Some(ref callback) = on_submit {
+                        callback.call(value.clone());
+                    }
+                }
+            }}
+        />
     }
 }
 
@@ -241,33 +217,32 @@ fn get_input_style(
 }
 
 /// Labeled input wrapper that provides consistent label, helper text, and error styling.
-#[component]
-pub fn LabeledInput(
+component LabeledInput(
     label: String,
-    helper: Option<String>,
-    error_message: Option<String>,
-    required: Option<bool>,
+    helper?: String,
+    error_message?: String,
+    required?: bool,
     children: Element,
-) -> Element {
+) {
     let required = required.unwrap_or(false);
 
-    rsx! {
-        div(class: "labeled-input", style: styles::wrapper()) {
-            label(style: styles::label()) {
+    render {
+        <div class="labeled-input" style={styles::wrapper()}>
+            <label style={styles::label()}>
                 {label.clone()}
-                if required {
-                    span(style: styles::required()) { " *" }
+                @if required {
+                    <span style={styles::required()}>" *"</span>
                 }
-            }
+            </label>
 
             {children}
 
-            if let Some(ref error) = error_message {
-                span(style: styles::error_text()) { {error.clone()} }
+            @if let Some(ref error) = error_message {
+                <span style={styles::error_text()}>{error.clone()}</span>
             } else if let Some(ref helper_text) = helper {
-                span(style: styles::helper_text()) { {helper_text.clone()} }
+                <span style={styles::helper_text()}>{helper_text.clone()}</span>
             }
-        }
+        </div>
     }
 }
 

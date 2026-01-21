@@ -9,28 +9,30 @@ use rsc_studio::designer::css::{
 use super::{Icon, Input, Select, SelectOption, Tabs, Tab, Button, ButtonVariant, ButtonSize};
 
 /// Component style editor.
-#[component]
-pub fn ComponentStyleEditor(
+component ComponentStyleEditor(
     styles: Signal<ComponentStyles>,
     on_change: Callback<(String, ComponentStyle)>,
-) -> Element {
-    let selected_component = use_signal(|| ComponentType::Button);
-    let selected_state = use_signal(|| StateVariant::Default);
-    let selected_breakpoint = use_signal(|| Breakpoint::Base);
-    let active_tab = use_signal(|| "states".to_string());
+) {
+    let selected_component = signal(ComponentType::Button);
+    let selected_state = signal(StateVariant::Default);
+    let selected_breakpoint = signal(Breakpoint::Base);
+    let active_tab = signal("states".to_string());
 
     let component_name = selected_component.get().label().to_lowercase();
     let current_style = styles.get().get(&component_name).cloned().unwrap_or_default();
 
     // Get properties for the current state/breakpoint
+    let state = selected_state.get();
+    let breakpoint = selected_breakpoint.get();
+    let default_state = StateVariant::Default;
     let current_props = if active_tab.get() == "states" {
-        if selected_state.get() == StateVariant::Default {
+        if state == default_state {
             current_style.base.clone()
         } else {
-            current_style.states.get(&selected_state.get()).cloned().unwrap_or_default()
+            current_style.states.get(&state).cloned().unwrap_or_default()
         }
     } else {
-        current_style.breakpoints.get(&selected_breakpoint.get()).cloned().unwrap_or_default()
+        current_style.breakpoints.get(&breakpoint).cloned().unwrap_or_default()
     };
 
     let on_property_change = {
@@ -40,412 +42,409 @@ pub fn ComponentStyleEditor(
         let selected_breakpoint = selected_breakpoint.clone();
         let active_tab = active_tab.clone();
         let on_change = on_change.clone();
-        move |(prop_name, value): (String, Option<String>)| {
+        let default_state_variant = StateVariant::Default;
+        move |args: (String, Option<String>)| {
+            let prop_name = args.0;
+            let value = args.1;
             let component_name = selected_component.get().label().to_lowercase();
-            let mut style = styles.get().get(&component_name).cloned().unwrap_or_default();
+            let mut component_style = styles.get().get(&component_name).cloned().unwrap_or_default();
 
             if active_tab.get() == "states" {
-                if selected_state.get() == StateVariant::Default {
-                    style.base.set(&prop_name, value);
+                if selected_state.get() == default_state_variant {
+                    component_style.base.set(&prop_name, value);
                 } else {
-                    let state_props = style.states.entry(selected_state.get()).or_default();
+                    let state_props = component_style.states.entry(selected_state.get()).or_default();
                     state_props.set(&prop_name, value);
                 }
             } else {
-                let bp_props = style.breakpoints.entry(selected_breakpoint.get()).or_default();
+                let bp_props = component_style.breakpoints.entry(selected_breakpoint.get()).or_default();
                 bp_props.set(&prop_name, value);
             }
 
-            on_change.call((component_name, style));
+            on_change.call((component_name, component_style));
         }
     };
 
-    rsx! {
-        div(class: "component-style-editor", style: editor_styles::container()) {
+    render {
+        <div class="component-style-editor" style={editor_styles::container()}>
             // Component selector
-            div(class: "component-selector", style: editor_styles::component_selector()) {
-                h3(style: editor_styles::section_title()) { "Components" }
-                div(class: "component-list", style: editor_styles::component_list()) {
-                    for ct in ComponentType::all() {
-                        ComponentTypeItem {
-                            component_type: *ct,
-                            selected: selected_component.get() == *ct,
-                            onclick: {
+            <div class="component-selector" style={editor_styles::component_selector()}>
+                <h3 style={editor_styles::section_title()}>Components</h3>
+                <div class="component-list" style={editor_styles::component_list()}>
+                    @for ct in ComponentType::all() {
+                        <ComponentTypeItem
+                            component_type={*ct}
+                            selected={selected_component.get() == *ct}
+                            onclick={{
                                 let selected_component = selected_component.clone();
-                                move |_| selected_component.set(*ct)
-                            },
-                        }
+                                Callback::new(move |_| selected_component.set(*ct))
+                            }}
+                        />
                     }
-                }
-            }
+                </div>
+            </div>
 
             // Style editor
-            div(class: "style-editor", style: editor_styles::style_editor()) {
+            <div class="style-editor" style={editor_styles::style_editor()}>
                 // Header
-                div(class: "editor-header", style: editor_styles::editor_header()) {
-                    Icon { name: selected_component.get().icon().to_string(), size: 20 }
-                    h3(style: editor_styles::editor_title()) {
-                        { selected_component.get().label() }
-                    }
-                }
+                <div class="editor-header" style={editor_styles::editor_header()}>
+                    <Icon name={selected_component.get().icon().to_string()} size={20} />
+                    <h3 style={editor_styles::editor_title()}>
+                        {selected_component.get().label()}
+                    </h3>
+                </div>
 
                 // State/Breakpoint tabs
-                div(class: "mode-tabs", style: editor_styles::mode_tabs()) {
-                    Tabs {
-                        tabs: vec![
+                <div class="mode-tabs" style={editor_styles::mode_tabs()}>
+                    <Tabs
+                        tabs={vec![
                             Tab { id: "states".to_string(), label: "States".to_string(), icon: Some("mouse-pointer".to_string()) },
                             Tab { id: "responsive".to_string(), label: "Responsive".to_string(), icon: Some("monitor".to_string()) },
-                        ],
-                        active: active_tab.clone(),
-                        onchange: {
+                        ]}
+                        active={active_tab.clone()}
+                        onchange={{
                             let active_tab = active_tab.clone();
-                            move |id: String| active_tab.set(id)
-                        },
-                    }
-                }
+                            Callback::new(move |id: String| active_tab.set(id))
+                        }}
+                    />
+                </div>
 
                 // State variants or Breakpoint selector
-                if active_tab.get() == "states" {
-                    div(class: "state-selector", style: editor_styles::variant_selector()) {
-                        for state in StateVariant::all() {
-                            StateVariantButton {
-                                state: *state,
-                                selected: selected_state.get() == *state,
-                                onclick: {
+                @if active_tab.get() == "states" {
+                    <div class="state-selector" style={editor_styles::variant_selector()}>
+                        @for state in StateVariant::all() {
+                            <StateVariantButton
+                                state={*state}
+                                selected={selected_state.get() == *state}
+                                onclick={{
                                     let selected_state = selected_state.clone();
-                                    move |_| selected_state.set(*state)
-                                },
-                            }
+                                    Callback::new(move |_| selected_state.set(*state))
+                                }}
+                            />
                         }
-                    }
+                    </div>
                 } else {
-                    div(class: "breakpoint-selector", style: editor_styles::variant_selector()) {
-                        for bp in Breakpoint::all() {
-                            BreakpointButton {
-                                breakpoint: *bp,
-                                selected: selected_breakpoint.get() == *bp,
-                                onclick: {
+                    <div class="breakpoint-selector" style={editor_styles::variant_selector()}>
+                        @for bp in Breakpoint::all() {
+                            <BreakpointButton
+                                breakpoint={*bp}
+                                selected={selected_breakpoint.get() == *bp}
+                                onclick={{
                                     let selected_breakpoint = selected_breakpoint.clone();
-                                    move |_| selected_breakpoint.set(*bp)
-                                },
-                            }
+                                    Callback::new(move |_| selected_breakpoint.set(*bp))
+                                }}
+                            />
                         }
-                    }
+                    </div>
                 }
 
                 // Property editors
-                div(class: "property-editors", style: editor_styles::property_editors()) {
-                    PropertySection {
-                        title: "Layout".to_string(),
-                        properties: current_props.clone(),
-                        on_change: on_property_change.clone(),
-                        fields: vec![
+                <div class="property-editors" style={editor_styles::property_editors()}>
+                    <PropertySection
+                        title={"Layout".to_string()}
+                        properties={current_props.clone()}
+                        on_change={Callback::new(on_property_change.clone())}
+                        fields={vec![
                             ("display", "Display", vec!["flex", "block", "inline-flex", "grid", "none"]),
                             ("flex-direction", "Direction", vec!["row", "column", "row-reverse", "column-reverse"]),
                             ("align-items", "Align", vec!["stretch", "center", "flex-start", "flex-end", "baseline"]),
                             ("justify-content", "Justify", vec!["flex-start", "center", "flex-end", "space-between", "space-around"]),
                             ("gap", "Gap", vec![]),
-                        ],
-                    }
+                        ]}
+                    />
 
-                    PropertySection {
-                        title: "Spacing".to_string(),
-                        properties: current_props.clone(),
-                        on_change: on_property_change.clone(),
-                        fields: vec![
+                    <PropertySection
+                        title={"Spacing".to_string()}
+                        properties={current_props.clone()}
+                        on_change={Callback::new(on_property_change.clone())}
+                        fields={vec![
                             ("padding", "Padding", vec![]),
                             ("margin", "Margin", vec![]),
-                        ],
-                    }
+                        ]}
+                    />
 
-                    PropertySection {
-                        title: "Sizing".to_string(),
-                        properties: current_props.clone(),
-                        on_change: on_property_change.clone(),
-                        fields: vec![
+                    <PropertySection
+                        title={"Sizing".to_string()}
+                        properties={current_props.clone()}
+                        on_change={Callback::new(on_property_change.clone())}
+                        fields={vec![
                             ("width", "Width", vec![]),
                             ("height", "Height", vec![]),
                             ("min-width", "Min W", vec![]),
                             ("max-width", "Max W", vec![]),
-                        ],
-                    }
+                        ]}
+                    />
 
-                    PropertySection {
-                        title: "Colors".to_string(),
-                        properties: current_props.clone(),
-                        on_change: on_property_change.clone(),
-                        fields: vec![
+                    <PropertySection
+                        title={"Colors".to_string()}
+                        properties={current_props.clone()}
+                        on_change={Callback::new(on_property_change.clone())}
+                        fields={vec![
                             ("color", "Text", vec![]),
                             ("background", "Background", vec![]),
                             ("border-color", "Border", vec![]),
-                        ],
-                    }
+                        ]}
+                    />
 
-                    PropertySection {
-                        title: "Border".to_string(),
-                        properties: current_props.clone(),
-                        on_change: on_property_change.clone(),
-                        fields: vec![
+                    <PropertySection
+                        title={"Border".to_string()}
+                        properties={current_props.clone()}
+                        on_change={Callback::new(on_property_change.clone())}
+                        fields={vec![
                             ("border-width", "Width", vec![]),
                             ("border-style", "Style", vec!["none", "solid", "dashed", "dotted"]),
                             ("border-radius", "Radius", vec![]),
-                        ],
-                    }
+                        ]}
+                    />
 
-                    PropertySection {
-                        title: "Typography".to_string(),
-                        properties: current_props.clone(),
-                        on_change: on_property_change.clone(),
-                        fields: vec![
+                    <PropertySection
+                        title={"Typography".to_string()}
+                        properties={current_props.clone()}
+                        on_change={Callback::new(on_property_change.clone())}
+                        fields={vec![
                             ("font-size", "Size", vec![]),
                             ("font-weight", "Weight", vec!["400", "500", "600", "700"]),
                             ("line-height", "Line H", vec![]),
-                        ],
-                    }
+                        ]}
+                    />
 
-                    PropertySection {
-                        title: "Effects".to_string(),
-                        properties: current_props.clone(),
-                        on_change: on_property_change.clone(),
-                        fields: vec![
+                    <PropertySection
+                        title={"Effects".to_string()}
+                        properties={current_props.clone()}
+                        on_change={Callback::new(on_property_change.clone())}
+                        fields={vec![
                             ("box-shadow", "Shadow", vec![]),
                             ("opacity", "Opacity", vec![]),
                             ("cursor", "Cursor", vec!["default", "pointer", "not-allowed", "text"]),
                             ("transition", "Transition", vec![]),
-                        ],
-                    }
-                }
-            }
+                        ]}
+                    />
+                </div>
+            </div>
 
             // Live preview
-            div(class: "component-preview", style: editor_styles::component_preview()) {
-                h3(style: editor_styles::section_title()) { "Preview" }
-                ComponentPreviewPane {
-                    component_type: selected_component.get(),
-                    style: current_style.clone(),
-                    active_state: if active_tab.get() == "states" { Some(selected_state.get()) } else { None },
-                }
+            <div class="component-preview" style={editor_styles::component_preview()}>
+                <h3 style={editor_styles::section_title()}>Preview</h3>
+                <ComponentPreviewPane
+                    component_type={selected_component.get()}
+                    style={current_style.clone()}
+                    active_state={if active_tab.get() == "states" { Some(selected_state.get()) } else { None }}
+                />
 
                 // CSS Output
-                div(class: "css-output", style: editor_styles::css_output()) {
-                    h4(style: editor_styles::css_output_title()) { "Generated CSS" }
-                    pre(style: editor_styles::css_code()) {
-                        code { { generate_component_css(&component_name, &current_style) } }
-                    }
-                }
-            }
-        }
+                <div class="css-output" style={editor_styles::css_output()}>
+                    <h4 style={editor_styles::css_output_title()}>Generated CSS</h4>
+                    <pre style={editor_styles::css_code()}>
+                        <code>{generate_component_css(&component_name, &current_style)}</code>
+                    </pre>
+                </div>
+            </div>
+        </div>
     }
 }
 
 /// Component type list item.
-#[component]
-fn ComponentTypeItem(
+component ComponentTypeItem(
     component_type: ComponentType,
     selected: bool,
     onclick: Callback<()>,
-) -> Element {
-    rsx! {
-        div(
-            class: format!("component-item {}", if selected { "selected" } else { "" }),
-            style: editor_styles::component_item(selected),
-            onclick: move |_| onclick.call(()),
-        ) {
-            Icon { name: component_type.icon().to_string(), size: 16 }
-            span { { component_type.label() } }
-        }
+) {
+    render {
+        <div
+            class={format!("component-item {}", if selected { "selected" } else { "" })}
+            style={editor_styles::component_item(selected)}
+            on:click={move |_| onclick.call(())}
+        >
+            <Icon name={component_type.icon().to_string()} size={16} />
+            <span>{component_type.label()}</span>
+        </div>
     }
 }
 
 /// State variant button.
-#[component]
-fn StateVariantButton(
+component StateVariantButton(
     state: StateVariant,
     selected: bool,
     onclick: Callback<()>,
-) -> Element {
-    rsx! {
-        button(
-            class: format!("variant-btn {}", if selected { "selected" } else { "" }),
-            style: editor_styles::variant_button(selected),
-            onclick: move |_| onclick.call(()),
-        ) {
-            { state.label() }
-        }
+) {
+    render {
+        <button
+            class={format!("variant-btn {}", if selected { "selected" } else { "" })}
+            style={editor_styles::variant_button(selected)}
+            on:click={move |_| onclick.call(())}
+        >
+            {state.label()}
+        </button>
     }
 }
 
 /// Breakpoint button.
-#[component]
-fn BreakpointButton(
+component BreakpointButton(
     breakpoint: Breakpoint,
     selected: bool,
     onclick: Callback<()>,
-) -> Element {
+) {
     let min_width = breakpoint.min_width();
 
-    rsx! {
-        button(
-            class: format!("variant-btn {}", if selected { "selected" } else { "" }),
-            style: editor_styles::variant_button(selected),
-            onclick: move |_| onclick.call(()),
-        ) {
-            span { { breakpoint.label() } }
-            if let Some(w) = min_width {
-                span(style: "font-size: 10px; opacity: 0.7;") {
-                    { format!("{}px", w) }
-                }
+    render {
+        <button
+            class={format!("variant-btn {}", if selected { "selected" } else { "" })}
+            style={editor_styles::variant_button(selected)}
+            on:click={move |_| onclick.call(())}
+        >
+            <span>{breakpoint.label()}</span>
+            @if let Some(w) = min_width {
+                <span style="font-size: 10px; opacity: 0.7;">
+                    {format!("{}px", w)}
+                </span>
             }
-        }
+        </button>
     }
 }
 
 /// Property section with multiple fields.
-#[component]
-fn PropertySection(
+component PropertySection(
     title: String,
     properties: StyleProperties,
     on_change: Callback<(String, Option<String>)>,
     fields: Vec<(&'static str, &'static str, Vec<&'static str>)>,
-) -> Element {
-    let expanded = use_signal(|| true);
+) {
+    let expanded = signal(true);
 
-    rsx! {
-        div(class: "property-section", style: editor_styles::property_section()) {
-            div(
-                class: "property-section-header",
-                style: editor_styles::property_section_header(),
-                onclick: move |_| expanded.update(|v| *v = !*v),
-            ) {
-                Icon {
-                    name: if expanded.get() { "chevron-down" } else { "chevron-right" }.to_string(),
-                    size: 14,
-                }
-                span { { title } }
-            }
+    render {
+        <div class="property-section" style={editor_styles::property_section()}>
+            <div
+                class="property-section-header"
+                style={editor_styles::property_section_header()}
+                on:click={move |_| expanded.update(|v| *v = !*v)}
+            >
+                <Icon
+                    name={if expanded.get() { "chevron-down" } else { "chevron-right" }.to_string()}
+                    size={14}
+                />
+                <span>{title}</span>
+            </div>
 
-            if expanded.get() {
-                div(class: "property-fields", style: editor_styles::property_fields()) {
-                    for (prop_name, label, options) in fields {
-                        PropertyField {
-                            name: prop_name.to_string(),
-                            label: label.to_string(),
-                            value: properties.get(prop_name).cloned(),
-                            options: options.iter().map(|s| s.to_string()).collect(),
-                            on_change: on_change.clone(),
-                        }
+            @if expanded.get() {
+                <div class="property-fields" style={editor_styles::property_fields()}>
+                    @for (prop_name, label, options) in fields {
+                        <PropertyField
+                            name={prop_name.to_string()}
+                            label={label.to_string()}
+                            value={properties.get(prop_name).cloned()}
+                            options={options.iter().map(|s| s.to_string()).collect()}
+                            on_change={on_change.clone()}
+                        />
                     }
-                }
+                </div>
             }
-        }
+        </div>
     }
 }
 
 /// Single property field.
-#[component]
-fn PropertyField(
+component PropertyField(
     name: String,
     label: String,
     value: Option<String>,
     options: Vec<String>,
     on_change: Callback<(String, Option<String>)>,
-) -> Element {
-    let local_value = use_signal(|| value.clone().unwrap_or_default());
+) {
+    let local_value = signal(value.clone().unwrap_or_default());
 
-    rsx! {
-        div(class: "property-field", style: editor_styles::property_field()) {
-            label(style: editor_styles::property_label()) { { label } }
+    render {
+        <div class="property-field" style={editor_styles::property_field()}>
+            <label style={editor_styles::property_label()}>{label}</label>
 
-            if options.is_empty() {
+            @if options.is_empty() {
                 // Text input
-                input(
-                    type: "text",
-                    value: local_value.get(),
-                    placeholder: "inherit",
-                    style: editor_styles::property_input(),
-                    onchange: {
+                <input
+                    type="text"
+                    value={local_value.get()}
+                    placeholder="inherit"
+                    style={editor_styles::property_input()}
+                    on:change={{
                         let name = name.clone();
                         let on_change = on_change.clone();
-                        move |e: Event<FormData>| {
+                        move |e: InputEvent| {
                             let v = e.value();
                             local_value.set(v.clone());
                             let val = if v.is_empty() { None } else { Some(v) };
                             on_change.call((name.clone(), val));
                         }
-                    },
-                )
+                    }}
+                />
             } else {
                 // Select with predefined options
-                select(
-                    value: local_value.get(),
-                    style: editor_styles::property_select(),
-                    onchange: {
+                <select
+                    value={local_value.get()}
+                    style={editor_styles::property_select()}
+                    on:change={{
                         let name = name.clone();
                         let on_change = on_change.clone();
-                        move |e: Event<FormData>| {
+                        move |e: InputEvent| {
                             let v = e.value();
                             local_value.set(v.clone());
                             let val = if v.is_empty() || v == "inherit" { None } else { Some(v) };
                             on_change.call((name.clone(), val));
                         }
-                    },
-                ) {
-                    option(value: "") { "inherit" }
-                    for opt in &options {
-                        option(value: opt.clone(), selected: value.as_ref() == Some(opt)) {
-                            { opt.clone() }
-                        }
+                    }}
+                >
+                    <option value="">inherit</option>
+                    @for opt in &options {
+                        <option value={opt.clone()} selected={value.as_ref() == Some(opt)}>
+                            {opt.clone()}
+                        </option>
                     }
-                }
+                </select>
             }
-        }
+        </div>
     }
 }
 
 /// Component preview pane.
-#[component]
-fn ComponentPreviewPane(
+component ComponentPreviewPane(
     component_type: ComponentType,
     style: ComponentStyle,
     active_state: Option<StateVariant>,
-) -> Element {
+) {
     let preview_style = generate_preview_style(&style, active_state);
 
-    rsx! {
-        div(class: "preview-container", style: editor_styles::preview_container()) {
-            match component_type {
+    render {
+        <div class="preview-container" style={editor_styles::preview_container()}>
+            @match component_type {
                 ComponentType::Button => {
-                    button(style: preview_style) { "Click Me" }
+                    <button style={preview_style}>Click Me</button>
                 }
                 ComponentType::Input => {
-                    input(
-                        type: "text",
-                        placeholder: "Enter text...",
-                        style: preview_style,
-                    )
+                    <input
+                        type="text"
+                        placeholder="Enter text..."
+                        style={preview_style}
+                    />
                 }
                 ComponentType::Card => {
-                    div(style: preview_style) {
-                        h4 { "Card Title" }
-                        p { "Card content goes here." }
-                    }
+                    <div style={preview_style}>
+                        <h4>Card Title</h4>
+                        <p>Card content goes here.</p>
+                    </div>
                 }
                 ComponentType::Badge => {
-                    span(style: preview_style) { "Badge" }
+                    <span style={preview_style}>Badge</span>
                 }
                 ComponentType::Alert => {
-                    div(style: preview_style) {
-                        strong { "Alert: " }
-                        span { "This is an alert message." }
-                    }
+                    <div style={preview_style}>
+                        <strong>Alert: </strong>
+                        <span>This is an alert message.</span>
+                    </div>
                 }
                 _ => {
-                    div(style: preview_style) {
-                        { format!("{} Preview", component_type.label()) }
-                    }
+                    <div style={preview_style}>
+                        {format!("{} Preview", component_type.label())}
+                    </div>
                 }
             }
-        }
+        </div>
     }
 }
 

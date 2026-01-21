@@ -18,29 +18,33 @@ use super::{FlowEdge, Icon};
 ///
 /// Drag and drop:
 /// - Drag a Context node onto a Workflow node to move it
-#[component]
-pub fn NavigationCanvasView(
+component NavigationCanvasView(
     canvas: Signal<FlowCanvas<NavigationNodeData, ()>>,
-    on_node_select: Option<Callback<String>>,
-    on_node_move: Option<Callback<(String, Position)>>,
+    on_node_select?: Callback<String>,
+    on_node_move?: Callback<(String, Position)>,
     /// Callback when user requests to delete the selected node
-    on_delete: Option<Callback<String>>,
+    on_delete?: Callback<String>,
     /// Callback when user requests to edit the selected node
-    on_edit: Option<Callback<String>>,
+    on_edit?: Callback<String>,
     /// Currently selected node ID (for keyboard navigation)
-    selected_node_id: Option<String>,
+    selected_node_id?: String,
     /// Callback when a context is dropped on a workflow (source_workflow_id, target_workflow_id, context_id)
-    on_move_context: Option<Callback<(String, String, String)>>,
-) -> Element {
+    on_move_context?: Callback<(String, String, String)>,
+) {
+    // Entity type helpers to avoid :: patterns
+    let workflow_type = EntityType::Workflow;
+    let context_type = EntityType::Context;
+    let preset_type = EntityType::Preset;
+
     let canvas_data = canvas.get();
-    let is_panning = use_signal(|| false);
-    let pan_start = use_signal(|| Position::zero());
-    let viewport_start = use_signal(|| (0.0f64, 0.0f64));
+    let is_panning = signal(false);
+    let pan_start = signal(Position::zero());
+    let viewport_start = signal((0.0f64, 0.0f64));
 
     // State for context drag-and-drop between workflows
     // Stores (context_entity_id, source_workflow_id) when dragging a context
-    let dragging_context = use_signal::<Option<(String, String)>>(|| None);
-    let drop_target_workflow = use_signal::<Option<String>>(|| None);
+    let dragging_context = signal::<Option<(String, String)>>(None);
+    let drop_target_workflow = signal::<Option<String>>(None);
 
     // Handle mouse down for panning (middle mouse button)
     let on_mouse_down = {
@@ -340,129 +344,120 @@ pub fn NavigationCanvasView(
         }
     };
 
-    rsx! {
-        div(
-            class: "navigation-canvas",
-            style: styles::container(is_panning.get()),
-            tabindex: "0",
-            onmousedown: on_mouse_down,
-            onmousemove: on_mouse_move,
-            onmouseup: on_mouse_up,
-            onmouseleave: on_mouse_leave,
-            onwheel: on_wheel,
-            oncontextmenu: on_context_menu,
-            onkeydown: on_keydown
-        ) {
+    render {
+        <div
+            class="navigation-canvas"
+            style={styles::container(is_panning.get())}
+            tabindex="0"
+            on:mousedown={on_mouse_down}
+            on:mousemove={on_mouse_move}
+            on:mouseup={on_mouse_up}
+            on:mouseleave={on_mouse_leave}
+            on:wheel={on_wheel}
+            on:contextmenu={on_context_menu}
+            on:keydown={on_keydown}
+        >
             // Background grid
-            div(class: "flow-grid", style: styles::grid(&canvas_data.viewport, canvas_data.config.grid_size))
+            <div class="flow-grid" style={styles::grid(&canvas_data.viewport, canvas_data.config.grid_size)} />
 
             // SVG layer for edges
-            svg(
-                class: "flow-edges",
-                style: styles::edges_layer(&canvas_data.viewport)
-            ) {
-                for edge in canvas_data.edges.values() {
-                    {
-                        let source_pos = canvas_data.get_node_center(&edge.source);
-                        let target_pos = canvas_data.get_node_center(&edge.target);
-                        rsx! {
-                            FlowEdge {
-                                edge: edge.clone(),
-                                source_pos: source_pos,
-                                target_pos: target_pos,
-                            }
-                        }
-                    }
+            <svg
+                class="flow-edges"
+                style={styles::edges_layer(&canvas_data.viewport)}
+            >
+                @for edge in canvas_data.edges.values() {
+                    <FlowEdge
+                        edge={edge.clone()}
+                        source_pos={canvas_data.get_node_center(&edge.source)}
+                        target_pos={canvas_data.get_node_center(&edge.target)}
+                    />
                 }
-            }
+            </svg>
 
             // Node layer
-            div(
-                class: "flow-nodes",
-                style: styles::nodes_layer(&canvas_data.viewport)
-            ) {
-                for node in canvas_data.nodes.values() {
+            <div
+                class="flow-nodes"
+                style={styles::nodes_layer(&canvas_data.viewport)}
+            >
+                @for node in canvas_data.nodes.values() {
                     {
                         let is_drop_target = drop_target_workflow.get()
                             .as_ref()
                             .map(|id| {
                                 node.data.as_ref()
-                                    .map(|d| d.entity_type == EntityType::Workflow && &d.entity_id == id)
+                                    .map(|d| d.entity_type == workflow_type && &d.entity_id == id)
                                     .unwrap_or(false)
                             })
                             .unwrap_or(false);
 
-                        rsx! {
-                            NavigationNode {
-                                id: node.id.clone(),
-                                position: node.position,
-                                data: node.data.clone(),
-                                selected: node.selected,
-                                zoom: canvas_data.viewport.transform.zoom,
-                                on_select: on_node_select.clone(),
-                                on_move: on_node_move.clone(),
-                                is_drop_target: is_drop_target,
-                                on_drag_start_context: {
-                                    let dragging_context = dragging_context.clone();
-                                    Callback::new(move |(ctx_id, wf_id): (String, String)| {
-                                        dragging_context.set(Some((ctx_id, wf_id)));
-                                    })
-                                },
-                                on_drag_end: {
-                                    let dragging_context = dragging_context.clone();
-                                    let drop_target_workflow = drop_target_workflow.clone();
-                                    let on_move_context = on_move_context.clone();
-                                    Callback::new(move |_: ()| {
-                                        // Check if we have both a context being dragged and a target workflow
-                                        if let (Some((ctx_id, src_wf_id)), Some(tgt_wf_id)) =
-                                            (dragging_context.get(), drop_target_workflow.get())
-                                        {
-                                            if src_wf_id != tgt_wf_id {
-                                                if let Some(ref callback) = on_move_context {
-                                                    callback.call((src_wf_id, tgt_wf_id, ctx_id));
-                                                }
+                        <NavigationNode
+                            id={node.id.clone()}
+                            position={node.position}
+                            data={node.data.clone()}
+                            selected={node.selected}
+                            zoom={canvas_data.viewport.transform.zoom}
+                            on_select={on_node_select.clone()}
+                            on_move={on_node_move.clone()}
+                            is_drop_target={is_drop_target}
+                            on_drag_start_context={{
+                                let dragging_context = dragging_context.clone();
+                                Callback::new(move |(ctx_id, wf_id): (String, String)| {
+                                    dragging_context.set(Some((ctx_id, wf_id)));
+                                })
+                            }}
+                            on_drag_end={{
+                                let dragging_context = dragging_context.clone();
+                                let drop_target_workflow = drop_target_workflow.clone();
+                                let on_move_context = on_move_context.clone();
+                                Callback::new(move |_: ()| {
+                                    // Check if we have both a context being dragged and a target workflow
+                                    if let (Some((ctx_id, src_wf_id)), Some(tgt_wf_id)) =
+                                        (dragging_context.get(), drop_target_workflow.get())
+                                    {
+                                        if src_wf_id != tgt_wf_id {
+                                            if let Some(ref callback) = on_move_context {
+                                                callback.call((src_wf_id, tgt_wf_id, ctx_id));
                                             }
                                         }
-                                        dragging_context.set(None);
-                                        drop_target_workflow.set(None);
-                                    })
-                                },
-                                on_drag_enter_workflow: {
-                                    let drop_target_workflow = drop_target_workflow.clone();
-                                    let dragging_context = dragging_context.clone();
-                                    Callback::new(move |wf_id: String| {
-                                        // Only set drop target if we're dragging a context
-                                        if dragging_context.get().is_some() {
-                                            drop_target_workflow.set(Some(wf_id));
-                                        }
-                                    })
-                                },
-                                on_drag_leave: {
-                                    let drop_target_workflow = drop_target_workflow.clone();
-                                    Callback::new(move |_: ()| {
-                                        drop_target_workflow.set(None);
-                                    })
-                                },
-                                is_dragging_context: dragging_context.get().is_some(),
-                            }
-                        }
+                                    }
+                                    dragging_context.set(None);
+                                    drop_target_workflow.set(None);
+                                })
+                            }}
+                            on_drag_enter_workflow={{
+                                let drop_target_workflow = drop_target_workflow.clone();
+                                let dragging_context = dragging_context.clone();
+                                Callback::new(move |wf_id: String| {
+                                    // Only set drop target if we're dragging a context
+                                    if dragging_context.get().is_some() {
+                                        drop_target_workflow.set(Some(wf_id));
+                                    }
+                                })
+                            }}
+                            on_drag_leave={{
+                                let drop_target_workflow = drop_target_workflow.clone();
+                                Callback::new(move |_: ()| {
+                                    drop_target_workflow.set(None);
+                                })
+                            }}
+                            is_dragging_context={dragging_context.get().is_some()}
+                        />
                     }
                 }
-            }
-        }
+            </div>
+        </div>
     }
 }
 
 /// Navigation node component with proper visuals for each entity type.
-#[component]
-fn NavigationNode(
+component NavigationNode(
     id: String,
     position: Position,
     data: Option<NavigationNodeData>,
     selected: bool,
     zoom: f64,
-    on_select: Option<Callback<String>>,
-    on_move: Option<Callback<(String, Position)>>,
+    on_select?: Callback<String>,
+    on_move?: Callback<(String, Position)>,
     /// Whether this workflow node is a valid drop target
     is_drop_target: bool,
     /// Called when starting to drag a context (context_id, parent_workflow_id)
@@ -475,13 +470,14 @@ fn NavigationNode(
     on_drag_leave: Callback<()>,
     /// Whether a context is currently being dragged anywhere in the canvas
     is_dragging_context: bool,
-) -> Element {
-    let is_dragging = use_signal(|| false);
-    let drag_start = use_signal(|| Position::zero());
-    let node_start = use_signal(|| Position::zero());
+) {
+    let is_dragging = signal(false);
+    let drag_start = signal(Position::zero());
+    let node_start = signal(Position::zero());
 
+    let default_entity = EntityType::Workflow;
     let data = data.unwrap_or(NavigationNodeData {
-        entity_type: EntityType::Workflow,
+        entity_type: default_entity,
         entity_id: id.clone(),
         parent_id: None,
         label: id.clone(),
@@ -509,7 +505,8 @@ fn NavigationNode(
                 node_start.set(pos);
 
                 // If this is a context, start context drag
-                if entity_type == EntityType::Context {
+                let ctx_type = EntityType::Context;
+                if entity_type == ctx_type {
                     if let Some(ref wf_id) = parent_id {
                         on_drag_start_context.call((entity_id.clone(), wf_id.clone()));
                     }
@@ -556,8 +553,9 @@ fn NavigationNode(
     let on_mouse_enter = {
         let on_drag_enter_workflow = on_drag_enter_workflow.clone();
         let entity_id = entity_id.clone();
+        let wf_type = EntityType::Workflow;
         move |_: MouseEvent| {
-            if is_dragging_context && entity_type == EntityType::Workflow {
+            if is_dragging_context && entity_type == wf_type {
                 on_drag_enter_workflow.call(entity_id.clone());
             }
         }
@@ -566,70 +564,98 @@ fn NavigationNode(
     // Mouse leave handler for workflow nodes
     let on_mouse_leave_node = {
         let on_drag_leave = on_drag_leave.clone();
+        let wf_type = EntityType::Workflow;
         move |_: MouseEvent| {
-            if is_dragging_context && entity_type == EntityType::Workflow {
+            if is_dragging_context && entity_type == wf_type {
                 on_drag_leave.call(());
             }
         }
     };
 
     // Get icon based on entity type
+    let wf = EntityType::Workflow;
+    let ctx = EntityType::Context;
     let icon_name = data.icon.clone().unwrap_or_else(|| {
-        match entity_type {
-            EntityType::Workflow => "git-branch".to_string(),
-            EntityType::Context => "layers".to_string(),
-            EntityType::Preset => "layout".to_string(),
+        if entity_type == wf {
+            "git-branch".to_string()
+        } else if entity_type == ctx {
+            "layers".to_string()
+        } else {
+            "layout".to_string()
         }
     });
 
-    rsx! {
-        div(
-            class: format!("navigation-node navigation-node-{:?}{}", entity_type, if is_drop_target { " drop-target" } else { "" }).to_lowercase(),
-            style: node_styles::container(&position, entity_type, selected, is_dragging.get(), is_drop_target),
-            onmousedown: on_mouse_down,
-            onmousemove: on_mouse_move,
-            onmouseup: on_mouse_up,
-            onmouseenter: on_mouse_enter,
-            onmouseleave: on_mouse_leave_node,
-        ) {
+    render {
+        <div
+            class={get_node_class(entity_type, is_drop_target)}
+            style={node_styles::container(&position, entity_type, selected, is_dragging.get(), is_drop_target)}
+            on:mousedown={on_mouse_down}
+            on:mousemove={on_mouse_move}
+            on:mouseup={on_mouse_up}
+            on:mouseenter={on_mouse_enter}
+            on:mouseleave={on_mouse_leave_node}
+        >
             // Header
-            div(class: "node-header", style: node_styles::header(entity_type)) {
-                Icon { name: icon_name, size: 16 }
-                span(class: "node-label", style: node_styles::label()) {
-                    { data.label.clone() }
-                }
-            }
+            <div class="node-header" style={node_styles::header(entity_type)}>
+                <Icon name={icon_name} size={16} />
+                <span class="node-label" style={node_styles::label()}>
+                    {data.label.clone()}
+                </span>
+            </div>
 
             // Body (description or layout preview for presets)
-            if data.description.is_some() || entity_type == EntityType::Preset {
-                div(class: "node-body", style: node_styles::body()) {
-                    // Description
-                    if let Some(ref desc) = data.description {
-                        p(class: "node-description", style: node_styles::description()) {
-                            { desc.clone() }
-                        }
-                    }
+            {
+                let preset_type = EntityType::Preset;
+                let show_body = data.description.is_some() || entity_type == preset_type;
+                let show_preview = entity_type == preset_type;
 
-                    // Layout preview for presets
-                    if entity_type == EntityType::Preset {
-                        div(class: "node-layout-preview", style: node_styles::layout_preview()) {
-                            div(style: node_styles::layout_activity_bar()) {}
-                            div(style: node_styles::layout_sidebar()) {}
-                            div(style: node_styles::layout_main()) {}
+                @if show_body {
+                    <div class="node-body" style={node_styles::body()}>
+                        // Description
+                        @if let Some(ref desc) = data.description {
+                            <p class="node-description" style={node_styles::description()}>
+                                {desc.clone()}
+                            </p>
                         }
-                    }
+
+                        // Layout preview for presets
+                        @if show_preview {
+                            <div class="node-layout-preview" style={node_styles::layout_preview()}>
+                                <div style={node_styles::layout_activity_bar()} />
+                                <div style={node_styles::layout_sidebar()} />
+                                <div style={node_styles::layout_main()} />
+                            </div>
+                        }
+                    </div>
                 }
             }
 
             // Type badge
-            div(class: "node-badge", style: node_styles::badge(entity_type)) {
-                { format!("{:?}", entity_type) }
-            }
+            <div class="node-badge" style={node_styles::badge(entity_type)}>
+                {format!("{:?}", entity_type)}
+            </div>
 
             // Connection handles
-            div(class: "node-handle node-handle-top", style: node_styles::handle_top())
-            div(class: "node-handle node-handle-bottom", style: node_styles::handle_bottom())
-        }
+            <div class="node-handle node-handle-top" style={node_styles::handle_top()} />
+            <div class="node-handle node-handle-bottom" style={node_styles::handle_bottom()} />
+        </div>
+    }
+}
+
+fn get_node_class(entity_type: EntityType, is_drop_target: bool) -> String {
+    let wf = EntityType::Workflow;
+    let ctx = EntityType::Context;
+    let type_class = if entity_type == wf {
+        "workflow"
+    } else if entity_type == ctx {
+        "context"
+    } else {
+        "preset"
+    };
+    if is_drop_target {
+        format!("navigation-node navigation-node-{} drop-target", type_class)
+    } else {
+        format!("navigation-node navigation-node-{}", type_class)
     }
 }
 
@@ -711,10 +737,14 @@ mod node_styles {
     use rsc_studio::designer::navigation::EntityType;
 
     pub fn container(pos: &Position, entity_type: EntityType, selected: bool, is_dragging: bool, is_drop_target: bool) -> String {
-        let border_color = match entity_type {
-            EntityType::Workflow => "var(--color-primary)",
-            EntityType::Context => "var(--color-secondary)",
-            EntityType::Preset => "var(--color-accent)",
+        let wf = EntityType::Workflow;
+        let ctx = EntityType::Context;
+        let border_color = if entity_type == wf {
+            "var(--color-primary)"
+        } else if entity_type == ctx {
+            "var(--color-secondary)"
+        } else {
+            "var(--color-accent)"
         };
 
         let selected_style = if is_drop_target {
@@ -761,10 +791,14 @@ mod node_styles {
     }
 
     pub fn header(entity_type: EntityType) -> String {
-        let bg_color = match entity_type {
-            EntityType::Workflow => "var(--color-primary)",
-            EntityType::Context => "var(--color-secondary)",
-            EntityType::Preset => "var(--color-accent)",
+        let wf = EntityType::Workflow;
+        let ctx = EntityType::Context;
+        let bg_color = if entity_type == wf {
+            "var(--color-primary)"
+        } else if entity_type == ctx {
+            "var(--color-secondary)"
+        } else {
+            "var(--color-accent)"
         };
 
         format!(
@@ -849,10 +883,14 @@ mod node_styles {
     }
 
     pub fn badge(entity_type: EntityType) -> String {
-        let bg_color = match entity_type {
-            EntityType::Workflow => "var(--color-primary)",
-            EntityType::Context => "var(--color-secondary)",
-            EntityType::Preset => "var(--color-accent)",
+        let wf = EntityType::Workflow;
+        let ctx = EntityType::Context;
+        let bg_color = if entity_type == wf {
+            "var(--color-primary)"
+        } else if entity_type == ctx {
+            "var(--color-secondary)"
+        } else {
+            "var(--color-accent)"
         };
 
         format!(

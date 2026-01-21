@@ -5,33 +5,30 @@ use rsc::prelude::*;
 use super::{Button, ButtonVariant, ButtonSize, Icon};
 
 /// Toolbar component.
-#[component]
-pub fn Toolbar(children: Element) -> Element {
-    rsx! {
-        div(class: "toolbar", style: styles::container()) {
-            { children }
-        }
+component Toolbar(children: Element) {
+    render {
+        <div class="toolbar" style={styles::container()}>
+            {children}
+        </div>
     }
 }
 
 /// Toolbar group for organizing buttons.
-#[component]
-pub fn ToolbarGroup(children: Element) -> Element {
-    rsx! {
-        div(class: "toolbar-group", style: styles::group()) {
-            { children }
-        }
+component ToolbarGroup(children: Element) {
+    render {
+        <div class="toolbar-group" style={styles::group()}>
+            {children}
+        </div>
     }
 }
 
 /// Toolbar button.
-#[component]
-pub fn ToolbarButton(
+component ToolbarButton(
     icon: String,
-    label: Option<String>,
-    active: Option<bool>,
+    label?: String,
+    active?: bool,
     on_click: Callback<()>,
-) -> Element {
+) {
     let active = active.unwrap_or(false);
 
     let variant = if active {
@@ -40,25 +37,20 @@ pub fn ToolbarButton(
         ButtonVariant::Ghost
     };
 
-    rsx! {
-        Button {
-            variant: variant,
-            size: ButtonSize::Sm,
-            on_click: on_click.clone(),
-        } {
-            Icon { name: icon.clone(), size: 16 }
-            if let Some(ref label) = label {
-                span { { label.clone() } }
+    render {
+        <Button variant={variant} size={ButtonSize::Sm} on_click={on_click.clone()}>
+            <Icon name={icon.clone()} size={16} />
+            @if let Some(ref label) = label {
+                <span>{label.clone()}</span>
             }
-        }
+        </Button>
     }
 }
 
 /// Toolbar divider.
-#[component]
-pub fn ToolbarDivider() -> Element {
-    rsx! {
-        div(class: "toolbar-divider", style: styles::divider())
+component ToolbarDivider() {
+    render {
+        <div class="toolbar-divider" style={styles::divider()} />
     }
 }
 

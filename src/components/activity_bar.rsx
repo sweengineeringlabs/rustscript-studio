@@ -15,8 +15,7 @@ pub struct ActivityItem {
 }
 
 /// Activity bar component.
-#[component]
-pub fn ActivityBar(active_view: Signal<Route>, on_change: Callback<Route>) -> Element {
+component ActivityBar(active_view: Signal<Route>, on_change: Callback<Route>) {
     let items = vec![
         ActivityItem {
             id: "navigation".to_string(),
@@ -38,38 +37,37 @@ pub fn ActivityBar(active_view: Signal<Route>, on_change: Callback<Route>) -> El
         },
     ];
 
-    rsx! {
-        aside(class: "activity-bar", style: styles::container()) {
-            div(class: "activity-items", style: styles::items()) {
-                for item in items {
-                    ActivityBarItem {
-                        item: item.clone(),
-                        is_active: active_view.get() == item.route,
-                        on_click: on_change.clone(),
-                    }
+    render {
+        <aside class="activity-bar" style={styles::container()}>
+            <div class="activity-items" style={styles::items()}>
+                @for item in items {
+                    <ActivityBarItem
+                        item={item.clone()}
+                        is_active={active_view.get() == item.route}
+                        on_click={on_change.clone()}
+                    />
                 }
-            }
-        }
+            </div>
+        </aside>
     }
 }
 
-#[component]
-fn ActivityBarItem(item: ActivityItem, is_active: bool, on_click: Callback<Route>) -> Element {
-    let style = if is_active {
+component ActivityBarItem(item: ActivityItem, is_active: bool, on_click: Callback<Route>) {
+    let item_style = if is_active {
         styles::item_active()
     } else {
         styles::item()
     };
 
-    rsx! {
-        button(
-            class: "activity-item",
-            style: style,
-            title: item.label.clone(),
-            onclick: move |_| on_click.call(item.route.clone()),
-        ) {
-            Icon { name: item.icon.clone() }
-        }
+    render {
+        <button
+            class="activity-item"
+            style={item_style}
+            title={item.label.clone()}
+            on:click={|| on_click.call(item.route.clone())}
+        >
+            <Icon name={item.icon.clone()} />
+        </button>
     }
 }
 

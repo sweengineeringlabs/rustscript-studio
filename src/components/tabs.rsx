@@ -13,40 +13,38 @@ pub struct Tab {
 }
 
 /// Tabs component.
-#[component]
-pub fn Tabs(tabs: Vec<Tab>, active: Signal<String>, on_change: Callback<String>) -> Element {
-    rsx! {
-        div(class: "tabs", style: styles::container()) {
-            for tab in tabs {
-                TabItem {
-                    tab: tab.clone(),
-                    is_active: active.get() == tab.id,
-                    on_click: on_change.clone(),
-                }
+component Tabs(tabs: Vec<Tab>, active: Signal<String>, on_change: Callback<String>) {
+    render {
+        <div class="tabs" style={styles::container()}>
+            @for tab in tabs.iter() {
+                <TabItem
+                    tab={tab.clone()}
+                    is_active={active.get() == tab.id}
+                    on_click={on_change.clone()}
+                />
             }
-        }
+        </div>
     }
 }
 
-#[component]
-fn TabItem(tab: Tab, is_active: bool, on_click: Callback<String>) -> Element {
-    let style = if is_active {
+component TabItem(tab: Tab, is_active: bool, on_click: Callback<String>) {
+    let tab_style = if is_active {
         styles::tab_active()
     } else {
         styles::tab()
     };
 
-    rsx! {
-        button(
-            class: "tab",
-            style: style,
-            onclick: move |_| on_click.call(tab.id.clone()),
-        ) {
-            if let Some(ref icon) = tab.icon {
-                Icon { name: icon.clone(), size: 16 }
+    render {
+        <button
+            class="tab"
+            style={tab_style}
+            on:click={|| on_click.call(tab.id.clone())}
+        >
+            @if let Some(ref icon) = tab.icon {
+                <Icon name={icon.clone()} size={16} />
             }
-            span { { tab.label.clone() } }
-        }
+            <span>{tab.label.clone()}</span>
+        </button>
     }
 }
 

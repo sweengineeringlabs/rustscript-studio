@@ -30,13 +30,12 @@ impl Default for PreviewCategory {
 ///     ],
 /// }
 /// ```
-#[component]
-pub fn TokenPreview(
+component TokenPreview(
     /// Which category to preview
-    category: Option<PreviewCategory>,
+    category?: PreviewCategory,
     /// Design tokens as CSS variables (for injection)
-    tokens: Option<Vec<(String, String)>>,
-) -> Element {
+    tokens?: Vec<(String, String)>,
+) {
     let category = category.unwrap_or(PreviewCategory::default());
     let tokens = tokens.unwrap_or(vec![]);
 
@@ -46,134 +45,129 @@ pub fn TokenPreview(
         .collect::<Vec<_>>()
         .join(" ");
 
-    rsx! {
-        div(class: "token-preview", style: styles::container(&token_style)) {
-            match category {
-                PreviewCategory::Colors => rsx! { ColorPreview {} },
-                PreviewCategory::Spacing => rsx! { SpacingPreview {} },
-                PreviewCategory::Typography => rsx! { TypographyPreview {} },
-                PreviewCategory::Shadows => rsx! { ShadowPreview {} },
-                PreviewCategory::Radius => rsx! { RadiusPreview {} },
+    render {
+        <div class="token-preview" style={styles::container(&token_style)}>
+            @match category {
+                PreviewCategory::Colors => <ColorPreview />,
+                PreviewCategory::Spacing => <SpacingPreview />,
+                PreviewCategory::Typography => <TypographyPreview />,
+                PreviewCategory::Shadows => <ShadowPreview />,
+                PreviewCategory::Radius => <RadiusPreview />,
             }
-        }
+        </div>
     }
 }
 
-#[component]
-fn ColorPreview() -> Element {
-    rsx! {
-        div(class: "color-preview", style: styles::preview_grid()) {
+component ColorPreview() {
+    render {
+        <div class="color-preview" style={styles::preview_grid()}>
             // Primary colors
-            div(class: "color-preview-section", style: styles::section()) {
-                h4(style: styles::section_title()) { "Primary" }
-                div(style: styles::color_row()) {
-                    div(style: styles::color_swatch("var(--color-primary)"))
-                    div(style: styles::color_swatch("var(--color-primary-hover)"))
-                }
-            }
+            <div class="color-preview-section" style={styles::section()}>
+                <h4 style={styles::section_title()}>Primary</h4>
+                <div style={styles::color_row()}>
+                    <div style={styles::color_swatch("var(--color-primary)")} />
+                    <div style={styles::color_swatch("var(--color-primary-hover)")} />
+                </div>
+            </div>
 
             // Semantic colors
-            div(class: "color-preview-section", style: styles::section()) {
-                h4(style: styles::section_title()) { "Semantic" }
-                div(style: styles::color_row()) {
-                    div(style: styles::color_swatch("var(--color-success)"))
-                    div(style: styles::color_swatch("var(--color-warning)"))
-                    div(style: styles::color_swatch("var(--color-error)"))
-                    div(style: styles::color_swatch("var(--color-info)"))
-                }
-            }
+            <div class="color-preview-section" style={styles::section()}>
+                <h4 style={styles::section_title()}>Semantic</h4>
+                <div style={styles::color_row()}>
+                    <div style={styles::color_swatch("var(--color-success)")} />
+                    <div style={styles::color_swatch("var(--color-warning)")} />
+                    <div style={styles::color_swatch("var(--color-error)")} />
+                    <div style={styles::color_swatch("var(--color-info)")} />
+                </div>
+            </div>
 
             // Sample card
-            div(class: "color-preview-card", style: styles::sample_card()) {
-                div(style: styles::card_header()) { "Sample Card" }
-                p(style: styles::card_body()) {
-                    "This card demonstrates how colors work together in a real component."
-                }
-                div(style: styles::card_actions()) {
-                    button(style: styles::primary_button()) { "Primary" }
-                    button(style: styles::secondary_button()) { "Secondary" }
-                }
-            }
-        }
+            <div class="color-preview-card" style={styles::sample_card()}>
+                <div style={styles::card_header()}>Sample Card</div>
+                <p style={styles::card_body()}>
+                    This card demonstrates how colors work together in a real component.
+                </p>
+                <div style={styles::card_actions()}>
+                    <button style={styles::primary_button()}>Primary</button>
+                    <button style={styles::secondary_button()}>Secondary</button>
+                </div>
+            </div>
+        </div>
     }
 }
 
-#[component]
-fn SpacingPreview() -> Element {
+component SpacingPreview() {
     let sizes = ["xs", "sm", "md", "lg", "xl", "2xl"];
 
-    rsx! {
-        div(class: "spacing-preview", style: styles::preview_column()) {
-            for size in sizes.iter() {
-                div(style: styles::spacing_item()) {
-                    span(style: styles::spacing_label()) { { format!("--spacing-{}", size) } }
-                    div(style: styles::spacing_bar(*size))
-                }
+    render {
+        <div class="spacing-preview" style={styles::preview_column()}>
+            @for size in sizes.iter() {
+                <div style={styles::spacing_item()}>
+                    <span style={styles::spacing_label()}>{format!("--spacing-{}", size)}</span>
+                    <div style={styles::spacing_bar(*size)} />
+                </div>
             }
 
             // Box model preview
-            div(style: styles::box_model_preview()) {
-                div(style: styles::box_outer()) {
-                    span(style: styles::box_label()) { "margin" }
-                    div(style: styles::box_inner()) {
-                        span(style: styles::box_label()) { "padding" }
-                        div(style: styles::box_content()) { "Content" }
-                    }
-                }
-            }
-        }
+            <div style={styles::box_model_preview()}>
+                <div style={styles::box_outer()}>
+                    <span style={styles::box_label()}>margin</span>
+                    <div style={styles::box_inner()}>
+                        <span style={styles::box_label()}>padding</span>
+                        <div style={styles::box_content()}>Content</div>
+                    </div>
+                </div>
+            </div>
+        </div>
     }
 }
 
-#[component]
-fn TypographyPreview() -> Element {
-    rsx! {
-        div(class: "typography-preview", style: styles::preview_column()) {
-            h1(style: styles::heading_1()) { "Heading 1" }
-            h2(style: styles::heading_2()) { "Heading 2" }
-            h3(style: styles::heading_3()) { "Heading 3" }
-            p(style: styles::body_text()) {
-                "Body text demonstrates the default reading experience. "
-                strong { "Bold text" }
-                " and "
-                em { "italic text" }
-                " provide emphasis."
-            }
-            p(style: styles::small_text()) {
-                "Small text is used for captions and secondary information."
-            }
-            code(style: styles::code_text()) { "const code = 'monospace';" }
-        }
+component TypographyPreview() {
+    render {
+        <div class="typography-preview" style={styles::preview_column()}>
+            <h1 style={styles::heading_1()}>Heading 1</h1>
+            <h2 style={styles::heading_2()}>Heading 2</h2>
+            <h3 style={styles::heading_3()}>Heading 3</h3>
+            <p style={styles::body_text()}>
+                Body text demonstrates the default reading experience.{" "}
+                <strong>Bold text</strong>
+                {" and "}
+                <em>italic text</em>
+                {" provide emphasis."}
+            </p>
+            <p style={styles::small_text()}>
+                Small text is used for captions and secondary information.
+            </p>
+            <code style={styles::code_text()}>const code = 'monospace';</code>
+        </div>
     }
 }
 
-#[component]
-fn ShadowPreview() -> Element {
+component ShadowPreview() {
     let shadows = ["sm", "md", "lg", "xl"];
 
-    rsx! {
-        div(class: "shadow-preview", style: styles::shadow_grid()) {
-            for shadow in shadows.iter() {
-                div(style: styles::shadow_box(*shadow)) {
-                    span { { format!("shadow-{}", shadow) } }
-                }
+    render {
+        <div class="shadow-preview" style={styles::shadow_grid()}>
+            @for shadow in shadows.iter() {
+                <div style={styles::shadow_box(*shadow)}>
+                    <span>{format!("shadow-{}", shadow)}</span>
+                </div>
             }
-        }
+        </div>
     }
 }
 
-#[component]
-fn RadiusPreview() -> Element {
+component RadiusPreview() {
     let radii = ["none", "sm", "md", "lg", "xl", "full"];
 
-    rsx! {
-        div(class: "radius-preview", style: styles::radius_grid()) {
-            for radius in radii.iter() {
-                div(style: styles::radius_box(*radius)) {
-                    span { { *radius } }
-                }
+    render {
+        <div class="radius-preview" style={styles::radius_grid()}>
+            @for radius in radii.iter() {
+                <div style={styles::radius_box(*radius)}>
+                    <span>{*radius}</span>
+                </div>
             }
-        }
+        </div>
     }
 }
 

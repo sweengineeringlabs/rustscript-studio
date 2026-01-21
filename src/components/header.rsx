@@ -5,57 +5,56 @@ use rsc::prelude::*;
 use super::{Button, ButtonVariant, ButtonSize, Icon};
 
 /// Header component.
-#[component]
-pub fn Header(
+component Header(
     title: &'static str,
     sidebar_visible: Signal<bool>,
     bottom_panel_visible: Signal<bool>,
-) -> Element {
-    rsx! {
-        header(class: "header", style: styles::container()) {
+) {
+    render {
+        <header class="header" style={styles::container()}>
             // Left section - toggle buttons
-            div(class: "header-left", style: styles::section()) {
-                Button {
-                    variant: ButtonVariant::Ghost,
-                    size: ButtonSize::Sm,
-                    onclick: move |_| {
+            <div class="header-left" style={styles::section()}>
+                <Button
+                    variant={ButtonVariant::Ghost}
+                    size={ButtonSize::Sm}
+                    onclick={Callback::new(|| {
                         sidebar_visible.update(|v| *v = !*v);
-                    },
-                } {
-                    Icon { name: "sidebar".to_string() }
-                }
+                    })}
+                >
+                    <Icon name={"sidebar".to_string()} />
+                </Button>
 
-                h1(class: "header-title", style: styles::title()) {
-                    { title }
-                }
-            }
+                <h1 class="header-title" style={styles::title()}>
+                    {title}
+                </h1>
+            </div>
 
             // Center section - breadcrumbs or context
-            div(class: "header-center", style: styles::section()) {
+            <div class="header-center" style={styles::section()}>
                 // Placeholder for breadcrumbs
-            }
+            </div>
 
             // Right section - actions
-            div(class: "header-right", style: styles::section()) {
-                Button {
-                    variant: ButtonVariant::Ghost,
-                    size: ButtonSize::Sm,
-                    onclick: move |_| {
+            <div class="header-right" style={styles::section()}>
+                <Button
+                    variant={ButtonVariant::Ghost}
+                    size={ButtonSize::Sm}
+                    onclick={Callback::new(|| {
                         bottom_panel_visible.update(|v| *v = !*v);
-                    },
-                } {
-                    Icon { name: "panel-bottom".to_string() }
-                }
+                    })}
+                >
+                    <Icon name={"panel-bottom".to_string()} />
+                </Button>
 
-                Button {
-                    variant: ButtonVariant::Ghost,
-                    size: ButtonSize::Sm,
-                    onclick: move |_| {},
-                } {
-                    Icon { name: "sun".to_string() }
-                }
-            }
-        }
+                <Button
+                    variant={ButtonVariant::Ghost}
+                    size={ButtonSize::Sm}
+                    onclick={Callback::new(|| {})}
+                >
+                    <Icon name={"sun".to_string()} />
+                </Button>
+            </div>
+        </header>
     }
 }
 

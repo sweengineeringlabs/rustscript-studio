@@ -142,103 +142,66 @@ impl Color {
 ///
 /// ## Example
 /// ```rust,ignore
-/// ColorPicker {
-///     value: color.get(),
-///     on_change: Callback::new(move |c| color.set(c)),
-///     presets: vec!["#3b82f6", "#10b981", "#f59e0b", "#ef4444"],
-/// }
+/// <ColorPicker
+///     value={color.get()}
+///     on_change={Callback::new(move |c| color.set(c))}
+///     presets={vec!["#3b82f6", "#10b981", "#f59e0b", "#ef4444"]}
+/// />
 /// ```
-#[component]
-pub fn ColorPicker(
+component ColorPicker(
     value: String,
-    on_change: Option<Callback<String>>,
-    show_alpha: Option<bool>,
+    on_change?: Callback<String>,
+    show_alpha?: bool,
     format: ColorFormat,
     disabled: bool,
     presets: Vec<String>,
-) -> Element {
+) {
     let show_alpha = show_alpha.unwrap_or(true);
-    let color = use_signal(|| Color::from_hex(&value).unwrap_or_default());
-    let format = use_signal(|| format);
-    let is_dragging_sv = use_signal(|| false);
-    let is_dragging_hue = use_signal(|| false);
-    let is_dragging_alpha = use_signal(|| false);
-    let sv_ref = use_node_ref();
+    let color = signal(Color::from_hex(&value).unwrap_or_default());
+    let format_signal = signal(format);
+    let is_dragging_sv = signal(false);
 
     // Extract HSL values for the pickers
     let (hue, sat, light) = color.get().to_hsl_values();
 
     // Emit color change
-    let emit_change = {
-        let on_change = on_change.clone();
-        move |new_color: Color| {
-            color.set(new_color);
-            if let Some(ref callback) = on_change {
-                callback.call(new_color.to_hex());
-            }
+    let emit_change = |new_color: Color| {
+        color.set(new_color);
+        if let Some(ref callback) = on_change {
+            callback.call(new_color.to_hex());
         }
-    };
-
-    // Saturation/Brightness picker mouse handlers
-    let on_sv_mouse_down = move |e: MouseEvent| {
-        if disabled { return; }
-        e.prevent_default();
-        is_dragging_sv.set(true);
-        update_sv_from_event(&e, &sv_ref, color, &emit_change);
-    };
-
-    let on_sv_mouse_move = {
-        let emit_change = emit_change.clone();
-        move |e: MouseEvent| {
-            if is_dragging_sv.get() {
-                update_sv_from_event(&e, &sv_ref, color, &emit_change);
-            }
-        }
-    };
-
-    let on_sv_mouse_up = move |_: MouseEvent| {
-        is_dragging_sv.set(false);
     };
 
     // Hue slider handlers
-    let on_hue_input = {
-        let emit_change = emit_change.clone();
-        move |e: InputEvent| {
-            if let Ok(h) = e.value().parse::<f64>() {
-                let c = color.get();
-                let (_, s, l) = c.to_hsl_values();
-                let new_color = Color::from_hsl(h, s, l, c.a);
-                emit_change(new_color);
-            }
+    let on_hue_input = |e: InputEvent| {
+        if let Ok(h) = e.value().parse::<f64>() {
+            let c = color.get();
+            let (_, s, l) = c.to_hsl_values();
+            let new_color = Color::from_hsl(h, s, l, c.a);
+            emit_change(new_color);
         }
     };
 
     // Alpha slider handlers
-    let on_alpha_input = {
-        let emit_change = emit_change.clone();
-        move |e: InputEvent| {
-            if let Ok(a) = e.value().parse::<f32>() {
-                let mut c = color.get();
-                c.a = a / 100.0;
-                emit_change(c);
-            }
+    let on_alpha_input = |e: InputEvent| {
+        if let Ok(a) = e.value().parse::<f32>() {
+            let mut c = color.get();
+            c.a = a / 100.0;
+            emit_change(c);
         }
     };
 
     // Hex input handler
-    let on_hex_input = {
-        let emit_change = emit_change.clone();
-        move |e: InputEvent| {
-            let val = e.value();
-            if let Some(new_color) = Color::from_hex(&val) {
-                emit_change(new_color);
-            }
+    let on_hex_input = |e: InputEvent| {
+        let val = e.value();
+        if let Some(new_color) = Color::from_hex(&val) {
+            emit_change(new_color);
         }
     };
 
     // Format toggle
-    let on_format_click = move |_: MouseEvent| {
-        format.update(|f| {
+    let on_format_click = |_: MouseEvent| {
+        format_signal.update(|f| {
             *f = match f {
                 ColorFormat::Hex => ColorFormat::Rgb,
                 ColorFormat::Rgb => ColorFormat::Hsl,
@@ -248,140 +211,123 @@ pub fn ColorPicker(
     };
 
     // Preset color click
-    let on_preset_click = {
-        let emit_change = emit_change.clone();
-        move |preset: String| {
-            if let Some(new_color) = Color::from_hex(&preset) {
-                emit_change(new_color);
-            }
+    let on_preset_click = |preset: String| {
+        if let Some(new_color) = Color::from_hex(&preset) {
+            emit_change(new_color);
         }
     };
 
     let current_color = color.get();
     let hex_value = current_color.to_hex();
-    let display_value = match format.get() {
+    let display_value = match format_signal.get() {
         ColorFormat::Hex => hex_value.clone(),
         ColorFormat::Rgb => current_color.to_rgb(),
         ColorFormat::Hsl => current_color.to_hsl(),
     };
 
-    rsx! {
-        div(class: "color-picker", style: styles::container(disabled)) {
+    render {
+        <div class="color-picker" style={styles::container(disabled)}>
             // Saturation/Brightness picker
-            div(
-                class: "color-picker-sv",
-                style: styles::sv_picker(hue),
-                ref: sv_ref,
-                onmousedown: on_sv_mouse_down,
-                onmousemove: on_sv_mouse_move,
-                onmouseup: on_sv_mouse_up,
-                onmouseleave: on_sv_mouse_up,
-            ) {
-                div(class: "color-picker-sv-white", style: styles::sv_white())
-                div(class: "color-picker-sv-black", style: styles::sv_black())
-                div(class: "color-picker-sv-cursor", style: styles::sv_cursor(sat, light))
-            }
+            <div
+                class="color-picker-sv"
+                style={styles::sv_picker(hue)}
+                on:mousedown={|e: MouseEvent| {
+                    if disabled { return; }
+                    e.prevent_default();
+                    is_dragging_sv.set(true);
+                    // Handle SV update
+                    let rect_x = e.offset_x() as f64;
+                    let rect_y = e.offset_y() as f64;
+                    let width = 200.0;
+                    let height = 150.0;
+                    let sat = (rect_x / width).clamp(0.0, 1.0);
+                    let val = 1.0 - (rect_y / height).clamp(0.0, 1.0);
+                    let c = color.get();
+                    let (h, _, _) = c.to_hsl_values();
+                    let l = val * (1.0 - sat / 2.0);
+                    let s = if l == 0.0 || l == 1.0 { 0.0 } else { (val - l) / l.min(1.0 - l) };
+                    let new_color = Color::from_hsl(h, s, l, c.a);
+                    emit_change(new_color);
+                }}
+                on:mouseup={|_: MouseEvent| {
+                    is_dragging_sv.set(false);
+                }}
+                on:mouseleave={|_: MouseEvent| {
+                    is_dragging_sv.set(false);
+                }}
+            >
+                <div class="color-picker-sv-white" style={styles::sv_white()} />
+                <div class="color-picker-sv-black" style={styles::sv_black()} />
+                <div class="color-picker-sv-cursor" style={styles::sv_cursor(sat, light)} />
+            </div>
 
             // Sliders section
-            div(class: "color-picker-sliders", style: styles::sliders()) {
+            <div class="color-picker-sliders" style={styles::sliders()}>
                 // Hue slider
-                div(class: "color-picker-hue", style: styles::slider_row()) {
-                    div(class: "color-picker-hue-track", style: styles::hue_track())
-                    input(
-                        type: "range",
-                        min: "0",
-                        max: "360",
-                        value: hue.to_string(),
-                        style: styles::slider_input(),
-                        disabled: disabled,
-                        oninput: on_hue_input,
-                    )
-                }
+                <div class="color-picker-hue" style={styles::slider_row()}>
+                    <div class="color-picker-hue-track" style={styles::hue_track()} />
+                    <input
+                        type="range"
+                        min="0"
+                        max="360"
+                        value={hue.to_string()}
+                        style={styles::slider_input()}
+                        disabled={disabled}
+                        on:input={on_hue_input}
+                    />
+                </div>
 
                 // Alpha slider (optional)
-                if show_alpha {
-                    div(class: "color-picker-alpha", style: styles::slider_row()) {
-                        div(class: "color-picker-alpha-track", style: styles::alpha_track(&hex_value))
-                        input(
-                            type: "range",
-                            min: "0",
-                            max: "100",
-                            value: (current_color.a * 100.0).to_string(),
-                            style: styles::slider_input(),
-                            disabled: disabled,
-                            oninput: on_alpha_input,
-                        )
-                    }
+                @if show_alpha {
+                    <div class="color-picker-alpha" style={styles::slider_row()}>
+                        <div class="color-picker-alpha-track" style={styles::alpha_track(&hex_value)} />
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={(current_color.a * 100.0).to_string()}
+                            style={styles::slider_input()}
+                            disabled={disabled}
+                            on:input={on_alpha_input}
+                        />
+                    </div>
                 }
-            }
+            </div>
 
             // Color preview and input
-            div(class: "color-picker-input-row", style: styles::input_row()) {
-                div(class: "color-picker-preview", style: styles::preview(&hex_value, current_color.a))
-                input(
-                    type: "text",
-                    value: display_value.clone(),
-                    style: styles::text_input(),
-                    disabled: disabled,
-                    oninput: on_hex_input,
-                )
-                button(
-                    style: styles::format_button(),
-                    disabled: disabled,
-                    onclick: on_format_click,
-                ) {
-                    { format.get().as_str() }
-                }
-            }
+            <div class="color-picker-input-row" style={styles::input_row()}>
+                <div class="color-picker-preview" style={styles::preview(&hex_value, current_color.a)} />
+                <input
+                    type="text"
+                    value={display_value.clone()}
+                    style={styles::text_input()}
+                    disabled={disabled}
+                    on:input={on_hex_input}
+                />
+                <button
+                    style={styles::format_button()}
+                    disabled={disabled}
+                    on:click={on_format_click}
+                >
+                    {format_signal.get().as_str()}
+                </button>
+            </div>
 
             // Preset colors
-            if !presets.is_empty() {
-                div(class: "color-picker-presets", style: styles::presets()) {
-                    for preset in presets.iter() {
-                        button(
-                            class: "color-picker-preset",
-                            style: styles::preset_button(preset),
-                            disabled: disabled,
-                            onclick: {
-                                let preset = preset.clone();
-                                let on_preset_click = on_preset_click.clone();
-                                move |_| on_preset_click(preset.clone())
-                            },
-                        )
+            @if !presets.is_empty() {
+                <div class="color-picker-presets" style={styles::presets()}>
+                    @for preset in presets.iter() {
+                        <button
+                            class="color-picker-preset"
+                            style={styles::preset_button(preset)}
+                            disabled={disabled}
+                            on:click={|| on_preset_click(preset.clone())}
+                        />
                     }
-                }
+                </div>
             }
-        }
+        </div>
     }
-}
-
-fn update_sv_from_event<F>(
-    e: &MouseEvent,
-    sv_ref: &NodeRef,
-    color: Signal<Color>,
-    emit_change: &F,
-) where
-    F: Fn(Color),
-{
-    // Get the bounding rect of the SV picker
-    let rect_x = e.offset_x() as f64;
-    let rect_y = e.offset_y() as f64;
-    let width = 200.0; // Default width
-    let height = 150.0; // Default height
-
-    let sat = (rect_x / width).clamp(0.0, 1.0);
-    let val = 1.0 - (rect_y / height).clamp(0.0, 1.0);
-
-    // Convert saturation/value to HSL
-    let c = color.get();
-    let (h, _, _) = c.to_hsl_values();
-
-    // Convert HSV to HSL
-    let l = val * (1.0 - sat / 2.0);
-    let s = if l == 0.0 || l == 1.0 { 0.0 } else { (val - l) / l.min(1.0 - l) };
-
-    let new_color = Color::from_hsl(h, s, l, c.a);
-    emit_change(new_color);
 }
 
 mod styles {
@@ -436,8 +382,6 @@ mod styles {
     }
 
     pub fn sv_cursor(sat: f64, light: f64) -> String {
-        // Convert HSL saturation/lightness to position
-        // This is an approximation; proper conversion would need the original HSV values
         let x = sat * 100.0;
         let y = (1.0 - light * 2.0).max(0.0) * 100.0;
         format!(

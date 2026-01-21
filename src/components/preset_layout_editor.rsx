@@ -14,15 +14,14 @@ use super::{Select, SelectOption, Switch, Input, Icon};
 /// - Activity bar configuration
 /// - Sidebar configuration
 /// - Bottom panel configuration
-#[component]
-pub fn PresetLayoutEditor(
+component PresetLayoutEditor(
     layout: LayoutConfig,
     on_change: Callback<LayoutConfig>,
-) -> Element {
+) {
     // Expand/collapse state for sections
-    let activity_expanded = use_signal(|| true);
-    let sidebar_expanded = use_signal(|| true);
-    let bottom_panel_expanded = use_signal(|| true);
+    let activity_expanded = signal(true);
+    let sidebar_expanded = signal(true);
+    let bottom_panel_expanded = signal(true);
 
     // Layout variant options
     let variant_options = vec![
@@ -161,162 +160,161 @@ pub fn PresetLayoutEditor(
         }
     };
 
-    rsx! {
-        div(class: "preset-layout-editor", style: styles::container()) {
+    render {
+        <div class="preset-layout-editor" style={styles::container()}>
             // Layout variant selector
-            div(class: "layout-section", style: styles::section()) {
-                div(class: "section-header", style: styles::section_header()) {
-                    Icon { name: "layout".to_string(), size: 16 }
-                    span { "Layout Variant" }
+            <div class="layout-section" style={styles::section()}>
+                <div class="section-header" style={styles::section_header()}>
+                    <Icon name={"layout".to_string()} size={16} />
+                    <span>Layout Variant</span>
                 </div>
-                Select {
-                    value: Some(variant_value.to_string()),
-                    options: variant_options,
-                    on_change: Some(Callback::new(on_variant_change)),
-                }
-            }
+                <Select
+                    value={Some(variant_value.to_string())}
+                    options={variant_options}
+                    on_change={Some(Callback::new(on_variant_change))}
+                />
+            </div>
 
             // Activity Bar section
-            div(class: "layout-section", style: styles::section()) {
-                div(
-                    class: "section-header clickable",
-                    style: styles::section_header_clickable(),
-                    onclick: move |_| activity_expanded.update(|v| *v = !*v)
-                ) {
-                    Icon {
-                        name: if activity_expanded.get() { "chevron-down".to_string() } else { "chevron-right".to_string() },
-                        size: 14
-                    }
-                    Icon { name: "sidebar".to_string(), size: 16 }
-                    span { "Activity Bar" }
-                    div(style: "flex: 1;") {}
-                    Switch {
-                        checked: Some(activity_bar.visible),
-                        on_change: Some(Callback::new(on_activity_visible_change)),
-                    }
-                }
+            <div class="layout-section" style={styles::section()}>
+                <div
+                    class="section-header clickable"
+                    style={styles::section_header_clickable()}
+                    on:click={move |_| activity_expanded.update(|v| *v = !*v)}
+                >
+                    <Icon
+                        name={if activity_expanded.get() { "chevron-down".to_string() } else { "chevron-right".to_string() }}
+                        size={14}
+                    />
+                    <Icon name={"sidebar".to_string()} size={16} />
+                    <span>Activity Bar</span>
+                    <div style="flex: 1;" />
+                    <Switch
+                        checked={Some(activity_bar.visible)}
+                        on_change={Some(Callback::new(on_activity_visible_change))}
+                    />
+                </div>
 
-                if activity_expanded.get() && activity_bar.visible {
-                    div(class: "section-content", style: styles::section_content()) {
-                        div(class: "form-row", style: styles::form_row()) {
-                            label(style: styles::label()) { "Position" }
-                            Select {
-                                value: Some(match activity_bar.position {
+                @if activity_expanded.get() && activity_bar.visible {
+                    <div class="section-content" style={styles::section_content()}>
+                        <div class="form-row" style={styles::form_row()}>
+                            <label style={styles::label()}>Position</label>
+                            <Select
+                                value={Some(match activity_bar.position {
                                     Position::Left => "left".to_string(),
                                     Position::Right => "right".to_string(),
                                     _ => "left".to_string(),
-                                }),
-                                options: position_options.clone(),
-                                on_change: Some(Callback::new(on_activity_position_change)),
-                            }
-                        }
-                    }
+                                })}
+                                options={position_options.clone()}
+                                on_change={Some(Callback::new(on_activity_position_change))}
+                            />
+                        </div>
+                    </div>
                 }
-            }
+            </div>
 
             // Sidebar section
-            div(class: "layout-section", style: styles::section()) {
-                div(
-                    class: "section-header clickable",
-                    style: styles::section_header_clickable(),
-                    onclick: move |_| sidebar_expanded.update(|v| *v = !*v)
-                ) {
-                    Icon {
-                        name: if sidebar_expanded.get() { "chevron-down".to_string() } else { "chevron-right".to_string() },
-                        size: 14
-                    }
-                    Icon { name: "columns".to_string(), size: 16 }
-                    span { "Sidebar" }
-                    div(style: "flex: 1;") {}
-                    Switch {
-                        checked: Some(sidebar.visible),
-                        on_change: Some(Callback::new(on_sidebar_visible_change)),
-                    }
-                }
+            <div class="layout-section" style={styles::section()}>
+                <div
+                    class="section-header clickable"
+                    style={styles::section_header_clickable()}
+                    on:click={move |_| sidebar_expanded.update(|v| *v = !*v)}
+                >
+                    <Icon
+                        name={if sidebar_expanded.get() { "chevron-down".to_string() } else { "chevron-right".to_string() }}
+                        size={14}
+                    />
+                    <Icon name={"columns".to_string()} size={16} />
+                    <span>Sidebar</span>
+                    <div style="flex: 1;" />
+                    <Switch
+                        checked={Some(sidebar.visible)}
+                        on_change={Some(Callback::new(on_sidebar_visible_change))}
+                    />
+                </div>
 
-                if sidebar_expanded.get() && sidebar.visible {
-                    div(class: "section-content", style: styles::section_content()) {
-                        div(class: "form-row", style: styles::form_row()) {
-                            label(style: styles::label()) { "Position" }
-                            Select {
-                                value: Some(match sidebar.position {
+                @if sidebar_expanded.get() && sidebar.visible {
+                    <div class="section-content" style={styles::section_content()}>
+                        <div class="form-row" style={styles::form_row()}>
+                            <label style={styles::label()}>Position</label>
+                            <Select
+                                value={Some(match sidebar.position {
                                     Position::Left => "left".to_string(),
                                     Position::Right => "right".to_string(),
                                     _ => "left".to_string(),
-                                }),
-                                options: position_options.clone(),
-                                on_change: Some(Callback::new(on_sidebar_position_change)),
-                            }
-                        }
-                        div(class: "form-row", style: styles::form_row()) {
-                            label(style: styles::label()) { "Width (px)" }
-                            Input {
-                                value: sidebar.width.to_string(),
-                                r#type: Some(crate::components::InputType::Number),
-                                on_change: {
+                                })}
+                                options={position_options.clone()}
+                                on_change={Some(Callback::new(on_sidebar_position_change))}
+                            />
+                        </div>
+                        <div class="form-row" style={styles::form_row()}>
+                            <label style={styles::label()}>Width (px)</label>
+                            <Input
+                                value={sidebar.width.to_string()}
+                                input_type={Some(crate::components::InputType::Number)}
+                                on_change={{
                                     let on_sidebar_width_change = on_sidebar_width_change.clone();
                                     move |v: String| on_sidebar_width_change(v)
-                                },
-                            }
-                        }
-                    }
+                                }}
+                            />
+                        </div>
+                    </div>
                 }
-            }
+            </div>
 
             // Bottom Panel section
-            div(class: "layout-section", style: styles::section()) {
-                div(
-                    class: "section-header clickable",
-                    style: styles::section_header_clickable(),
-                    onclick: move |_| bottom_panel_expanded.update(|v| *v = !*v)
-                ) {
-                    Icon {
-                        name: if bottom_panel_expanded.get() { "chevron-down".to_string() } else { "chevron-right".to_string() },
-                        size: 14
-                    }
-                    Icon { name: "terminal".to_string(), size: 16 }
-                    span { "Bottom Panel" }
-                    div(style: "flex: 1;") {}
-                    Switch {
-                        checked: Some(bottom_panel.visible),
-                        on_change: Some(Callback::new(on_bottom_visible_change)),
-                    }
-                }
+            <div class="layout-section" style={styles::section()}>
+                <div
+                    class="section-header clickable"
+                    style={styles::section_header_clickable()}
+                    on:click={move |_| bottom_panel_expanded.update(|v| *v = !*v)}
+                >
+                    <Icon
+                        name={if bottom_panel_expanded.get() { "chevron-down".to_string() } else { "chevron-right".to_string() }}
+                        size={14}
+                    />
+                    <Icon name={"terminal".to_string()} size={16} />
+                    <span>Bottom Panel</span>
+                    <div style="flex: 1;" />
+                    <Switch
+                        checked={Some(bottom_panel.visible)}
+                        on_change={Some(Callback::new(on_bottom_visible_change))}
+                    />
+                </div>
 
-                if bottom_panel_expanded.get() && bottom_panel.visible {
-                    div(class: "section-content", style: styles::section_content()) {
-                        div(class: "form-row", style: styles::form_row()) {
-                            label(style: styles::label()) { "Height (px)" }
-                            Input {
-                                value: bottom_panel.height.to_string(),
-                                r#type: Some(crate::components::InputType::Number),
-                                on_change: {
+                @if bottom_panel_expanded.get() && bottom_panel.visible {
+                    <div class="section-content" style={styles::section_content()}>
+                        <div class="form-row" style={styles::form_row()}>
+                            <label style={styles::label()}>Height (px)</label>
+                            <Input
+                                value={bottom_panel.height.to_string()}
+                                input_type={Some(crate::components::InputType::Number)}
+                                on_change={{
                                     let on_bottom_height_change = on_bottom_height_change.clone();
                                     move |v: String| on_bottom_height_change(v)
-                                },
-                            }
-                        }
-                    }
+                                }}
+                            />
+                        </div>
+                    </div>
                 }
-            }
+            </div>
 
             // Layout preview
-            div(class: "layout-preview", style: styles::preview_container()) {
-                div(class: "preview-label", style: styles::preview_label()) {
-                    Icon { name: "eye".to_string(), size: 14 }
-                    span { "Preview" }
-                }
-                LayoutPreview {
-                    layout: layout.clone(),
-                }
-            }
-        }
+            <div class="layout-preview" style={styles::preview_container()}>
+                <div class="preview-label" style={styles::preview_label()}>
+                    <Icon name={"eye".to_string()} size={14} />
+                    <span>Preview</span>
+                </div>
+                <LayoutPreview
+                    layout={layout.clone()}
+                />
+            </div>
+        </div>
     }
 }
 
 /// Visual preview of the layout configuration.
-#[component]
-fn LayoutPreview(layout: LayoutConfig) -> Element {
+component LayoutPreview(layout: LayoutConfig) {
     let activity_bar = layout.activity_bar.clone().unwrap_or_default();
     let sidebar = layout.sidebar.clone().unwrap_or_default();
     let bottom_panel = layout.bottom_panel.clone().unwrap_or_default();
@@ -326,37 +324,37 @@ fn LayoutPreview(layout: LayoutConfig) -> Element {
     let sidebar_on_left = sidebar.visible && sidebar.position == Position::Left;
     let sidebar_on_right = sidebar.visible && sidebar.position == Position::Right;
 
-    rsx! {
-        div(class: "layout-preview-box", style: styles::preview_box()) {
+    render {
+        <div class="layout-preview-box" style={styles::preview_box()}>
             // Top row (header)
-            div(style: styles::preview_header()) {}
+            <div style={styles::preview_header()} />
 
             // Middle row (activity bar, sidebar, main, sidebar right, activity bar right)
-            div(style: styles::preview_middle()) {
-                if activity_on_left {
-                    div(style: styles::preview_activity_bar()) {}
+            <div style={styles::preview_middle()}>
+                @if activity_on_left {
+                    <div style={styles::preview_activity_bar()} />
                 }
 
-                if sidebar_on_left {
-                    div(style: styles::preview_sidebar()) {}
+                @if sidebar_on_left {
+                    <div style={styles::preview_sidebar()} />
                 }
 
-                div(style: styles::preview_main()) {}
+                <div style={styles::preview_main()} />
 
-                if sidebar_on_right {
-                    div(style: styles::preview_sidebar()) {}
+                @if sidebar_on_right {
+                    <div style={styles::preview_sidebar()} />
                 }
 
-                if activity_on_right {
-                    div(style: styles::preview_activity_bar()) {}
+                @if activity_on_right {
+                    <div style={styles::preview_activity_bar()} />
                 }
-            }
+            </div>
 
             // Bottom panel
-            if bottom_panel.visible {
-                div(style: styles::preview_bottom_panel()) {}
+            @if bottom_panel.visible {
+                <div style={styles::preview_bottom_panel()} />
             }
-        }
+        </div>
     }
 }
 
