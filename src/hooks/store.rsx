@@ -1,6 +1,7 @@
 //! Studio store hook - global state management.
 
 use rsc::prelude::*;
+use std::collections::HashMap;
 
 use rsc_studio::entity::{Workflow, Context, Preset, LayoutConfig, LayoutVariant, Position, ActivityBarConfig, SidebarConfig, BottomPanelConfig};
 use rsc_studio::designer::css::DesignTokens;
@@ -19,6 +20,8 @@ struct StudioStoreInner {
     selected_preset: Option<String>,
     design_tokens: DesignTokens,
     theme: Theme,
+    /// Node positions for the navigation designer (entity_id -> (x, y))
+    node_positions: HashMap<String, (f64, f64)>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -425,6 +428,46 @@ impl StudioStore {
 
             s.workflows.push(design_workflow);
         });
+    }
+
+    // ============== Node Position Methods ==============
+
+    /// Get all node positions.
+    pub fn node_positions(&self) -> HashMap<String, (f64, f64)> {
+        self.inner.get().node_positions.clone()
+    }
+
+    /// Get position for a specific node.
+    pub fn get_node_position(&self, node_id: &str) -> Option<(f64, f64)> {
+        self.inner.get().node_positions.get(node_id).copied()
+    }
+
+    /// Set position for a specific node.
+    pub fn set_node_position(&self, node_id: &str, x: f64, y: f64) {
+        self.inner.update(|s| {
+            s.node_positions.insert(node_id.to_string(), (x, y));
+        });
+    }
+
+    /// Set multiple node positions at once.
+    pub fn set_node_positions(&self, positions: HashMap<String, (f64, f64)>) {
+        self.inner.update(|s| {
+            for (id, pos) in positions {
+                s.node_positions.insert(id, pos);
+            }
+        });
+    }
+
+    /// Clear position for a specific node.
+    pub fn clear_node_position(&self, node_id: &str) {
+        self.inner.update(|s| {
+            s.node_positions.remove(node_id);
+        });
+    }
+
+    /// Check if any positions are saved.
+    pub fn has_saved_positions(&self) -> bool {
+        !self.inner.get().node_positions.is_empty()
     }
 }
 

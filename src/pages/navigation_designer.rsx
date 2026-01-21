@@ -18,13 +18,24 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
         let workflow_refs: Vec<_> = workflows.iter().collect();
         designer.load_workflows(&workflow_refs);
 
-        // Apply initial auto-layout
-        designer.canvas.auto_layout(FlowLayoutConfig {
-            direction: LayoutDirection::TopToBottom,
-            node_sep: 80.0,
-            rank_sep: 120.0,
-            ..Default::default()
-        });
+        // Check for saved positions
+        let saved_positions = store.node_positions();
+        if saved_positions.is_empty() {
+            // No saved positions, apply auto-layout
+            designer.canvas.auto_layout(FlowLayoutConfig {
+                direction: LayoutDirection::TopToBottom,
+                node_sep: 80.0,
+                rank_sep: 120.0,
+                ..Default::default()
+            });
+        } else {
+            // Apply saved positions
+            for (node_id, (x, y)) in saved_positions {
+                if let Some(node) = designer.canvas.nodes.get_mut(&node_id) {
+                    node.position = rsc_flow::prelude::Position::new(x, y);
+                }
+            }
+        }
 
         designer.canvas
     });
@@ -35,7 +46,7 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
     let delete_target = use_signal::<Option<(String, EntityType)>>(|| None);
     let search_query = use_signal(String::new);
 
-    // Helper to reload canvas with auto-layout
+    // Helper to reload canvas preserving positions
     let reload_canvas = {
         let store = store.clone();
         let canvas = canvas.clone();
@@ -45,13 +56,30 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
             let mut designer = NavigationDesigner::new();
             designer.load_workflows(&workflow_refs);
 
-            // Auto-layout on structure change
+            // Get saved positions
+            let saved_positions = store.node_positions();
+
+            // Auto-layout first for new nodes
             designer.canvas.auto_layout(FlowLayoutConfig {
                 direction: LayoutDirection::TopToBottom,
                 node_sep: 80.0,
                 rank_sep: 120.0,
                 ..Default::default()
             });
+
+            // Then apply saved positions for existing nodes
+            for (node_id, (x, y)) in saved_positions {
+                if let Some(node) = designer.canvas.nodes.get_mut(&node_id) {
+                    node.position = rsc_flow::prelude::Position::new(x, y);
+                }
+            }
+
+            // Save the new layout positions for nodes that didn't have saved positions
+            for (node_id, node) in &designer.canvas.nodes {
+                if store.get_node_position(node_id).is_none() {
+                    store.set_node_position(node_id, node.position.x, node.position.y);
+                }
+            }
 
             canvas.set(designer.canvas);
         }
@@ -88,15 +116,23 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
         zoom_level.set(100);
     };
 
-    let on_auto_layout = move |_| {
-        canvas.update(|c| {
-            c.auto_layout(FlowLayoutConfig {
-                direction: LayoutDirection::TopToBottom,
-                node_sep: 80.0,
-                rank_sep: 120.0,
-                ..Default::default()
+    let on_auto_layout = {
+        let store = store.clone();
+        move |_| {
+            canvas.update(|c| {
+                c.auto_layout(FlowLayoutConfig {
+                    direction: LayoutDirection::TopToBottom,
+                    node_sep: 80.0,
+                    rank_sep: 120.0,
+                    ..Default::default()
+                });
+
+                // Save the new positions
+                for (node_id, node) in &c.nodes {
+                    store.set_node_position(node_id, node.position.x, node.position.y);
+                }
             });
-        });
+        }
     };
 
     // Zoom to selected node
@@ -300,13 +336,19 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
                     on_node_select: Some(Callback::new(move |id: String| {
                         selected_node.set(Some(id));
                     })),
-                    on_node_move: Some(Callback::new(move |(id, pos): (String, rsc_flow::prelude::Position)| {
-                        canvas.update(|c| {
-                            if let Some(node) = c.nodes.get_mut(&id) {
-                                node.position = pos;
-                            }
-                        });
-                    })),
+                    on_node_move: Some({
+                        let store = store.clone();
+                        Callback::new(move |(id, pos): (String, rsc_flow::prelude::Position)| {
+                            // Update canvas
+                            canvas.update(|c| {
+                                if let Some(node) = c.nodes.get_mut(&id) {
+                                    node.position = pos;
+                                }
+                            });
+                            // Persist position to store
+                            store.set_node_position(&id, pos.x, pos.y);
+                        })
+                    }),
                 }
 
                 // Empty state
