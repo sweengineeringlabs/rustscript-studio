@@ -442,6 +442,13 @@ impl StudioStore {
         self.inner.get().component_styles.generate_css()
     }
 
+    /// Import tokens, replacing existing ones.
+    pub fn import_tokens(&self, tokens: rsc_studio::designer::css::DesignTokens) {
+        self.inner.update(|s| {
+            s.design_tokens = tokens;
+        });
+    }
+
     /// Get generated CSS from current tokens.
     pub fn get_generated_css(&self) -> String {
         let tokens = &self.inner.get().design_tokens;

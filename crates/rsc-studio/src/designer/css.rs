@@ -134,6 +134,411 @@ pub struct DesignTokens {
     pub z_index: IndexMap<String, TokenValue>,
 }
 
+impl DesignTokens {
+    /// Import tokens from JSON string.
+    pub fn from_json(json: &str) -> Result<Self, TokenImportError> {
+        serde_json::from_str(json).map_err(|e| TokenImportError::ParseError(e.to_string()))
+    }
+
+    /// Import tokens from YAML string.
+    pub fn from_yaml(yaml: &str) -> Result<Self, TokenImportError> {
+        serde_yaml::from_str(yaml).map_err(|e| TokenImportError::ParseError(e.to_string()))
+    }
+
+    /// Export to JSON string.
+    pub fn to_json(&self) -> Result<String, String> {
+        serde_json::to_string_pretty(self).map_err(|e| e.to_string())
+    }
+
+    /// Export to YAML string.
+    pub fn to_yaml(&self) -> Result<String, String> {
+        serde_yaml::to_string(self).map_err(|e| e.to_string())
+    }
+
+    /// Get all token paths.
+    pub fn all_paths(&self) -> Vec<String> {
+        let mut paths = Vec::new();
+
+        for name in self.colors.keys() {
+            paths.push(format!("colors.{}", name));
+        }
+        for name in self.spacing.keys() {
+            paths.push(format!("spacing.{}", name));
+        }
+        for name in self.radius.keys() {
+            paths.push(format!("radius.{}", name));
+        }
+        for name in self.shadows.keys() {
+            paths.push(format!("shadows.{}", name));
+        }
+        for name in self.typography.fonts.keys() {
+            paths.push(format!("typography.fonts.{}", name));
+        }
+        for name in self.typography.sizes.keys() {
+            paths.push(format!("typography.sizes.{}", name));
+        }
+        for name in self.typography.weights.keys() {
+            paths.push(format!("typography.weights.{}", name));
+        }
+        for name in self.transitions.keys() {
+            paths.push(format!("transitions.{}", name));
+        }
+        for name in self.z_index.keys() {
+            paths.push(format!("z-index.{}", name));
+        }
+
+        paths
+    }
+
+    /// Validate all tokens.
+    pub fn validate(&self) -> Vec<TokenValidationError> {
+        let mut errors = Vec::new();
+
+        // Validate colors
+        for (name, value) in &self.colors {
+            if let Some(err) = validate_color(name, value) {
+                errors.push(err);
+            }
+        }
+
+        // Validate spacing
+        for (name, value) in &self.spacing {
+            if let Some(err) = validate_dimension(name, value, "spacing") {
+                errors.push(err);
+            }
+        }
+
+        // Validate radius
+        for (name, value) in &self.radius {
+            if let Some(err) = validate_dimension(name, value, "radius") {
+                errors.push(err);
+            }
+        }
+
+        // Validate z-index
+        for (name, value) in &self.z_index {
+            if let Some(err) = validate_number(name, value, "z-index") {
+                errors.push(err);
+            }
+        }
+
+        errors
+    }
+
+    /// Find token references within values (e.g., var(--color-primary)).
+    pub fn find_dependencies(&self) -> IndexMap<String, Vec<String>> {
+        let mut deps: IndexMap<String, Vec<String>> = IndexMap::new();
+
+        // Helper to extract var() references
+        let extract_refs = |value: &str| -> Vec<String> {
+            let mut refs = Vec::new();
+            let mut remaining = value;
+            while let Some(start) = remaining.find("var(--") {
+                let after_var = &remaining[start + 6..];
+                if let Some(end) = after_var.find(')') {
+                    let var_name = &after_var[..end];
+                    // Convert CSS var name to path (e.g., "color-primary" -> "colors.primary")
+                    let path = css_var_to_path(var_name);
+                    if !path.is_empty() {
+                        refs.push(path);
+                    }
+                    remaining = &after_var[end..];
+                } else {
+                    break;
+                }
+            }
+            refs
+        };
+
+        // Process all tokens
+        let process_value = |path: &str, value: &TokenValue, deps: &mut IndexMap<String, Vec<String>>| {
+            let refs = match value {
+                TokenValue::Simple(v) => extract_refs(v),
+                TokenValue::Adaptive { light, dark } => {
+                    let mut r = extract_refs(light);
+                    r.extend(extract_refs(dark));
+                    r
+                }
+                TokenValue::Scale(scale) => {
+                    let mut r = Vec::new();
+                    for v in scale.values() {
+                        r.extend(extract_refs(v));
+                    }
+                    r
+                }
+            };
+            if !refs.is_empty() {
+                deps.insert(path.to_string(), refs);
+            }
+        };
+
+        for (name, value) in &self.colors {
+            process_value(&format!("colors.{}", name), value, &mut deps);
+        }
+        for (name, value) in &self.spacing {
+            process_value(&format!("spacing.{}", name), value, &mut deps);
+        }
+        for (name, value) in &self.radius {
+            process_value(&format!("radius.{}", name), value, &mut deps);
+        }
+        for (name, value) in &self.shadows {
+            process_value(&format!("shadows.{}", name), value, &mut deps);
+        }
+        for (name, value) in &self.transitions {
+            process_value(&format!("transitions.{}", name), value, &mut deps);
+        }
+
+        deps
+    }
+
+    /// Find tokens that reference a given token.
+    pub fn find_dependents(&self, token_path: &str) -> Vec<String> {
+        let deps = self.find_dependencies();
+        deps.iter()
+            .filter(|(_, refs)| refs.contains(&token_path.to_string()))
+            .map(|(path, _)| path.clone())
+            .collect()
+    }
+
+    /// Count total tokens.
+    pub fn count(&self) -> usize {
+        self.colors.len()
+            + self.spacing.len()
+            + self.radius.len()
+            + self.shadows.len()
+            + self.typography.fonts.len()
+            + self.typography.sizes.len()
+            + self.typography.weights.len()
+            + self.transitions.len()
+            + self.z_index.len()
+    }
+}
+
+/// Token import error.
+#[derive(Debug, Clone)]
+pub enum TokenImportError {
+    ParseError(String),
+    ValidationError(Vec<TokenValidationError>),
+}
+
+/// Token validation error.
+#[derive(Debug, Clone)]
+pub struct TokenValidationError {
+    pub path: String,
+    pub message: String,
+    pub severity: ValidationSeverity,
+}
+
+/// Validation severity level.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValidationSeverity {
+    Error,
+    Warning,
+    Info,
+}
+
+/// Convert CSS variable name to token path.
+fn css_var_to_path(var_name: &str) -> String {
+    let parts: Vec<&str> = var_name.splitn(2, '-').collect();
+    if parts.len() != 2 {
+        return String::new();
+    }
+
+    match parts[0] {
+        "color" => format!("colors.{}", parts[1]),
+        "spacing" => format!("spacing.{}", parts[1]),
+        "radius" => format!("radius.{}", parts[1]),
+        "shadow" => format!("shadows.{}", parts[1]),
+        "transition" => format!("transitions.{}", parts[1]),
+        "z" => format!("z-index.{}", parts[1]),
+        "font" => {
+            // Could be font-size, font-weight, font-family
+            let sub_parts: Vec<&str> = parts[1].splitn(2, '-').collect();
+            if sub_parts.len() == 2 {
+                match sub_parts[0] {
+                    "size" => format!("typography.sizes.{}", sub_parts[1]),
+                    "weight" => format!("typography.weights.{}", sub_parts[1]),
+                    "family" => format!("typography.fonts.{}", sub_parts[1]),
+                    _ => String::new(),
+                }
+            } else {
+                String::new()
+            }
+        }
+        _ => String::new(),
+    }
+}
+
+/// Validate a color token.
+fn validate_color(name: &str, value: &TokenValue) -> Option<TokenValidationError> {
+    let validate_color_value = |v: &str| -> Option<String> {
+        let v = v.trim();
+        // Check for common color formats
+        if v.starts_with('#') {
+            // Hex color
+            let hex = &v[1..];
+            if hex.len() != 3 && hex.len() != 6 && hex.len() != 8 {
+                return Some("Invalid hex color format".to_string());
+            }
+            if !hex.chars().all(|c| c.is_ascii_hexdigit()) {
+                return Some("Invalid hex characters in color".to_string());
+            }
+        } else if v.starts_with("rgb") || v.starts_with("hsl") {
+            // RGB/HSL - basic check for parentheses
+            if !v.contains('(') || !v.contains(')') {
+                return Some("Invalid color function syntax".to_string());
+            }
+        } else if v.starts_with("var(") {
+            // CSS variable reference - valid
+        } else if v.is_empty() {
+            return Some("Color value is empty".to_string());
+        }
+        // Named colors and other formats are accepted
+        None
+    };
+
+    match value {
+        TokenValue::Simple(v) => {
+            if let Some(msg) = validate_color_value(v) {
+                return Some(TokenValidationError {
+                    path: format!("colors.{}", name),
+                    message: msg,
+                    severity: ValidationSeverity::Warning,
+                });
+            }
+        }
+        TokenValue::Adaptive { light, dark } => {
+            if let Some(msg) = validate_color_value(light) {
+                return Some(TokenValidationError {
+                    path: format!("colors.{} (light)", name),
+                    message: msg,
+                    severity: ValidationSeverity::Warning,
+                });
+            }
+            if let Some(msg) = validate_color_value(dark) {
+                return Some(TokenValidationError {
+                    path: format!("colors.{} (dark)", name),
+                    message: msg,
+                    severity: ValidationSeverity::Warning,
+                });
+            }
+        }
+        TokenValue::Scale(scale) => {
+            for (key, v) in scale {
+                if let Some(msg) = validate_color_value(v) {
+                    return Some(TokenValidationError {
+                        path: format!("colors.{}.{}", name, key),
+                        message: msg,
+                        severity: ValidationSeverity::Warning,
+                    });
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Validate a dimension token (spacing, radius).
+fn validate_dimension(name: &str, value: &TokenValue, category: &str) -> Option<TokenValidationError> {
+    let validate_dim = |v: &str| -> Option<String> {
+        let v = v.trim();
+        if v.is_empty() {
+            return Some("Value is empty".to_string());
+        }
+        if v.starts_with("var(") {
+            return None; // CSS variable reference
+        }
+        // Check for valid CSS units
+        let units = ["px", "rem", "em", "%", "vh", "vw", "vmin", "vmax", "ch", "ex"];
+        let has_unit = units.iter().any(|u| v.ends_with(u));
+        let is_zero = v == "0";
+        let is_calc = v.starts_with("calc(");
+
+        if !has_unit && !is_zero && !is_calc {
+            return Some("Missing or invalid CSS unit".to_string());
+        }
+        None
+    };
+
+    if let TokenValue::Simple(v) = value {
+        if let Some(msg) = validate_dim(v) {
+            return Some(TokenValidationError {
+                path: format!("{}.{}", category, name),
+                message: msg,
+                severity: ValidationSeverity::Warning,
+            });
+        }
+    }
+    None
+}
+
+/// Validate a numeric token (z-index).
+fn validate_number(name: &str, value: &TokenValue, category: &str) -> Option<TokenValidationError> {
+    if let TokenValue::Simple(v) = value {
+        let v = v.trim();
+        if v.is_empty() {
+            return Some(TokenValidationError {
+                path: format!("{}.{}", category, name),
+                message: "Value is empty".to_string(),
+                severity: ValidationSeverity::Warning,
+            });
+        }
+        if !v.starts_with("var(") && v.parse::<i32>().is_err() {
+            return Some(TokenValidationError {
+                path: format!("{}.{}", category, name),
+                message: "Expected numeric value".to_string(),
+                severity: ValidationSeverity::Warning,
+            });
+        }
+    }
+    None
+}
+
+/// Token usage tracker for detecting unused tokens.
+#[derive(Debug, Clone, Default)]
+pub struct TokenUsageTracker {
+    /// Set of used token paths.
+    pub used: std::collections::HashSet<String>,
+}
+
+impl TokenUsageTracker {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Mark a token as used.
+    pub fn mark_used(&mut self, path: &str) {
+        self.used.insert(path.to_string());
+    }
+
+    /// Mark tokens from CSS variable references in a string.
+    pub fn mark_from_css(&mut self, css: &str) {
+        let mut remaining = css;
+        while let Some(start) = remaining.find("var(--") {
+            let after_var = &remaining[start + 6..];
+            if let Some(end) = after_var.find(')') {
+                let var_name = &after_var[..end];
+                let path = css_var_to_path(var_name);
+                if !path.is_empty() {
+                    self.mark_used(&path);
+                }
+                remaining = &after_var[end..];
+            } else {
+                break;
+            }
+        }
+    }
+
+    /// Find unused tokens.
+    pub fn find_unused(&self, tokens: &DesignTokens) -> Vec<String> {
+        let all_paths = tokens.all_paths();
+        all_paths
+            .into_iter()
+            .filter(|p| !self.used.contains(p))
+            .collect()
+    }
+}
+
 /// Typography tokens.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TypographyTokens {

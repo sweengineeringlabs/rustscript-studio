@@ -258,11 +258,11 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
-| [ ] | Import tokens from YAML/JSON | 2026-01-21 | |
-| [ ] | Export tokens to multiple formats | 2026-01-21 | |
-| [ ] | Token validation | 2026-01-21 | |
-| [ ] | Unused token detection | 2026-01-21 | |
-| [ ] | Token dependency graph | 2026-01-21 | |
+| [x] | Import tokens from YAML/JSON | 2026-01-21 | 2026-01-21 |
+| [x] | Export tokens to multiple formats | 2026-01-21 | 2026-01-21 |
+| [x] | Token validation | 2026-01-21 | 2026-01-21 |
+| [x] | Unused token detection | 2026-01-21 | 2026-01-21 |
+| [x] | Token dependency graph | 2026-01-21 | 2026-01-21 |
 
 ---
 
@@ -430,12 +430,12 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | Phase 1: Foundation | 35 | 35 | 100% |
 | Phase 2: UI Components | 28 | 28 | 100% |
 | Phase 3: Navigation | 19 | 19 | 100% |
-| Phase 4: CSS Designer | 22 | 17 | 77% |
+| Phase 4: CSS Designer | 22 | 22 | 100% |
 | Phase 5: Integration | 14 | 0 | 0% |
 | Phase 6: Advanced | 18 | 0 | 0% |
 | Phase 7: Testing | 13 | 3 | 23% |
 | Phase 8: Polish | 14 | 0 | 0% |
-| **Total** | **163** | **102** | **63%** |
+| **Total** | **163** | **107** | **66%** |
 
 ---
 

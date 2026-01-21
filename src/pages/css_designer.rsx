@@ -2,7 +2,10 @@
 
 use rsc::prelude::*;
 
-use rsc_studio::designer::css::{TokenCategory, TokenValue, PreviewMode, ComponentStyle};
+use rsc_studio::designer::css::{
+    TokenCategory, TokenValue, PreviewMode, ComponentStyle,
+    DesignTokens, TokenValidationError, ValidationSeverity,
+};
 
 use crate::components::{TokenEditor, ComponentStyleEditor, Toolbar, ToolbarGroup, ToolbarButton, ToolbarDivider, Button, ButtonVariant, ButtonSize, Icon, Tabs, Tab, Input, Modal, ModalSize, Select, SelectOption};
 use crate::hooks::StudioStore;
@@ -39,6 +42,12 @@ pub fn CssDesignerPage(store: StudioStore) -> Element {
     let show_export_modal = use_signal(|| false);
     let export_format = use_signal(|| ExportFormat::Css);
     let use_system_theme = use_signal(|| false);
+    let show_import_modal = use_signal(|| false);
+    let import_content = use_signal(String::new);
+    let import_format = use_signal(|| "json".to_string());
+    let import_error = use_signal(|| Option::<String>::None);
+    let show_validation_panel = use_signal(|| false);
+    let show_dependencies_panel = use_signal(|| false);
 
     let categories = vec![
         Tab {
@@ -251,8 +260,33 @@ pub fn CssDesignerPage(store: StudioStore) -> Element {
                     ToolbarButton {
                         icon: "upload".to_string(),
                         label: Some("Import".to_string()),
-                        onclick: move |_| {
-                            // Import tokens - TODO: implement file picker
+                        onclick: {
+                            let show_import_modal = show_import_modal.clone();
+                            move |_| show_import_modal.set(true)
+                        },
+                    }
+                }
+
+                ToolbarDivider {}
+
+                // Token management tools
+                ToolbarGroup {
+                    ToolbarButton {
+                        icon: "check-circle".to_string(),
+                        label: Some("Validate".to_string()),
+                        active: show_validation_panel.get(),
+                        onclick: {
+                            let show_validation_panel = show_validation_panel.clone();
+                            move |_| show_validation_panel.update(|v| *v = !*v)
+                        },
+                    }
+                    ToolbarButton {
+                        icon: "git-branch".to_string(),
+                        label: Some("Dependencies".to_string()),
+                        active: show_dependencies_panel.get(),
+                        onclick: {
+                            let show_dependencies_panel = show_dependencies_panel.clone();
+                            move |_| show_dependencies_panel.update(|v| *v = !*v)
                         },
                     }
                 }
@@ -399,6 +433,48 @@ pub fn CssDesignerPage(store: StudioStore) -> Element {
                     },
                 }
             }
+
+            // Import Modal
+            if show_import_modal.get() {
+                ImportModal {
+                    store: store.clone(),
+                    content: import_content.clone(),
+                    format: import_format.clone(),
+                    error: import_error.clone(),
+                    on_close: {
+                        let show_import_modal = show_import_modal.clone();
+                        let import_content = import_content.clone();
+                        let import_error = import_error.clone();
+                        move |_| {
+                            show_import_modal.set(false);
+                            import_content.set(String::new());
+                            import_error.set(None);
+                        }
+                    },
+                }
+            }
+
+            // Validation Panel (sidebar)
+            if show_validation_panel.get() {
+                ValidationPanel {
+                    tokens: tokens.clone(),
+                    on_close: {
+                        let show_validation_panel = show_validation_panel.clone();
+                        move |_| show_validation_panel.set(false)
+                    },
+                }
+            }
+
+            // Dependencies Panel (sidebar)
+            if show_dependencies_panel.get() {
+                DependenciesPanel {
+                    tokens: tokens.clone(),
+                    on_close: {
+                        let show_dependencies_panel = show_dependencies_panel.clone();
+                        move |_| show_dependencies_panel.set(false)
+                    },
+                }
+            }
         }
     }
 }
@@ -484,6 +560,239 @@ fn ExportModal(
                             // TODO: Copy to clipboard or download
                         },
                     } { "Copy to Clipboard" }
+                }
+            }
+        }
+    }
+}
+
+/// Import modal component.
+#[component]
+fn ImportModal(
+    store: StudioStore,
+    content: Signal<String>,
+    format: Signal<String>,
+    error: Signal<Option<String>>,
+    on_close: Callback<()>,
+) -> Element {
+    let format_options = vec![
+        SelectOption { value: "json".to_string(), label: "JSON".to_string() },
+        SelectOption { value: "yaml".to_string(), label: "YAML".to_string() },
+    ];
+
+    let on_import = {
+        let store = store.clone();
+        let content = content.clone();
+        let format = format.clone();
+        let error = error.clone();
+        let on_close = on_close.clone();
+        move |_| {
+            let text = content.get();
+            let result = if format.get() == "yaml" {
+                DesignTokens::from_yaml(&text)
+            } else {
+                DesignTokens::from_json(&text)
+            };
+
+            match result {
+                Ok(tokens) => {
+                    store.import_tokens(tokens);
+                    on_close.call(());
+                }
+                Err(e) => {
+                    error.set(Some(format!("Import failed: {:?}", e)));
+                }
+            }
+        }
+    };
+
+    rsx! {
+        Modal {
+            title: "Import Design Tokens".to_string(),
+            size: ModalSize::Lg,
+            on_close: on_close.clone(),
+        } {
+            div(style: styles::export_modal_content()) {
+                div(style: styles::export_format_selector()) {
+                    label(style: styles::form_label()) { "Import Format" }
+                    Select {
+                        value: format.get(),
+                        options: format_options,
+                        onchange: {
+                            let format = format.clone();
+                            Callback::new(move |v: String| format.set(v))
+                        },
+                    }
+                }
+
+                div(style: styles::form_field()) {
+                    label(style: styles::form_label()) { "Paste token data" }
+                    textarea(
+                        style: styles::import_textarea(),
+                        placeholder: if format.get() == "yaml" {
+                            "colors:\n  primary: \"#3b82f6\"\n  secondary: \"#64748b\"\nspacing:\n  sm: \"0.5rem\"\n  md: \"1rem\""
+                        } else {
+                            "{\n  \"colors\": {\n    \"primary\": \"#3b82f6\"\n  },\n  \"spacing\": {\n    \"sm\": \"0.5rem\"\n  }\n}"
+                        },
+                        value: content.get(),
+                        oninput: {
+                            let content = content.clone();
+                            move |e: Event<FormData>| content.set(e.value())
+                        },
+                    )
+                }
+
+                if let Some(err) = error.get() {
+                    div(style: styles::error_message()) {
+                        Icon { name: "alert-circle".to_string(), size: 16 }
+                        span { { err } }
+                    }
+                }
+
+                div(style: styles::modal_actions()) {
+                    Button {
+                        variant: ButtonVariant::Secondary,
+                        size: ButtonSize::Sm,
+                        onclick: {
+                            let on_close = on_close.clone();
+                            move |_| on_close.call(())
+                        },
+                    } { "Cancel" }
+                    Button {
+                        variant: ButtonVariant::Primary,
+                        size: ButtonSize::Sm,
+                        onclick: on_import,
+                    } { "Import" }
+                }
+            }
+        }
+    }
+}
+
+/// Validation panel component.
+#[component]
+fn ValidationPanel(
+    tokens: Signal<DesignTokens>,
+    on_close: Callback<()>,
+) -> Element {
+    let validation_errors = use_memo(move || {
+        tokens.get().validate()
+    });
+
+    let errors = validation_errors.get();
+    let error_count = errors.iter().filter(|e| e.severity == ValidationSeverity::Error).count();
+    let warning_count = errors.iter().filter(|e| e.severity == ValidationSeverity::Warning).count();
+
+    rsx! {
+        div(class: "validation-panel", style: styles::side_panel()) {
+            div(class: "panel-header", style: styles::side_panel_header()) {
+                h3 { "Token Validation" }
+                button(
+                    style: styles::close_button(),
+                    onclick: {
+                        let on_close = on_close.clone();
+                        move |_| on_close.call(())
+                    },
+                ) {
+                    Icon { name: "x".to_string(), size: 16 }
+                }
+            }
+
+            div(style: styles::validation_summary()) {
+                span(style: styles::validation_stat("error")) {
+                    { format!("{} errors", error_count) }
+                }
+                span(style: styles::validation_stat("warning")) {
+                    { format!("{} warnings", warning_count) }
+                }
+            }
+
+            div(style: styles::validation_list()) {
+                if errors.is_empty() {
+                    div(style: styles::validation_empty()) {
+                        Icon { name: "check-circle".to_string(), size: 24 }
+                        p { "All tokens are valid!" }
+                    }
+                } else {
+                    for err in errors {
+                        div(
+                            class: "validation-item",
+                            style: styles::validation_item(&err.severity),
+                        ) {
+                            Icon {
+                                name: match err.severity {
+                                    ValidationSeverity::Error => "x-circle",
+                                    ValidationSeverity::Warning => "alert-triangle",
+                                    ValidationSeverity::Info => "info",
+                                }.to_string(),
+                                size: 14,
+                            }
+                            div(style: styles::validation_item_content()) {
+                                span(style: styles::validation_path()) { { err.path.clone() } }
+                                span(style: styles::validation_message()) { { err.message.clone() } }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Dependencies panel component.
+#[component]
+fn DependenciesPanel(
+    tokens: Signal<DesignTokens>,
+    on_close: Callback<()>,
+) -> Element {
+    let dependencies = use_memo(move || {
+        tokens.get().find_dependencies()
+    });
+
+    let deps = dependencies.get();
+    let token_count = tokens.get().count();
+
+    rsx! {
+        div(class: "dependencies-panel", style: styles::side_panel()) {
+            div(class: "panel-header", style: styles::side_panel_header()) {
+                h3 { "Token Dependencies" }
+                button(
+                    style: styles::close_button(),
+                    onclick: {
+                        let on_close = on_close.clone();
+                        move |_| on_close.call(())
+                    },
+                ) {
+                    Icon { name: "x".to_string(), size: 16 }
+                }
+            }
+
+            div(style: styles::dependencies_summary()) {
+                span { { format!("{} total tokens", token_count) } }
+                span { { format!("{} with dependencies", deps.len()) } }
+            }
+
+            div(style: styles::dependencies_list()) {
+                if deps.is_empty() {
+                    div(style: styles::validation_empty()) {
+                        Icon { name: "box".to_string(), size: 24 }
+                        p { "No token dependencies found" }
+                    }
+                } else {
+                    for (path, refs) in deps.iter() {
+                        div(class: "dependency-item", style: styles::dependency_item()) {
+                            div(style: styles::dependency_token()) {
+                                Icon { name: "file".to_string(), size: 14 }
+                                span { { path.clone() } }
+                            }
+                            div(style: styles::dependency_refs()) {
+                                Icon { name: "arrow-right".to_string(), size: 12 }
+                                for ref_path in refs {
+                                    span(style: styles::dependency_ref()) { { ref_path.clone() } }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1062,6 +1371,226 @@ mod styles {
             overflow: auto;
             white-space: pre;
             height: 300px;
+        "#
+    }
+
+    pub fn import_textarea() -> &'static str {
+        r#"
+            width: 100%;
+            height: 250px;
+            padding: var(--spacing-md);
+            font-family: var(--font-mono);
+            font-size: var(--font-size-sm);
+            background: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            color: var(--color-text-primary);
+            resize: vertical;
+        "#
+    }
+
+    pub fn error_message() -> &'static str {
+        r#"
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: var(--radius-md);
+            color: #ef4444;
+            font-size: var(--font-size-sm);
+        "#
+    }
+
+    pub fn side_panel() -> &'static str {
+        r#"
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 400px;
+            height: 100%;
+            background: var(--color-surface);
+            border-left: 1px solid var(--color-border);
+            box-shadow: -4px 0 24px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        "#
+    }
+
+    pub fn side_panel_header() -> &'static str {
+        r#"
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--spacing-md);
+            border-bottom: 1px solid var(--color-border);
+        "#
+    }
+
+    pub fn close_button() -> &'static str {
+        r#"
+            background: none;
+            border: none;
+            padding: var(--spacing-xs);
+            cursor: pointer;
+            color: var(--color-text-secondary);
+            border-radius: var(--radius-sm);
+        "#
+    }
+
+    pub fn validation_summary() -> &'static str {
+        r#"
+            display: flex;
+            gap: var(--spacing-md);
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: var(--color-bg-secondary);
+            border-bottom: 1px solid var(--color-border);
+        "#
+    }
+
+    pub fn validation_stat(severity: &str) -> String {
+        let color = match severity {
+            "error" => "#ef4444",
+            "warning" => "#f59e0b",
+            _ => "var(--color-text-secondary)",
+        };
+        format!(
+            r#"
+                font-size: var(--font-size-sm);
+                font-weight: var(--font-weight-medium);
+                color: {};
+            "#,
+            color
+        )
+    }
+
+    pub fn validation_list() -> &'static str {
+        r#"
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--spacing-md);
+        "#
+    }
+
+    pub fn validation_empty() -> &'static str {
+        r#"
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: var(--spacing-xl);
+            color: var(--color-text-tertiary);
+            text-align: center;
+        "#
+    }
+
+    pub fn validation_item(severity: &ValidationSeverity) -> String {
+        let border_color = match severity {
+            ValidationSeverity::Error => "#ef4444",
+            ValidationSeverity::Warning => "#f59e0b",
+            ValidationSeverity::Info => "#3b82f6",
+        };
+        format!(
+            r#"
+                display: flex;
+                align-items: flex-start;
+                gap: var(--spacing-sm);
+                padding: var(--spacing-sm);
+                margin-bottom: var(--spacing-xs);
+                background: var(--color-bg-secondary);
+                border-left: 3px solid {};
+                border-radius: var(--radius-sm);
+            "#,
+            border_color
+        )
+    }
+
+    pub fn validation_item_content() -> &'static str {
+        r#"
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        "#
+    }
+
+    pub fn validation_path() -> &'static str {
+        r#"
+            font-family: var(--font-mono);
+            font-size: var(--font-size-xs);
+            color: var(--color-text-primary);
+        "#
+    }
+
+    pub fn validation_message() -> &'static str {
+        r#"
+            font-size: var(--font-size-xs);
+            color: var(--color-text-secondary);
+        "#
+    }
+
+    pub fn dependencies_summary() -> &'static str {
+        r#"
+            display: flex;
+            justify-content: space-between;
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: var(--color-bg-secondary);
+            border-bottom: 1px solid var(--color-border);
+            font-size: var(--font-size-sm);
+            color: var(--color-text-secondary);
+        "#
+    }
+
+    pub fn dependencies_list() -> &'static str {
+        r#"
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--spacing-md);
+        "#
+    }
+
+    pub fn dependency_item() -> &'static str {
+        r#"
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-xs);
+            padding: var(--spacing-sm);
+            margin-bottom: var(--spacing-sm);
+            background: var(--color-bg-secondary);
+            border-radius: var(--radius-md);
+        "#
+    }
+
+    pub fn dependency_token() -> &'static str {
+        r#"
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            font-family: var(--font-mono);
+            font-size: var(--font-size-sm);
+            color: var(--color-text-primary);
+        "#
+    }
+
+    pub fn dependency_refs() -> &'static str {
+        r#"
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            flex-wrap: wrap;
+            padding-left: var(--spacing-lg);
+            font-size: var(--font-size-xs);
+        "#
+    }
+
+    pub fn dependency_ref() -> &'static str {
+        r#"
+            font-family: var(--font-mono);
+            padding: 2px var(--spacing-xs);
+            background: var(--color-primary);
+            color: white;
+            border-radius: var(--radius-sm);
         "#
     }
 }
