@@ -45,7 +45,7 @@ pub fn Checkbox(
     let disabled = disabled.unwrap_or(false);
     let error = error.unwrap_or(false);
 
-    let (is_focused, set_focused) = use_state(false);
+    let is_focused = state(false);
     let extra_class = class.unwrap_or_default();
 
     let handle_change = {
@@ -57,12 +57,18 @@ pub fn Checkbox(
         }
     };
 
-    let handle_focus = move |_: FocusEvent| {
-        set_focused(true);
+    let handle_focus = {
+        let is_focused = is_focused.clone();
+        move |_: FocusEvent| {
+            is_focused.set(true);
+        }
     };
 
-    let handle_blur = move |_: FocusEvent| {
-        set_focused(false);
+    let handle_blur = {
+        let is_focused = is_focused.clone();
+        move |_: FocusEvent| {
+            is_focused.set(false);
+        }
     };
 
     let handle_click = {
@@ -96,7 +102,7 @@ pub fn Checkbox(
             // Custom checkbox visual
             div(
                 class: "checkbox-box",
-                style: styles::box_style(size, checked, indeterminate, disabled, error, is_focused)
+                style: styles::box_style(size, checked, indeterminate, disabled, error, is_focused.get())
             ) {
                 if checked {
                     // Checkmark icon
@@ -322,7 +328,7 @@ pub fn Switch(
     let size = size.unwrap_or(CheckboxSize::Md);
     let disabled = disabled.unwrap_or(false);
 
-    let (is_focused, set_focused) = use_state(false);
+    let is_focused = state(false);
     let extra_class = class.unwrap_or_default();
 
     let handle_click = {
@@ -336,12 +342,18 @@ pub fn Switch(
         }
     };
 
-    let handle_focus = move |_: FocusEvent| {
-        set_focused(true);
+    let handle_focus = {
+        let is_focused = is_focused.clone();
+        move |_: FocusEvent| {
+            is_focused.set(true);
+        }
     };
 
-    let handle_blur = move |_: FocusEvent| {
-        set_focused(false);
+    let handle_blur = {
+        let is_focused = is_focused.clone();
+        move |_: FocusEvent| {
+            is_focused.set(false);
+        }
     };
 
     rsx! {
@@ -363,7 +375,7 @@ pub fn Switch(
             // Switch track
             div(
                 class: "switch-track",
-                style: switch_styles::track(size, checked, disabled, is_focused)
+                style: switch_styles::track(size, checked, disabled, is_focused.get())
             ) {
                 // Switch thumb
                 div(

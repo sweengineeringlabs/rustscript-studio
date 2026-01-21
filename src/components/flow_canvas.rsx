@@ -33,33 +33,41 @@ pub fn FlowCanvasView(
     on_edge_create: Option<EdgeCreateCallback>,
 ) -> Element {
     let canvas_data = canvas.get();
-    let (is_panning, set_panning) = use_state(false);
-    let (pan_start, set_pan_start) = use_state(Position::zero());
-    let (viewport_start, set_viewport_start) = use_state((0.0f64, 0.0f64));
-    let (connection, set_connection) = use_state(ConnectionState::default());
+    let is_panning = state(false);
+    let pan_start = state(Position::zero());
+    let viewport_start = state((0.0f64, 0.0f64));
+    let connection = state(ConnectionState::default());
 
     // Handle mouse down for panning (middle mouse button)
     let on_mouse_down = {
         let canvas = canvas.clone();
+        let is_panning = is_panning.clone();
+        let pan_start = pan_start.clone();
+        let viewport_start = viewport_start.clone();
         move |e: MouseEvent| {
             if e.button() == 1 {
                 e.prevent_default();
-                set_panning(true);
-                set_pan_start(Position::new(e.client_x() as f64, e.client_y() as f64));
+                is_panning.set(true);
+                pan_start.set(Position::new(e.client_x() as f64, e.client_y() as f64));
                 let vp = canvas.get().viewport.transform;
-                set_viewport_start((vp.x, vp.y));
+                viewport_start.set((vp.x, vp.y));
             }
         }
     };
 
     let on_mouse_move = {
         let canvas = canvas.clone();
+        let is_panning = is_panning.clone();
+        let pan_start = pan_start.clone();
+        let viewport_start = viewport_start.clone();
+        let connection = connection.clone();
         move |e: MouseEvent| {
             // Handle panning
-            if *is_panning {
-                let dx = e.client_x() as f64 - pan_start.x;
-                let dy = e.client_y() as f64 - pan_start.y;
-                let (start_x, start_y) = *viewport_start;
+            if is_panning.get() {
+                let ps = pan_start.get();
+                let dx = e.client_x() as f64 - ps.x;
+                let dy = e.client_y() as f64 - ps.y;
+                let (start_x, start_y) = viewport_start.get();
                 canvas.update(|c| {
                     if c.viewport.pan_enabled {
                         c.viewport.transform.x = start_x + dx;
@@ -69,30 +77,39 @@ pub fn FlowCanvasView(
             }
 
             // Handle connection dragging
-            if connection.is_connecting {
+            let conn = connection.get();
+            if conn.is_connecting {
                 let canvas_data = canvas.get();
                 let vp = &canvas_data.viewport.transform;
                 let canvas_x = (e.offset_x() as f64 - vp.x) / vp.zoom;
                 let canvas_y = (e.offset_y() as f64 - vp.y) / vp.zoom;
-                set_connection(ConnectionState {
+                connection.set(ConnectionState {
                     current_pos: Position::new(canvas_x, canvas_y),
-                    ..(*connection).clone()
+                    ..conn
                 });
             }
         }
     };
 
-    let on_mouse_up = move |_: MouseEvent| {
-        set_panning(false);
-        if connection.is_connecting {
-            set_connection(ConnectionState::default());
+    let on_mouse_up = {
+        let is_panning = is_panning.clone();
+        let connection = connection.clone();
+        move |_: MouseEvent| {
+            is_panning.set(false);
+            if connection.get().is_connecting {
+                connection.set(ConnectionState::default());
+            }
         }
     };
 
-    let on_mouse_leave = move |_: MouseEvent| {
-        set_panning(false);
-        if connection.is_connecting {
-            set_connection(ConnectionState::default());
+    let on_mouse_leave = {
+        let is_panning = is_panning.clone();
+        let connection = connection.clone();
+        move |_: MouseEvent| {
+            is_panning.set(false);
+            if connection.get().is_connecting {
+                connection.set(ConnectionState::default());
+            }
         }
     };
 
@@ -136,6 +153,7 @@ pub fn FlowCanvasView(
     // Handle keyboard shortcuts
     let on_key_down = {
         let canvas = canvas.clone();
+        let connection = connection.clone();
         move |e: KeyboardEvent| {
             let key = e.key();
             match key.as_str() {
@@ -160,7 +178,7 @@ pub fn FlowCanvasView(
                     canvas.update(|c| c.viewport.reset());
                 }
                 "Escape" => {
-                    set_connection(ConnectionState::default());
+                    connection.set(ConnectionState::default());
                 }
                 _ => {}
             }
@@ -173,8 +191,9 @@ pub fn FlowCanvasView(
 
     // Connection callbacks
     let on_connection_start = {
+        let connection = connection.clone();
         Callback::new(move |(node_id, from_top, pos): (String, bool, Position)| {
-            set_connection(ConnectionState {
+            connection.set(ConnectionState {
                 is_connecting: true,
                 source_node: Some(node_id),
                 from_top,
@@ -185,8 +204,9 @@ pub fn FlowCanvasView(
 
     let on_connection_end = {
         let on_edge_create = on_edge_create.clone();
+        let connection = connection.clone();
         Callback::new(move |target_node_id: String| {
-            let conn = &*connection;
+            let conn = connection.get();
             if conn.is_connecting {
                 if let Some(ref source_id) = conn.source_node {
                     if source_id != &target_node_id {
@@ -200,12 +220,12 @@ pub fn FlowCanvasView(
                     }
                 }
             }
-            set_connection(ConnectionState::default());
+            connection.set(ConnectionState::default());
         })
     };
 
     // Get connection line source position
-    let conn_state = &*connection;
+    let conn_state = connection.get();
     let connection_source_pos = if conn_state.is_connecting {
         conn_state.source_node.as_ref().and_then(|id| {
             canvas_data.get_node_center(id).map(|center| {
@@ -225,7 +245,7 @@ pub fn FlowCanvasView(
     rsx! {
         div(
             class: "flow-canvas",
-            style: styles::container(*is_panning, conn_state.is_connecting),
+            style: styles::container(is_panning.get(), conn_state.is_connecting),
             tabindex: "0",
             onmousedown: on_mouse_down,
             onmousemove: on_mouse_move,

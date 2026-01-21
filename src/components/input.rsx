@@ -104,8 +104,8 @@ pub fn Input(
     let error = error.unwrap_or(false);
     let autofocus = autofocus.unwrap_or(false);
 
-    let (is_focused, set_focused) = use_state(false);
-    let style = get_input_style(variant, size, disabled, error, is_focused);
+    let is_focused = state(false);
+    let style = get_input_style(variant, size, disabled, error, is_focused.get());
     let extra_class = class.unwrap_or_default();
 
     let handle_input = {
@@ -119,8 +119,9 @@ pub fn Input(
 
     let handle_focus = {
         let on_focus_cb = on_focus.clone();
+        let is_focused = is_focused.clone();
         move |_: FocusEvent| {
-            set_focused(true);
+            is_focused.set(true);
             if let Some(ref callback) = on_focus_cb {
                 callback.call(());
             }
@@ -129,8 +130,9 @@ pub fn Input(
 
     let handle_blur = {
         let on_blur_cb = on_blur.clone();
+        let is_focused = is_focused.clone();
         move |_: FocusEvent| {
-            set_focused(false);
+            is_focused.set(false);
             if let Some(ref callback) = on_blur_cb {
                 callback.call(());
             }
