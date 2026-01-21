@@ -165,6 +165,47 @@ impl StudioStore {
         });
     }
 
+    /// Move a context from one workflow to another.
+    pub fn move_context(&self, source_workflow_id: &str, target_workflow_id: &str, context_id: &str) -> bool {
+        if source_workflow_id == target_workflow_id {
+            return false; // No-op, same workflow
+        }
+
+        let inner = self.inner.get();
+
+        // Check if source and target workflows exist and context exists in source
+        let source_has_context = inner.workflows.iter()
+            .find(|w| w.id == source_workflow_id)
+            .map(|w| w.contexts.contains_key(context_id))
+            .unwrap_or(false);
+
+        let target_exists = inner.workflows.iter()
+            .any(|w| w.id == target_workflow_id);
+
+        if !source_has_context || !target_exists {
+            return false;
+        }
+
+        drop(inner);
+
+        self.inner.update(|s| {
+            // Find and remove context from source workflow
+            let context = {
+                let source_workflow = s.workflows.iter_mut().find(|w| w.id == source_workflow_id);
+                source_workflow.and_then(|w| w.contexts.shift_remove(context_id))
+            };
+
+            // Add context to target workflow
+            if let Some(ctx) = context {
+                if let Some(target_workflow) = s.workflows.iter_mut().find(|w| w.id == target_workflow_id) {
+                    target_workflow.contexts.insert(ctx.id.clone(), ctx);
+                }
+            }
+        });
+
+        true
+    }
+
     /// Update context properties.
     pub fn update_context(&self, workflow_id: &str, context_id: &str, name: Option<String>, description: Option<String>, icon: Option<String>) {
         self.inner.update(|s| {

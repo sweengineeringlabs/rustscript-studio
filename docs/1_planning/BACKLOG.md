@@ -183,7 +183,7 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | [x] | Create new context within workflow | 2026-01-21 | |
 | [x] | Edit context properties | 2026-01-21 | |
 | [x] | Delete context | 2026-01-21 | |
-| [ ] | Drag context between workflows | 2026-01-21 | |
+| [x] | Drag context between workflows | 2026-01-21 | 2026-01-21 |
 | [x] | Visual context node rendering | 2026-01-21 | |
 
 ### 3.3 Preset Management
@@ -429,13 +429,13 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 |-------|-------|------|----------|
 | Phase 1: Foundation | 35 | 35 | 100% |
 | Phase 2: UI Components | 28 | 28 | 100% |
-| Phase 3: Navigation | 19 | 18 | 95% |
+| Phase 3: Navigation | 19 | 19 | 100% |
 | Phase 4: CSS Designer | 17 | 0 | 0% |
 | Phase 5: Integration | 14 | 0 | 0% |
 | Phase 6: Advanced | 18 | 0 | 0% |
 | Phase 7: Testing | 13 | 3 | 23% |
 | Phase 8: Polish | 14 | 0 | 0% |
-| **Total** | **158** | **84** | **53%** |
+| **Total** | **158** | **85** | **54%** |
 
 ---
 

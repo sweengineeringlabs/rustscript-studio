@@ -411,6 +411,15 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
                             // We could potentially trigger edit mode directly here
                         })
                     }),
+                    on_move_context: Some({
+                        let store = store.clone();
+                        let reload_canvas = reload_canvas.clone();
+                        Callback::new(move |(src_wf_id, tgt_wf_id, ctx_id): (String, String, String)| {
+                            if store.move_context(&src_wf_id, &tgt_wf_id, &ctx_id) {
+                                reload_canvas();
+                            }
+                        })
+                    }),
                 }
 
                     // Empty state

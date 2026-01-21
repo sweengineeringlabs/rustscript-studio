@@ -15,6 +15,9 @@ use super::{FlowEdge, Icon};
 /// - Enter: Edit the selected node
 /// - Escape: Deselect current node
 /// - Delete/Backspace: Delete selected node
+///
+/// Drag and drop:
+/// - Drag a Context node onto a Workflow node to move it
 #[component]
 pub fn NavigationCanvasView(
     canvas: Signal<FlowCanvas<NavigationNodeData, ()>>,
@@ -26,11 +29,18 @@ pub fn NavigationCanvasView(
     on_edit: Option<Callback<String>>,
     /// Currently selected node ID (for keyboard navigation)
     selected_node_id: Option<String>,
+    /// Callback when a context is dropped on a workflow (source_workflow_id, target_workflow_id, context_id)
+    on_move_context: Option<Callback<(String, String, String)>>,
 ) -> Element {
     let canvas_data = canvas.get();
     let is_panning = use_signal(|| false);
     let pan_start = use_signal(|| Position::zero());
     let viewport_start = use_signal(|| (0.0f64, 0.0f64));
+
+    // State for context drag-and-drop between workflows
+    // Stores (context_entity_id, source_workflow_id) when dragging a context
+    let dragging_context = use_signal::<Option<(String, String)>>(|| None);
+    let drop_target_workflow = use_signal::<Option<String>>(|| None);
 
     // Handle mouse down for panning (middle mouse button)
     let on_mouse_down = {
@@ -372,14 +382,70 @@ pub fn NavigationCanvasView(
                 style: styles::nodes_layer(&canvas_data.viewport)
             ) {
                 for node in canvas_data.nodes.values() {
-                    NavigationNode {
-                        id: node.id.clone(),
-                        position: node.position,
-                        data: node.data.clone(),
-                        selected: node.selected,
-                        zoom: canvas_data.viewport.transform.zoom,
-                        on_select: on_node_select.clone(),
-                        on_move: on_node_move.clone(),
+                    {
+                        let is_drop_target = drop_target_workflow.get()
+                            .as_ref()
+                            .map(|id| {
+                                node.data.as_ref()
+                                    .map(|d| d.entity_type == EntityType::Workflow && &d.entity_id == id)
+                                    .unwrap_or(false)
+                            })
+                            .unwrap_or(false);
+
+                        rsx! {
+                            NavigationNode {
+                                id: node.id.clone(),
+                                position: node.position,
+                                data: node.data.clone(),
+                                selected: node.selected,
+                                zoom: canvas_data.viewport.transform.zoom,
+                                on_select: on_node_select.clone(),
+                                on_move: on_node_move.clone(),
+                                is_drop_target: is_drop_target,
+                                on_drag_start_context: {
+                                    let dragging_context = dragging_context.clone();
+                                    Callback::new(move |(ctx_id, wf_id): (String, String)| {
+                                        dragging_context.set(Some((ctx_id, wf_id)));
+                                    })
+                                },
+                                on_drag_end: {
+                                    let dragging_context = dragging_context.clone();
+                                    let drop_target_workflow = drop_target_workflow.clone();
+                                    let on_move_context = on_move_context.clone();
+                                    Callback::new(move |_: ()| {
+                                        // Check if we have both a context being dragged and a target workflow
+                                        if let (Some((ctx_id, src_wf_id)), Some(tgt_wf_id)) =
+                                            (dragging_context.get(), drop_target_workflow.get())
+                                        {
+                                            if src_wf_id != tgt_wf_id {
+                                                if let Some(ref callback) = on_move_context {
+                                                    callback.call((src_wf_id, tgt_wf_id, ctx_id));
+                                                }
+                                            }
+                                        }
+                                        dragging_context.set(None);
+                                        drop_target_workflow.set(None);
+                                    })
+                                },
+                                on_drag_enter_workflow: {
+                                    let drop_target_workflow = drop_target_workflow.clone();
+                                    let dragging_context = dragging_context.clone();
+                                    Callback::new(move |wf_id: String| {
+                                        // Only set drop target if we're dragging a context
+                                        if dragging_context.get().is_some() {
+                                            drop_target_workflow.set(Some(wf_id));
+                                        }
+                                    })
+                                },
+                                on_drag_leave: {
+                                    let drop_target_workflow = drop_target_workflow.clone();
+                                    Callback::new(move |_: ()| {
+                                        drop_target_workflow.set(None);
+                                    })
+                                },
+                                is_dragging_context: dragging_context.get().is_some(),
+                            }
+                        }
                     }
                 }
             }
@@ -397,6 +463,18 @@ fn NavigationNode(
     zoom: f64,
     on_select: Option<Callback<String>>,
     on_move: Option<Callback<(String, Position)>>,
+    /// Whether this workflow node is a valid drop target
+    is_drop_target: bool,
+    /// Called when starting to drag a context (context_id, parent_workflow_id)
+    on_drag_start_context: Callback<(String, String)>,
+    /// Called when drag ends (to finalize or cancel)
+    on_drag_end: Callback<()>,
+    /// Called when mouse enters a workflow during context drag
+    on_drag_enter_workflow: Callback<String>,
+    /// Called when mouse leaves the drop zone
+    on_drag_leave: Callback<()>,
+    /// Whether a context is currently being dragged anywhere in the canvas
+    is_dragging_context: bool,
 ) -> Element {
     let is_dragging = use_signal(|| false);
     let drag_start = use_signal(|| Position::zero());
@@ -412,18 +490,30 @@ fn NavigationNode(
     });
 
     let entity_type = data.entity_type;
+    let entity_id = data.entity_id.clone();
+    let parent_id = data.parent_id.clone();
 
     // Node drag handlers
     let on_mouse_down = {
         let id = id.clone();
         let pos = position;
         let on_select = on_select.clone();
+        let on_drag_start_context = on_drag_start_context.clone();
+        let entity_id = entity_id.clone();
+        let parent_id = parent_id.clone();
         move |e: MouseEvent| {
             if e.button() == 0 {
                 e.stop_propagation();
                 is_dragging.set(true);
                 drag_start.set(Position::new(e.client_x() as f64, e.client_y() as f64));
                 node_start.set(pos);
+
+                // If this is a context, start context drag
+                if entity_type == EntityType::Context {
+                    if let Some(ref wf_id) = parent_id {
+                        on_drag_start_context.call((entity_id.clone(), wf_id.clone()));
+                    }
+                }
 
                 if let Some(ref callback) = on_select {
                     callback.call(id.clone());
@@ -451,8 +541,36 @@ fn NavigationNode(
         }
     };
 
-    let on_mouse_up = move |_: MouseEvent| {
-        is_dragging.set(false);
+    let on_mouse_up = {
+        let on_drag_end = on_drag_end.clone();
+        move |_: MouseEvent| {
+            if is_dragging.get() {
+                is_dragging.set(false);
+                // Signal drag end for context-to-workflow drops
+                on_drag_end.call(());
+            }
+        }
+    };
+
+    // Mouse enter handler for workflow nodes (drop targets)
+    let on_mouse_enter = {
+        let on_drag_enter_workflow = on_drag_enter_workflow.clone();
+        let entity_id = entity_id.clone();
+        move |_: MouseEvent| {
+            if is_dragging_context && entity_type == EntityType::Workflow {
+                on_drag_enter_workflow.call(entity_id.clone());
+            }
+        }
+    };
+
+    // Mouse leave handler for workflow nodes
+    let on_mouse_leave_node = {
+        let on_drag_leave = on_drag_leave.clone();
+        move |_: MouseEvent| {
+            if is_dragging_context && entity_type == EntityType::Workflow {
+                on_drag_leave.call(());
+            }
+        }
     };
 
     // Get icon based on entity type
@@ -466,11 +584,13 @@ fn NavigationNode(
 
     rsx! {
         div(
-            class: format!("navigation-node navigation-node-{:?}", entity_type).to_lowercase(),
-            style: node_styles::container(&position, entity_type, selected, is_dragging.get()),
+            class: format!("navigation-node navigation-node-{:?}{}", entity_type, if is_drop_target { " drop-target" } else { "" }).to_lowercase(),
+            style: node_styles::container(&position, entity_type, selected, is_dragging.get(), is_drop_target),
             onmousedown: on_mouse_down,
             onmousemove: on_mouse_move,
             onmouseup: on_mouse_up,
+            onmouseenter: on_mouse_enter,
+            onmouseleave: on_mouse_leave_node,
         ) {
             // Header
             div(class: "node-header", style: node_styles::header(entity_type)) {
@@ -590,14 +710,17 @@ mod node_styles {
     use rsc_flow::prelude::Position;
     use rsc_studio::designer::navigation::EntityType;
 
-    pub fn container(pos: &Position, entity_type: EntityType, selected: bool, is_dragging: bool) -> String {
+    pub fn container(pos: &Position, entity_type: EntityType, selected: bool, is_dragging: bool, is_drop_target: bool) -> String {
         let border_color = match entity_type {
             EntityType::Workflow => "var(--color-primary)",
             EntityType::Context => "var(--color-secondary)",
             EntityType::Preset => "var(--color-accent)",
         };
 
-        let selected_style = if selected {
+        let selected_style = if is_drop_target {
+            // Highlight as drop target
+            "box-shadow: 0 0 0 4px var(--color-success), var(--shadow-lg); transform: scale(1.02);"
+        } else if selected {
             "box-shadow: 0 0 0 3px var(--color-primary-alpha), var(--shadow-lg);"
         } else {
             "box-shadow: var(--shadow-md);"
@@ -605,6 +728,11 @@ mod node_styles {
 
         let cursor = if is_dragging { "grabbing" } else { "grab" };
         let opacity = if is_dragging { "0.85" } else { "1" };
+        let background = if is_drop_target {
+            "var(--color-success-alpha, rgba(34, 197, 94, 0.1))"
+        } else {
+            "var(--color-surface)"
+        };
 
         format!(
             r#"
@@ -613,17 +741,18 @@ mod node_styles {
                 top: {y}px;
                 min-width: 180px;
                 max-width: 240px;
-                background: var(--color-surface);
+                background: {background};
                 border: 2px solid {border_color};
                 border-radius: var(--radius-lg);
                 cursor: {cursor};
                 user-select: none;
                 opacity: {opacity};
-                transition: box-shadow 0.15s ease, transform 0.1s ease;
+                transition: box-shadow 0.15s ease, transform 0.1s ease, background 0.15s ease;
                 {selected_style}
             "#,
             x = pos.x,
             y = pos.y,
+            background = background,
             border_color = border_color,
             cursor = cursor,
             opacity = opacity,
