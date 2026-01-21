@@ -105,7 +105,7 @@ pub fn Input(
     let autofocus = autofocus.unwrap_or(false);
 
     let is_focused = state(false);
-    let style = get_input_style(variant, size, disabled, error, is_focused.get());
+    let input_style = get_input_style(variant, size, disabled, error, is_focused.get());
     let extra_class = css_class.unwrap_or_default();
 
     let handle_input = {
@@ -154,7 +154,7 @@ pub fn Input(
     rsx! {
         input(
             class: format!("input {}", extra_class),
-            style: style,
+            style: input_style,
             type: input_type.as_str(),
             value: value.clone(),
             placeholder: placeholder.clone().unwrap_or_default(),
