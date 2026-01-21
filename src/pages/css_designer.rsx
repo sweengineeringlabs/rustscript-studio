@@ -4,8 +4,17 @@ use rsc::prelude::*;
 
 use rsc_studio::designer::css::{TokenCategory, TokenValue, PreviewMode};
 
-use crate::components::{TokenEditor, Toolbar, ToolbarGroup, ToolbarButton, ToolbarDivider, Button, ButtonVariant, ButtonSize, Icon, Tabs, Tab, Input, Modal, ModalSize};
+use crate::components::{TokenEditor, Toolbar, ToolbarGroup, ToolbarButton, ToolbarDivider, Button, ButtonVariant, ButtonSize, Icon, Tabs, Tab, Input, Modal, ModalSize, Select, SelectOption};
 use crate::hooks::StudioStore;
+
+/// Export format for design tokens.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExportFormat {
+    Css,
+    Scss,
+    Json,
+    Tailwind,
+}
 
 /// CSS designer page.
 #[component]
@@ -17,6 +26,9 @@ pub fn CssDesignerPage(store: StudioStore) -> Element {
     let new_token_name = use_signal(String::new);
     let new_token_value = use_signal(String::new);
     let show_css_output = use_signal(|| false);
+    let show_export_modal = use_signal(|| false);
+    let export_format = use_signal(|| ExportFormat::Css);
+    let use_system_theme = use_signal(|| false);
 
     let categories = vec![
         Tab {
@@ -122,20 +134,47 @@ pub fn CssDesignerPage(store: StudioStore) -> Element {
                     ToolbarButton {
                         icon: "sun".to_string(),
                         label: Some("Light".to_string()),
-                        active: preview_mode.get() == PreviewMode::Light,
-                        onclick: move |_| preview_mode.set(PreviewMode::Light),
+                        active: preview_mode.get() == PreviewMode::Light && !use_system_theme.get(),
+                        onclick: {
+                            let use_system_theme = use_system_theme.clone();
+                            move |_| {
+                                use_system_theme.set(false);
+                                preview_mode.set(PreviewMode::Light);
+                            }
+                        },
                     }
                     ToolbarButton {
                         icon: "moon".to_string(),
                         label: Some("Dark".to_string()),
-                        active: preview_mode.get() == PreviewMode::Dark,
-                        onclick: move |_| preview_mode.set(PreviewMode::Dark),
+                        active: preview_mode.get() == PreviewMode::Dark && !use_system_theme.get(),
+                        onclick: {
+                            let use_system_theme = use_system_theme.clone();
+                            move |_| {
+                                use_system_theme.set(false);
+                                preview_mode.set(PreviewMode::Dark);
+                            }
+                        },
                     }
                     ToolbarButton {
                         icon: "columns".to_string(),
                         label: Some("Both".to_string()),
-                        active: preview_mode.get() == PreviewMode::Both,
-                        onclick: move |_| preview_mode.set(PreviewMode::Both),
+                        active: preview_mode.get() == PreviewMode::Both && !use_system_theme.get(),
+                        onclick: {
+                            let use_system_theme = use_system_theme.clone();
+                            move |_| {
+                                use_system_theme.set(false);
+                                preview_mode.set(PreviewMode::Both);
+                            }
+                        },
+                    }
+                    ToolbarButton {
+                        icon: "monitor".to_string(),
+                        label: Some("System".to_string()),
+                        active: use_system_theme.get(),
+                        onclick: {
+                            let use_system_theme = use_system_theme.clone();
+                            move |_| use_system_theme.update(|v| *v = !*v)
+                        },
                     }
                 }
 
@@ -159,15 +198,16 @@ pub fn CssDesignerPage(store: StudioStore) -> Element {
                     ToolbarButton {
                         icon: "download".to_string(),
                         label: Some("Export".to_string()),
-                        onclick: move |_| {
-                            // Export tokens to YAML
+                        onclick: {
+                            let show_export_modal = show_export_modal.clone();
+                            move |_| show_export_modal.set(true)
                         },
                     }
                     ToolbarButton {
                         icon: "upload".to_string(),
                         label: Some("Import".to_string()),
                         onclick: move |_| {
-                            // Import tokens from YAML
+                            // Import tokens - TODO: implement file picker
                         },
                     }
                 }
@@ -291,8 +331,277 @@ pub fn CssDesignerPage(store: StudioStore) -> Element {
                     }
                 }
             }
+
+            // Export Modal
+            if show_export_modal.get() {
+                ExportModal {
+                    store: store.clone(),
+                    format: export_format.clone(),
+                    on_close: {
+                        let show_export_modal = show_export_modal.clone();
+                        move |_| show_export_modal.set(false)
+                    },
+                }
+            }
         }
     }
+}
+
+/// Export modal component.
+#[component]
+fn ExportModal(
+    store: StudioStore,
+    format: Signal<ExportFormat>,
+    on_close: Callback<()>,
+) -> Element {
+    let exported_content = use_memo(move || {
+        let tokens = store.design_tokens();
+        let tokens_data = tokens.get();
+
+        match format.get() {
+            ExportFormat::Css => generate_css_export(&tokens_data),
+            ExportFormat::Scss => generate_scss_export(&tokens_data),
+            ExportFormat::Json => generate_json_export(&tokens_data),
+            ExportFormat::Tailwind => generate_tailwind_export(&tokens_data),
+        }
+    });
+
+    let format_options = vec![
+        SelectOption { value: "css".to_string(), label: "CSS Variables".to_string() },
+        SelectOption { value: "scss".to_string(), label: "SCSS Variables".to_string() },
+        SelectOption { value: "json".to_string(), label: "JSON Tokens".to_string() },
+        SelectOption { value: "tailwind".to_string(), label: "Tailwind Config".to_string() },
+    ];
+
+    rsx! {
+        Modal {
+            title: "Export Design Tokens".to_string(),
+            size: ModalSize::Lg,
+            on_close: on_close.clone(),
+        } {
+            div(style: styles::export_modal_content()) {
+                div(style: styles::export_format_selector()) {
+                    label(style: styles::form_label()) { "Export Format" }
+                    Select {
+                        value: match format.get() {
+                            ExportFormat::Css => "css",
+                            ExportFormat::Scss => "scss",
+                            ExportFormat::Json => "json",
+                            ExportFormat::Tailwind => "tailwind",
+                        }.to_string(),
+                        options: format_options,
+                        onchange: {
+                            let format = format.clone();
+                            Callback::new(move |v: String| {
+                                let new_format = match v.as_str() {
+                                    "css" => ExportFormat::Css,
+                                    "scss" => ExportFormat::Scss,
+                                    "json" => ExportFormat::Json,
+                                    "tailwind" => ExportFormat::Tailwind,
+                                    _ => ExportFormat::Css,
+                                };
+                                format.set(new_format);
+                            })
+                        },
+                    }
+                }
+
+                div(style: styles::export_preview()) {
+                    pre(style: styles::export_code()) {
+                        code { { exported_content.get() } }
+                    }
+                }
+
+                div(style: styles::modal_actions()) {
+                    Button {
+                        variant: ButtonVariant::Secondary,
+                        size: ButtonSize::Sm,
+                        onclick: {
+                            let on_close = on_close.clone();
+                            move |_| on_close.call(())
+                        },
+                    } { "Close" }
+                    Button {
+                        variant: ButtonVariant::Primary,
+                        size: ButtonSize::Sm,
+                        onclick: move |_| {
+                            // TODO: Copy to clipboard or download
+                        },
+                    } { "Copy to Clipboard" }
+                }
+            }
+        }
+    }
+}
+
+/// Generate CSS variables export.
+fn generate_css_export(tokens: &rsc_studio::designer::css::DesignTokens) -> String {
+    let mut css = String::from(":root {\n");
+
+    // Colors
+    for (name, value) in &tokens.colors {
+        if let TokenValue::Simple(v) = value {
+            css.push_str(&format!("  --color-{}: {};\n", name, v));
+        } else if let TokenValue::Adaptive { light, .. } = value {
+            css.push_str(&format!("  --color-{}: {};\n", name, light));
+        }
+    }
+
+    // Spacing
+    for (name, value) in &tokens.spacing {
+        if let TokenValue::Simple(v) = value {
+            css.push_str(&format!("  --spacing-{}: {};\n", name, v));
+        }
+    }
+
+    // Radius
+    for (name, value) in &tokens.radius {
+        if let TokenValue::Simple(v) = value {
+            css.push_str(&format!("  --radius-{}: {};\n", name, v));
+        }
+    }
+
+    // Shadows
+    for (name, value) in &tokens.shadows {
+        if let TokenValue::Simple(v) = value {
+            css.push_str(&format!("  --shadow-{}: {};\n", name, v));
+        }
+    }
+
+    // Transitions
+    for (name, value) in &tokens.transitions {
+        if let TokenValue::Simple(v) = value {
+            css.push_str(&format!("  --transition-{}: {};\n", name, v));
+        }
+    }
+
+    // Z-Index
+    for (name, value) in &tokens.z_index {
+        if let TokenValue::Simple(v) = value {
+            css.push_str(&format!("  --z-{}: {};\n", name, v));
+        }
+    }
+
+    css.push_str("}\n\n");
+
+    // Dark theme overrides for adaptive tokens
+    css.push_str("@media (prefers-color-scheme: dark) {\n  :root {\n");
+    for (name, value) in &tokens.colors {
+        if let TokenValue::Adaptive { dark, .. } = value {
+            css.push_str(&format!("    --color-{}: {};\n", name, dark));
+        }
+    }
+    css.push_str("  }\n}\n");
+
+    css
+}
+
+/// Generate SCSS variables export.
+fn generate_scss_export(tokens: &rsc_studio::designer::css::DesignTokens) -> String {
+    let mut scss = String::from("// Design Tokens - SCSS Variables\n\n");
+
+    scss.push_str("// Colors\n");
+    for (name, value) in &tokens.colors {
+        if let TokenValue::Simple(v) = value {
+            scss.push_str(&format!("$color-{}: {};\n", name, v));
+        }
+    }
+
+    scss.push_str("\n// Spacing\n");
+    for (name, value) in &tokens.spacing {
+        if let TokenValue::Simple(v) = value {
+            scss.push_str(&format!("$spacing-{}: {};\n", name, v));
+        }
+    }
+
+    scss.push_str("\n// Radius\n");
+    for (name, value) in &tokens.radius {
+        if let TokenValue::Simple(v) = value {
+            scss.push_str(&format!("$radius-{}: {};\n", name, v));
+        }
+    }
+
+    scss.push_str("\n// Shadows\n");
+    for (name, value) in &tokens.shadows {
+        if let TokenValue::Simple(v) = value {
+            scss.push_str(&format!("$shadow-{}: {};\n", name, v));
+        }
+    }
+
+    scss.push_str("\n// Transitions\n");
+    for (name, value) in &tokens.transitions {
+        if let TokenValue::Simple(v) = value {
+            scss.push_str(&format!("$transition-{}: {};\n", name, v));
+        }
+    }
+
+    scss.push_str("\n// Z-Index\n");
+    for (name, value) in &tokens.z_index {
+        if let TokenValue::Simple(v) = value {
+            scss.push_str(&format!("$z-{}: {};\n", name, v));
+        }
+    }
+
+    scss
+}
+
+/// Generate JSON export.
+fn generate_json_export(tokens: &rsc_studio::designer::css::DesignTokens) -> String {
+    serde_json::to_string_pretty(tokens).unwrap_or_else(|_| "{}".to_string())
+}
+
+/// Generate Tailwind config export.
+fn generate_tailwind_export(tokens: &rsc_studio::designer::css::DesignTokens) -> String {
+    let mut config = String::from("// tailwind.config.js\nmodule.exports = {\n  theme: {\n    extend: {\n");
+
+    // Colors
+    config.push_str("      colors: {\n");
+    for (name, value) in &tokens.colors {
+        if let TokenValue::Simple(v) = value {
+            config.push_str(&format!("        '{}': '{}',\n", name, v));
+        }
+    }
+    config.push_str("      },\n");
+
+    // Spacing
+    config.push_str("      spacing: {\n");
+    for (name, value) in &tokens.spacing {
+        if let TokenValue::Simple(v) = value {
+            config.push_str(&format!("        '{}': '{}',\n", name, v));
+        }
+    }
+    config.push_str("      },\n");
+
+    // Border Radius
+    config.push_str("      borderRadius: {\n");
+    for (name, value) in &tokens.radius {
+        if let TokenValue::Simple(v) = value {
+            config.push_str(&format!("        '{}': '{}',\n", name, v));
+        }
+    }
+    config.push_str("      },\n");
+
+    // Box Shadow
+    config.push_str("      boxShadow: {\n");
+    for (name, value) in &tokens.shadows {
+        if let TokenValue::Simple(v) = value {
+            config.push_str(&format!("        '{}': '{}',\n", name, v));
+        }
+    }
+    config.push_str("      },\n");
+
+    // Z-Index
+    config.push_str("      zIndex: {\n");
+    for (name, value) in &tokens.z_index {
+        if let TokenValue::Simple(v) = value {
+            config.push_str(&format!("        '{}': '{}',\n", name, v));
+        }
+    }
+    config.push_str("      },\n");
+
+    config.push_str("    },\n  },\n};\n");
+
+    config
 }
 
 /// CSS Output panel component.
@@ -647,6 +956,46 @@ mod styles {
             line-height: 1.6;
             overflow: auto;
             white-space: pre-wrap;
+        "#
+    }
+
+    pub fn export_modal_content() -> &'static str {
+        r#"
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+            min-height: 400px;
+        "#
+    }
+
+    pub fn export_format_selector() -> &'static str {
+        r#"
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-xs);
+        "#
+    }
+
+    pub fn export_preview() -> &'static str {
+        r#"
+            flex: 1;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        "#
+    }
+
+    pub fn export_code() -> &'static str {
+        r#"
+            margin: 0;
+            padding: var(--spacing-md);
+            background: var(--color-bg-tertiary);
+            font-family: var(--font-mono);
+            font-size: var(--font-size-xs);
+            line-height: 1.6;
+            overflow: auto;
+            white-space: pre;
+            height: 300px;
         "#
     }
 }

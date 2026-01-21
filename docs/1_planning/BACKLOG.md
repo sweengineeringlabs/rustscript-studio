@@ -238,11 +238,11 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
-| [ ] | Light/dark mode toggle | 2026-01-21 | |
-| [ ] | Side-by-side theme preview | 2026-01-21 | |
-| [ ] | Adaptive token editing (light + dark values) | 2026-01-21 | |
-| [ ] | System theme detection | 2026-01-21 | |
-| [ ] | Theme export (CSS variables, SCSS, JSON) | 2026-01-21 | |
+| [x] | Light/dark mode toggle | 2026-01-21 | 2026-01-21 |
+| [x] | Side-by-side theme preview | 2026-01-21 | 2026-01-21 |
+| [x] | Adaptive token editing (light + dark values) | 2026-01-21 | 2026-01-21 |
+| [x] | System theme detection | 2026-01-21 | 2026-01-21 |
+| [x] | Theme export (CSS variables, SCSS, JSON, Tailwind) | 2026-01-21 | 2026-01-21 |
 
 ### 4.3 Component Styles
 
@@ -430,12 +430,12 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | Phase 1: Foundation | 35 | 35 | 100% |
 | Phase 2: UI Components | 28 | 28 | 100% |
 | Phase 3: Navigation | 19 | 19 | 100% |
-| Phase 4: CSS Designer | 17 | 7 | 41% |
+| Phase 4: CSS Designer | 17 | 12 | 71% |
 | Phase 5: Integration | 14 | 0 | 0% |
 | Phase 6: Advanced | 18 | 0 | 0% |
 | Phase 7: Testing | 13 | 3 | 23% |
 | Phase 8: Polish | 14 | 0 | 0% |
-| **Total** | **158** | **92** | **58%** |
+| **Total** | **158** | **97** | **61%** |
 
 ---
 
