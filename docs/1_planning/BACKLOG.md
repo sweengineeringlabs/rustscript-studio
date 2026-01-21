@@ -207,16 +207,16 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | [x] | Edge routing (bezier curves) | 2026-01-21 | 2026-01-21 |
 | [x] | Zoom to selection | 2026-01-21 | 2026-01-21 |
 | [x] | Search/filter nodes | 2026-01-21 | 2026-01-21 |
-| [ ] | Keyboard navigation | 2026-01-21 | |
+| [x] | Keyboard navigation | 2026-01-21 | 2026-01-21 |
 
 ### 3.5 Navigation Preview
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
-| [ ] | Preview navigation flow | 2026-01-21 | |
-| [ ] | Simulate context switching | 2026-01-21 | |
-| [ ] | Preview preset layouts | 2026-01-21 | |
-| [ ] | Hot reload preview on changes | 2026-01-21 | |
+| [x] | Preview navigation flow | 2026-01-21 | 2026-01-21 |
+| [x] | Simulate context switching | 2026-01-21 | 2026-01-21 |
+| [x] | Preview preset layouts | 2026-01-21 | 2026-01-21 |
+| [x] | Hot reload preview on changes | 2026-01-21 | 2026-01-21 |
 
 ---
 
@@ -429,13 +429,13 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 |-------|-------|------|----------|
 | Phase 1: Foundation | 35 | 35 | 100% |
 | Phase 2: UI Components | 28 | 28 | 100% |
-| Phase 3: Navigation | 19 | 0 | 0% |
+| Phase 3: Navigation | 19 | 18 | 95% |
 | Phase 4: CSS Designer | 17 | 0 | 0% |
 | Phase 5: Integration | 14 | 0 | 0% |
 | Phase 6: Advanced | 18 | 0 | 0% |
 | Phase 7: Testing | 13 | 3 | 23% |
 | Phase 8: Polish | 14 | 0 | 0% |
-| **Total** | **158** | **66** | **42%** |
+| **Total** | **158** | **84** | **53%** |
 
 ---
 

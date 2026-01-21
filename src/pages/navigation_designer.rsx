@@ -6,7 +6,7 @@ use rsc_flow::prelude::{FlowCanvas as RscFlowCanvas, LayoutConfig as FlowLayoutC
 use rsc_studio::designer::navigation::{NavigationDesigner, NavigationNodeData, EntityType};
 use rsc_studio::entity::LayoutConfig as PresetLayoutConfig;
 
-use crate::components::{NavigationCanvasView, Toolbar, ToolbarGroup, ToolbarButton, ToolbarDivider, Button, ButtonVariant, ButtonSize, Icon, Input, Modal, PresetLayoutEditor};
+use crate::components::{NavigationCanvasView, NavigationPreview, Toolbar, ToolbarGroup, ToolbarButton, ToolbarDivider, Button, ButtonVariant, ButtonSize, Icon, Input, Modal, PresetLayoutEditor};
 use crate::hooks::StudioStore;
 
 /// Navigation designer page.
@@ -45,6 +45,7 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
     let show_delete_modal = use_signal(|| false);
     let delete_target = use_signal::<Option<(String, EntityType)>>(|| None);
     let search_query = use_signal(String::new);
+    let show_preview_panel = use_signal(|| false);
 
     // Helper to reload canvas preserving positions
     let reload_canvas = {
@@ -265,6 +266,21 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
 
                 ToolbarDivider {}
 
+                // Preview toggle
+                ToolbarGroup {
+                    ToolbarButton {
+                        icon: "play-circle".to_string(),
+                        label: Some("Preview".to_string()),
+                        active: show_preview_panel.get(),
+                        onclick: {
+                            let show_preview_panel = show_preview_panel.clone();
+                            move |_| show_preview_panel.update(|v| *v = !*v)
+                        },
+                    }
+                }
+
+                ToolbarDivider {}
+
                 // Keyboard shortcuts help
                 ToolbarGroup {
                     div(style: styles::keyboard_help()) {
@@ -341,9 +357,11 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
                 }
             }
 
-            // Canvas area
-            div(class: "canvas-container", style: styles::canvas_container()) {
-                NavigationCanvasView {
+            // Main content area (canvas + optional preview)
+            div(class: "main-content", style: styles::main_content()) {
+                // Canvas area
+                div(class: "canvas-container", style: styles::canvas_container_with_preview(show_preview_panel.get())) {
+                    NavigationCanvasView {
                     canvas: canvas.clone(),
                     selected_node_id: selected_node.get(),
                     on_node_select: Some({
@@ -395,18 +413,28 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
                     }),
                 }
 
-                // Empty state
-                if store.workflows().is_empty() {
-                    EmptyState {
-                        on_add: on_add_workflow.clone(),
-                        on_load_sample: {
-                            let store = store.clone();
-                            let reload_canvas = reload_canvas.clone();
-                            move |_| {
-                                store.load_sample_data();
-                                reload_canvas();
-                            }
-                        },
+                    // Empty state
+                    if store.workflows().is_empty() {
+                        EmptyState {
+                            on_add: on_add_workflow.clone(),
+                            on_load_sample: {
+                                let store = store.clone();
+                                let reload_canvas = reload_canvas.clone();
+                                move |_| {
+                                    store.load_sample_data();
+                                    reload_canvas();
+                                }
+                            },
+                        }
+                    }
+                }
+
+                // Preview panel
+                if show_preview_panel.get() {
+                    div(class: "preview-panel", style: styles::preview_panel()) {
+                        NavigationPreview {
+                            store: store.clone(),
+                        }
                     }
                 }
             }
@@ -849,10 +877,39 @@ mod styles {
         "#
     }
 
+    pub fn main_content() -> &'static str {
+        r#"
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        "#
+    }
+
+    pub fn canvas_container_with_preview(has_preview: bool) -> String {
+        format!(
+            r#"
+                flex: {};
+                position: relative;
+                overflow: hidden;
+            "#,
+            if has_preview { "1" } else { "1" }
+        )
+    }
+
     pub fn canvas_container() -> &'static str {
         r#"
             flex: 1;
             position: relative;
+            overflow: hidden;
+        "#
+    }
+
+    pub fn preview_panel() -> &'static str {
+        r#"
+            width: 380px;
+            min-width: 320px;
+            border-left: 1px solid var(--color-border);
+            background: var(--color-bg-secondary);
             overflow: hidden;
         "#
     }
