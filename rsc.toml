@@ -1,0 +1,27 @@
+# RustScript Studio Configuration
+[project]
+name = "rustscript-studio"
+version = "0.1.0"
+description = "Visual IDE for RustScript - Design navigation flows and CSS visually"
+
+[build]
+entry = "src/main.rsx"
+output = "dist"
+target = "web"
+
+[build.optimization]
+minify = true
+tree_shake = true
+code_split = true
+
+[design]
+tokens = "design/theme.yaml"
+styles = "design/styles.yaml"
+
+[dev]
+port = 3000
+hot_reload = true
+
+[features]
+ssr = false
+hydration = true

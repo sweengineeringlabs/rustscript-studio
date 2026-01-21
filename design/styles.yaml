@@ -1,0 +1,360 @@
+# RustScript Studio Component Styles
+# Style definitions for UI components
+
+components:
+  # Button variants
+  button:
+    base:
+      display: "inline-flex"
+      align-items: "center"
+      justify-content: "center"
+      gap: "$spacing.sm"
+      font-family: "$typography.fonts.sans"
+      font-weight: "$typography.weights.medium"
+      border-radius: "$radius.md"
+      transition: "$transitions.fast"
+      cursor: "pointer"
+
+    variants:
+      primary:
+        background: "$colors.primary"
+        color: "$colors.text-inverse"
+        border: "none"
+        hover:
+          background: "$colors.primary-hover"
+        active:
+          transform: "scale(0.98)"
+
+      secondary:
+        background: "$colors.surface"
+        color: "$colors.text-primary"
+        border: "1px solid $colors.border"
+        hover:
+          background: "$colors.surface-hover"
+          border-color: "$colors.border-hover"
+
+      ghost:
+        background: "transparent"
+        color: "$colors.text-secondary"
+        border: "none"
+        hover:
+          background: "$colors.surface-hover"
+          color: "$colors.text-primary"
+
+    sizes:
+      sm:
+        height: "32px"
+        padding: "0 $spacing.sm"
+        font-size: "$typography.sizes.sm"
+      md:
+        height: "40px"
+        padding: "0 $spacing.md"
+        font-size: "$typography.sizes.base"
+      lg:
+        height: "48px"
+        padding: "0 $spacing.lg"
+        font-size: "$typography.sizes.lg"
+
+  # Panel component
+  panel:
+    base:
+      background: "$colors.surface"
+      border: "1px solid $colors.border"
+      border-radius: "$radius.lg"
+      overflow: "hidden"
+
+    header:
+      display: "flex"
+      align-items: "center"
+      justify-content: "space-between"
+      padding: "$spacing.sm $spacing.md"
+      border-bottom: "1px solid $colors.border"
+      background: "$colors.bg-secondary"
+
+    content:
+      padding: "$spacing.md"
+
+  # Activity bar
+  activity-bar:
+    base:
+      display: "flex"
+      flex-direction: "column"
+      width: "48px"
+      background: "$colors.bg-secondary"
+      border-right: "1px solid $colors.border"
+
+    item:
+      display: "flex"
+      align-items: "center"
+      justify-content: "center"
+      width: "48px"
+      height: "48px"
+      color: "$colors.text-secondary"
+      cursor: "pointer"
+      transition: "$transitions.fast"
+      hover:
+        color: "$colors.text-primary"
+        background: "$colors.surface-hover"
+      active:
+        color: "$colors.primary"
+        background: "$colors.surface-active"
+        border-left: "2px solid $colors.primary"
+
+  # Sidebar
+  sidebar:
+    base:
+      display: "flex"
+      flex-direction: "column"
+      background: "$colors.bg-secondary"
+      border-right: "1px solid $colors.border"
+
+    header:
+      display: "flex"
+      align-items: "center"
+      padding: "$spacing.sm $spacing.md"
+      font-weight: "$typography.weights.semibold"
+      font-size: "$typography.sizes.sm"
+      text-transform: "uppercase"
+      color: "$colors.text-secondary"
+
+  # Flow canvas
+  flow-canvas:
+    base:
+      position: "relative"
+      width: "100%"
+      height: "100%"
+      background: "$colors.bg-primary"
+      overflow: "hidden"
+
+    grid:
+      background-image: "radial-gradient($colors.border 1px, transparent 1px)"
+      background-size: "20px 20px"
+
+  # Flow node
+  flow-node:
+    base:
+      position: "absolute"
+      display: "flex"
+      flex-direction: "column"
+      min-width: "160px"
+      background: "$colors.surface"
+      border: "2px solid $colors.border"
+      border-radius: "$radius.lg"
+      box-shadow: "$shadows.md"
+      cursor: "grab"
+      transition: "$transitions.fast"
+
+    header:
+      display: "flex"
+      align-items: "center"
+      gap: "$spacing.sm"
+      padding: "$spacing.sm $spacing.md"
+      border-bottom: "1px solid $colors.border"
+      font-weight: "$typography.weights.medium"
+
+    content:
+      padding: "$spacing.sm $spacing.md"
+      font-size: "$typography.sizes.sm"
+      color: "$colors.text-secondary"
+
+    variants:
+      workflow:
+        border-color: "$colors.node-workflow"
+        header:
+          background: "$colors.node-workflow"
+          color: "$colors.text-inverse"
+      context:
+        border-color: "$colors.node-context"
+        header:
+          background: "$colors.node-context"
+          color: "$colors.text-inverse"
+      preset:
+        border-color: "$colors.node-preset"
+        header:
+          background: "$colors.node-preset"
+          color: "$colors.text-inverse"
+
+    states:
+      selected:
+        border-color: "$colors.border-focus"
+        box-shadow: "0 0 0 2px $colors.primary"
+      dragging:
+        cursor: "grabbing"
+        box-shadow: "$shadows.xl"
+        opacity: "0.9"
+
+  # Flow edge
+  flow-edge:
+    base:
+      fill: "none"
+      stroke: "$colors.edge-default"
+      stroke-width: "2"
+      transition: "$transitions.fast"
+
+    states:
+      selected:
+        stroke: "$colors.edge-selected"
+        stroke-width: "3"
+      hover:
+        stroke: "$colors.edge-hover"
+
+  # Token editor
+  token-editor:
+    base:
+      display: "flex"
+      flex-direction: "column"
+      gap: "$spacing.md"
+
+    category:
+      padding: "$spacing.md"
+      background: "$colors.bg-secondary"
+      border-radius: "$radius.md"
+
+    token-row:
+      display: "flex"
+      align-items: "center"
+      gap: "$spacing.md"
+      padding: "$spacing.sm"
+      border-radius: "$radius.sm"
+      hover:
+        background: "$colors.surface-hover"
+
+    color-preview:
+      width: "32px"
+      height: "32px"
+      border-radius: "$radius.md"
+      border: "1px solid $colors.border"
+
+  # Toolbar
+  toolbar:
+    base:
+      display: "flex"
+      align-items: "center"
+      gap: "$spacing.sm"
+      padding: "$spacing.sm"
+      background: "$colors.bg-secondary"
+      border-bottom: "1px solid $colors.border"
+
+    group:
+      display: "flex"
+      align-items: "center"
+      gap: "2px"
+      padding: "0 $spacing.sm"
+      border-right: "1px solid $colors.border"
+
+    divider:
+      width: "1px"
+      height: "24px"
+      background: "$colors.border"
+      margin: "0 $spacing.sm"
+
+  # Tabs
+  tabs:
+    base:
+      display: "flex"
+      align-items: "center"
+      background: "$colors.bg-secondary"
+      border-bottom: "1px solid $colors.border"
+
+    tab:
+      display: "flex"
+      align-items: "center"
+      gap: "$spacing.sm"
+      padding: "$spacing.sm $spacing.md"
+      color: "$colors.text-secondary"
+      font-size: "$typography.sizes.sm"
+      cursor: "pointer"
+      border-bottom: "2px solid transparent"
+      transition: "$transitions.fast"
+      hover:
+        color: "$colors.text-primary"
+        background: "$colors.surface-hover"
+      active:
+        color: "$colors.primary"
+        border-bottom-color: "$colors.primary"
+
+  # Input
+  input:
+    base:
+      width: "100%"
+      height: "40px"
+      padding: "0 $spacing.md"
+      font-family: "$typography.fonts.sans"
+      font-size: "$typography.sizes.base"
+      color: "$colors.text-primary"
+      background: "$colors.surface"
+      border: "1px solid $colors.border"
+      border-radius: "$radius.md"
+      transition: "$transitions.fast"
+
+    states:
+      focus:
+        outline: "none"
+        border-color: "$colors.border-focus"
+        box-shadow: "0 0 0 2px rgba(59, 130, 246, 0.2)"
+      error:
+        border-color: "$colors.error"
+      disabled:
+        opacity: "0.5"
+        cursor: "not-allowed"
+
+  # Color picker
+  color-picker:
+    base:
+      display: "flex"
+      flex-direction: "column"
+      gap: "$spacing.md"
+      padding: "$spacing.md"
+      background: "$colors.surface"
+      border: "1px solid $colors.border"
+      border-radius: "$radius.lg"
+      box-shadow: "$shadows.lg"
+
+    saturation-area:
+      position: "relative"
+      width: "200px"
+      height: "150px"
+      border-radius: "$radius.sm"
+      cursor: "crosshair"
+
+    hue-slider:
+      width: "100%"
+      height: "12px"
+      border-radius: "$radius.full"
+      background: "linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)"
+
+    preview:
+      display: "flex"
+      align-items: "center"
+      gap: "$spacing.md"
+
+layouts:
+  # Main IDE layout
+  ide:
+    display: "grid"
+    grid-template-columns: "auto auto 1fr"
+    grid-template-rows: "auto 1fr auto"
+    grid-template-areas: |
+      "activity sidebar header"
+      "activity sidebar main"
+      "activity sidebar bottom"
+    height: "100vh"
+    background: "$colors.bg-primary"
+
+  # Focus mode layout
+  focus:
+    display: "grid"
+    grid-template-columns: "auto 1fr"
+    grid-template-rows: "1fr"
+    grid-template-areas: |
+      "activity main"
+    height: "100vh"
+
+  # Minimal layout
+  minimal:
+    display: "grid"
+    grid-template-columns: "1fr"
+    grid-template-rows: "1fr"
+    grid-template-areas: |
+      "main"
+    height: "100vh"

@@ -1,0 +1,44 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/rsc-flow",
+    "crates/rsc-dnd",
+    "crates/rsc-studio",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/AdenForshaw/rustscript-studio"
+authors = ["Aden Forshaw <aden@sweengineeringlabs.com>"]
+
+[workspace.dependencies]
+# Internal crates
+rsc-flow = { path = "crates/rsc-flow" }
+rsc-dnd = { path = "crates/rsc-dnd" }
+rsc-studio = { path = "crates/rsc-studio" }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+# Utilities
+indexmap = { version = "2.0", features = ["serde"] }
+uuid = { version = "1.6", features = ["v4", "serde"] }
+thiserror = "2.0"
+
+[package]
+name = "rustscript-studio"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rsc-flow.workspace = true
+rsc-dnd.workspace = true
+rsc-studio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true

@@ -1,0 +1,42 @@
+# Build artifacts
+/target/
+/dist/
+
+# Cargo lock for libraries (keep for binaries)
+# Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# RustScript
+.rsc-cache/
+*.wasm.br
+*.js.br
+*.css.br
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+*.profraw
+*.profdata
+coverage/
+lcov.info
+
+# Temporary files
+*.tmp
+*.temp
