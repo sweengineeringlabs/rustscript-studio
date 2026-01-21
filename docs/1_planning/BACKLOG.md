@@ -248,11 +248,11 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
-| [ ] | Visual style editor for components | 2026-01-21 | |
-| [ ] | State variants (hover, active, focus, disabled) | 2026-01-21 | |
-| [ ] | Responsive breakpoint support | 2026-01-21 | |
-| [ ] | Style inheritance visualization | 2026-01-21 | |
-| [ ] | CSS output preview | 2026-01-21 | |
+| [x] | Visual style editor for components | 2026-01-21 | 2026-01-21 |
+| [x] | State variants (hover, active, focus, disabled) | 2026-01-21 | 2026-01-21 |
+| [x] | Responsive breakpoint support | 2026-01-21 | 2026-01-21 |
+| [x] | Style inheritance visualization | 2026-01-21 | 2026-01-21 |
+| [x] | CSS output preview | 2026-01-21 | 2026-01-21 |
 
 ### 4.4 Design Token Management
 
@@ -430,12 +430,12 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | Phase 1: Foundation | 35 | 35 | 100% |
 | Phase 2: UI Components | 28 | 28 | 100% |
 | Phase 3: Navigation | 19 | 19 | 100% |
-| Phase 4: CSS Designer | 17 | 12 | 71% |
+| Phase 4: CSS Designer | 22 | 17 | 77% |
 | Phase 5: Integration | 14 | 0 | 0% |
 | Phase 6: Advanced | 18 | 0 | 0% |
 | Phase 7: Testing | 13 | 3 | 23% |
 | Phase 8: Polish | 14 | 0 | 0% |
-| **Total** | **158** | **97** | **61%** |
+| **Total** | **163** | **102** | **63%** |
 
 ---
 

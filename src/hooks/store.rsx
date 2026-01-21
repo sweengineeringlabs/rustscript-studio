@@ -4,7 +4,7 @@ use rsc::prelude::*;
 use std::collections::HashMap;
 
 use rsc_studio::entity::{Workflow, Context, Preset, LayoutConfig, LayoutVariant, Position, ActivityBarConfig, SidebarConfig, BottomPanelConfig};
-use rsc_studio::designer::css::DesignTokens;
+use rsc_studio::designer::css::{DesignTokens, ComponentStyles, ComponentStyle};
 
 /// Studio store for global application state.
 #[derive(Clone)]
@@ -19,6 +19,7 @@ struct StudioStoreInner {
     selected_context: Option<String>,
     selected_preset: Option<String>,
     design_tokens: DesignTokens,
+    component_styles: ComponentStyles,
     theme: Theme,
     /// Node positions for the navigation designer (entity_id -> (x, y))
     node_positions: HashMap<String, (f64, f64)>,
@@ -419,6 +420,26 @@ impl StudioStore {
                 _ => {}
             }
         });
+    }
+
+    // ============== Component Styles Methods ==============
+
+    /// Get the component styles.
+    pub fn component_styles(&self) -> Signal<ComponentStyles> {
+        let styles = self.inner.get().component_styles.clone();
+        use_signal(|| styles)
+    }
+
+    /// Update a component style.
+    pub fn update_component_style(&self, name: &str, style: ComponentStyle) {
+        self.inner.update(|s| {
+            s.component_styles.set(name.to_string(), style);
+        });
+    }
+
+    /// Get generated CSS for component styles.
+    pub fn get_component_css(&self) -> String {
+        self.inner.get().component_styles.generate_css()
     }
 
     /// Get generated CSS from current tokens.

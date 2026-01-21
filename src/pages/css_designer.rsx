@@ -2,9 +2,9 @@
 
 use rsc::prelude::*;
 
-use rsc_studio::designer::css::{TokenCategory, TokenValue, PreviewMode};
+use rsc_studio::designer::css::{TokenCategory, TokenValue, PreviewMode, ComponentStyle};
 
-use crate::components::{TokenEditor, Toolbar, ToolbarGroup, ToolbarButton, ToolbarDivider, Button, ButtonVariant, ButtonSize, Icon, Tabs, Tab, Input, Modal, ModalSize, Select, SelectOption};
+use crate::components::{TokenEditor, ComponentStyleEditor, Toolbar, ToolbarGroup, ToolbarButton, ToolbarDivider, Button, ButtonVariant, ButtonSize, Icon, Tabs, Tab, Input, Modal, ModalSize, Select, SelectOption};
 use crate::hooks::StudioStore;
 
 /// Export format for design tokens.
@@ -16,12 +16,22 @@ pub enum ExportFormat {
     Tailwind,
 }
 
+/// Design mode (tokens vs components).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DesignMode {
+    #[default]
+    Tokens,
+    Components,
+}
+
 /// CSS designer page.
 #[component]
 pub fn CssDesignerPage(store: StudioStore) -> Element {
+    let design_mode = use_signal(|| DesignMode::Tokens);
     let selected_category = use_signal(|| TokenCategory::Colors);
     let preview_mode = use_signal(|| PreviewMode::Both);
     let tokens = store.design_tokens();
+    let component_styles = store.component_styles();
     let show_add_token_modal = use_signal(|| false);
     let new_token_name = use_signal(String::new);
     let new_token_value = use_signal(String::new);
@@ -113,22 +123,57 @@ pub fn CssDesignerPage(store: StudioStore) -> Element {
         }
     };
 
+    // Handle component style change
+    let on_component_style_change = {
+        let store = store.clone();
+        move |(name, style): (String, ComponentStyle)| {
+            store.update_component_style(&name, style);
+        }
+    };
+
     rsx! {
         div(class: "css-designer-page", style: styles::container()) {
             // Toolbar
             Toolbar {
+                // Mode toggle
                 ToolbarGroup {
                     ToolbarButton {
-                        icon: "plus".to_string(),
-                        label: Some("Add Token".to_string()),
+                        icon: "sliders".to_string(),
+                        label: Some("Tokens".to_string()),
+                        active: design_mode.get() == DesignMode::Tokens,
                         onclick: {
-                            let show_add_token_modal = show_add_token_modal.clone();
-                            move |_| show_add_token_modal.set(true)
+                            let design_mode = design_mode.clone();
+                            move |_| design_mode.set(DesignMode::Tokens)
+                        },
+                    }
+                    ToolbarButton {
+                        icon: "box".to_string(),
+                        label: Some("Components".to_string()),
+                        active: design_mode.get() == DesignMode::Components,
+                        onclick: {
+                            let design_mode = design_mode.clone();
+                            move |_| design_mode.set(DesignMode::Components)
                         },
                     }
                 }
 
                 ToolbarDivider {}
+
+                // Add Token button (only in Tokens mode)
+                if design_mode.get() == DesignMode::Tokens {
+                    ToolbarGroup {
+                        ToolbarButton {
+                            icon: "plus".to_string(),
+                            label: Some("Add Token".to_string()),
+                            onclick: {
+                                let show_add_token_modal = show_add_token_modal.clone();
+                                move |_| show_add_token_modal.set(true)
+                            },
+                        }
+                    }
+
+                    ToolbarDivider {}
+                }
 
                 ToolbarGroup {
                     ToolbarButton {
@@ -214,60 +259,71 @@ pub fn CssDesignerPage(store: StudioStore) -> Element {
             }
 
             // Main content area
-            div(class: "css-designer-content", style: styles::content()) {
-                // Token editor panel
-                div(class: "token-panel", style: styles::token_panel()) {
-                    Tabs {
-                        tabs: categories,
-                        active: active_tab.clone(),
-                        onchange: on_tab_change,
-                    }
-
-                    div(class: "token-list", style: styles::token_list()) {
-                        TokenEditor {
-                            tokens: tokens.clone(),
-                            category: selected_category.get(),
-                            onchange: on_token_change,
-                        }
-                    }
-                }
-
-                // Preview panel
-                div(class: "preview-panel", style: styles::preview_panel()) {
-                    h3(style: styles::preview_title()) { "Preview" }
-
-                    match preview_mode.get() {
-                        PreviewMode::Light => {
-                            PreviewPane {
-                                mode: PreviewMode::Light,
-                                tokens: tokens.clone(),
+            div(class: "css-designer-content", style: if design_mode.get() == DesignMode::Components { styles::content_full() } else { styles::content() }) {
+                match design_mode.get() {
+                    DesignMode::Tokens => {
+                        // Token editor panel
+                        div(class: "token-panel", style: styles::token_panel()) {
+                            Tabs {
+                                tabs: categories,
+                                active: active_tab.clone(),
+                                onchange: on_tab_change,
                             }
-                        }
-                        PreviewMode::Dark => {
-                            PreviewPane {
-                                mode: PreviewMode::Dark,
-                                tokens: tokens.clone(),
-                            }
-                        }
-                        PreviewMode::Both => {
-                            div(class: "preview-split", style: styles::preview_split()) {
-                                PreviewPane {
-                                    mode: PreviewMode::Light,
+
+                            div(class: "token-list", style: styles::token_list()) {
+                                TokenEditor {
                                     tokens: tokens.clone(),
-                                }
-                                PreviewPane {
-                                    mode: PreviewMode::Dark,
-                                    tokens: tokens.clone(),
+                                    category: selected_category.get(),
+                                    onchange: on_token_change,
                                 }
                             }
                         }
-                    }
-                }
 
-                // CSS Output panel (collapsible)
-                if show_css_output.get() {
-                    CssOutputPanel {
-                        store: store.clone(),
+                        // Preview panel
+                        div(class: "preview-panel", style: styles::preview_panel()) {
+                            h3(style: styles::preview_title()) { "Preview" }
+
+                            match preview_mode.get() {
+                                PreviewMode::Light => {
+                                    PreviewPane {
+                                        mode: PreviewMode::Light,
+                                        tokens: tokens.clone(),
+                                    }
+                                }
+                                PreviewMode::Dark => {
+                                    PreviewPane {
+                                        mode: PreviewMode::Dark,
+                                        tokens: tokens.clone(),
+                                    }
+                                }
+                                PreviewMode::Both => {
+                                    div(class: "preview-split", style: styles::preview_split()) {
+                                        PreviewPane {
+                                            mode: PreviewMode::Light,
+                                            tokens: tokens.clone(),
+                                        }
+                                        PreviewPane {
+                                            mode: PreviewMode::Dark,
+                                            tokens: tokens.clone(),
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // CSS Output panel (collapsible)
+                        if show_css_output.get() {
+                            CssOutputPanel {
+                                store: store.clone(),
+                            }
+                        }
+                    }
+                    DesignMode::Components => {
+                        // Component style editor (full width)
+                        ComponentStyleEditor {
+                            styles: component_styles.clone(),
+                            on_change: on_component_style_change,
+                        }
                     }
                 }
             }
@@ -705,6 +761,16 @@ mod styles {
             flex: 1;
             display: grid;
             grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
+            padding: var(--spacing-md);
+            overflow: hidden;
+        "#
+    }
+
+    pub fn content_full() -> &'static str {
+        r#"
+            flex: 1;
+            display: flex;
             gap: var(--spacing-md);
             padding: var(--spacing-md);
             overflow: hidden;
