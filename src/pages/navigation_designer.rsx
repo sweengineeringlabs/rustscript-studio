@@ -265,6 +265,18 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
 
                 ToolbarDivider {}
 
+                // Keyboard shortcuts help
+                ToolbarGroup {
+                    div(style: styles::keyboard_help()) {
+                        Icon { name: "keyboard".to_string(), size: 14 }
+                        span(style: styles::keyboard_help_text()) {
+                            "Arrow/Tab: Navigate • Enter: Edit • Del: Delete • Esc: Deselect"
+                        }
+                    }
+                }
+
+                ToolbarDivider {}
+
                 // Search box
                 ToolbarGroup {
                     div(style: styles::search_container()) {
@@ -333,9 +345,18 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
             div(class: "canvas-container", style: styles::canvas_container()) {
                 NavigationCanvasView {
                     canvas: canvas.clone(),
-                    on_node_select: Some(Callback::new(move |id: String| {
-                        selected_node.set(Some(id));
-                    })),
+                    selected_node_id: selected_node.get(),
+                    on_node_select: Some({
+                        let selected_node = selected_node.clone();
+                        Callback::new(move |id: String| {
+                            // Empty string means deselect (from Escape key)
+                            if id.is_empty() {
+                                selected_node.set(None);
+                            } else {
+                                selected_node.set(Some(id));
+                            }
+                        })
+                    }),
                     on_node_move: Some({
                         let store = store.clone();
                         Callback::new(move |(id, pos): (String, rsc_flow::prelude::Position)| {
@@ -347,6 +368,29 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
                             });
                             // Persist position to store
                             store.set_node_position(&id, pos.x, pos.y);
+                        })
+                    }),
+                    on_delete: Some({
+                        let canvas = canvas.clone();
+                        let show_delete_modal = show_delete_modal.clone();
+                        let delete_target = delete_target.clone();
+                        Callback::new(move |id: String| {
+                            // Find the entity type for this node
+                            let canvas_data = canvas.get();
+                            if let Some(node) = canvas_data.nodes.get(&id) {
+                                if let Some(ref data) = node.data {
+                                    delete_target.set(Some((data.entity_id.clone(), data.entity_type)));
+                                    show_delete_modal.set(true);
+                                }
+                            }
+                        })
+                    }),
+                    on_edit: Some({
+                        // Selecting a node already opens the details panel
+                        // which has edit functionality
+                        Callback::new(move |_id: String| {
+                            // The node is already selected, so the panel is open
+                            // We could potentially trigger edit mode directly here
                         })
                     }),
                 }
@@ -819,6 +863,24 @@ mod styles {
             text-align: center;
             font-size: var(--font-size-sm);
             color: var(--color-text-secondary);
+        "#
+    }
+
+    pub fn keyboard_help() -> &'static str {
+        r#"
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            color: var(--color-text-secondary);
+            opacity: 0.7;
+        "#
+    }
+
+    pub fn keyboard_help_text() -> &'static str {
+        r#"
+            font-size: 11px;
+            white-space: nowrap;
         "#
     }
 

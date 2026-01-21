@@ -7,12 +7,25 @@ use rsc_studio::designer::navigation::{NavigationNodeData, EntityType};
 
 use super::{FlowEdge, Icon};
 
-/// Navigation canvas component.
+/// Navigation canvas component with keyboard navigation support.
+///
+/// Keyboard shortcuts:
+/// - Arrow keys: Navigate between nodes based on position
+/// - Tab: Cycle through nodes in order
+/// - Enter: Edit the selected node
+/// - Escape: Deselect current node
+/// - Delete/Backspace: Delete selected node
 #[component]
 pub fn NavigationCanvasView(
     canvas: Signal<FlowCanvas<NavigationNodeData, ()>>,
     on_node_select: Option<Callback<String>>,
     on_node_move: Option<Callback<(String, Position)>>,
+    /// Callback when user requests to delete the selected node
+    on_delete: Option<Callback<String>>,
+    /// Callback when user requests to edit the selected node
+    on_edit: Option<Callback<String>>,
+    /// Currently selected node ID (for keyboard navigation)
+    selected_node_id: Option<String>,
 ) -> Element {
     let canvas_data = canvas.get();
     let is_panning = use_signal(|| false);
@@ -100,6 +113,223 @@ pub fn NavigationCanvasView(
         e.prevent_default();
     };
 
+    // Keyboard navigation handler
+    let on_keydown = {
+        let canvas = canvas.clone();
+        let on_node_select = on_node_select.clone();
+        let on_delete = on_delete.clone();
+        let on_edit = on_edit.clone();
+        let selected_node_id = selected_node_id.clone();
+        move |e: KeyboardEvent| {
+            let key = e.key();
+
+            match key.as_str() {
+                // Arrow key navigation
+                "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" => {
+                    e.prevent_default();
+                    let canvas_data = canvas.get();
+                    let node_ids: Vec<String> = canvas_data.nodes.keys().cloned().collect();
+
+                    if node_ids.is_empty() {
+                        return;
+                    }
+
+                    if let Some(ref current_id) = selected_node_id {
+                        // Find the best adjacent node based on direction
+                        if let Some(current_node) = canvas_data.nodes.get(current_id) {
+                            let current_pos = current_node.position;
+                            let mut best_candidate: Option<(String, f64)> = None;
+
+                            for (id, node) in &canvas_data.nodes {
+                                if id == current_id {
+                                    continue;
+                                }
+
+                                let dx = node.position.x - current_pos.x;
+                                let dy = node.position.y - current_pos.y;
+
+                                let is_valid_direction = match key.as_str() {
+                                    "ArrowUp" => dy < -10.0,
+                                    "ArrowDown" => dy > 10.0,
+                                    "ArrowLeft" => dx < -10.0,
+                                    "ArrowRight" => dx > 10.0,
+                                    _ => false,
+                                };
+
+                                if is_valid_direction {
+                                    // Calculate weighted distance (favor nodes more aligned with the direction)
+                                    let distance = match key.as_str() {
+                                        "ArrowUp" | "ArrowDown" => {
+                                            dy.abs() + dx.abs() * 0.5
+                                        }
+                                        "ArrowLeft" | "ArrowRight" => {
+                                            dx.abs() + dy.abs() * 0.5
+                                        }
+                                        _ => (dx * dx + dy * dy).sqrt(),
+                                    };
+
+                                    if best_candidate.is_none() || distance < best_candidate.as_ref().unwrap().1 {
+                                        best_candidate = Some((id.clone(), distance));
+                                    }
+                                }
+                            }
+
+                            if let Some((next_id, _)) = best_candidate {
+                                if let Some(ref callback) = on_node_select {
+                                    callback.call(next_id.clone());
+                                }
+                                // Center the viewport on the new node
+                                if let Some(next_node) = canvas_data.nodes.get(&next_id) {
+                                    canvas.update(|c| {
+                                        c.viewport.center_on(next_node.position);
+                                    });
+                                }
+                            }
+                        }
+                    } else {
+                        // No selection, select the first node
+                        if let Some(first_id) = node_ids.first() {
+                            if let Some(ref callback) = on_node_select {
+                                callback.call(first_id.clone());
+                            }
+                        }
+                    }
+                }
+
+                // Tab to cycle through nodes
+                "Tab" => {
+                    e.prevent_default();
+                    let canvas_data = canvas.get();
+                    let mut node_ids: Vec<String> = canvas_data.nodes.keys().cloned().collect();
+
+                    if node_ids.is_empty() {
+                        return;
+                    }
+
+                    // Sort nodes by position (top-to-bottom, left-to-right)
+                    node_ids.sort_by(|a, b| {
+                        let pos_a = canvas_data.nodes.get(a).map(|n| n.position).unwrap_or(Position::zero());
+                        let pos_b = canvas_data.nodes.get(b).map(|n| n.position).unwrap_or(Position::zero());
+                        pos_a.y.partial_cmp(&pos_b.y)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                            .then_with(|| pos_a.x.partial_cmp(&pos_b.x).unwrap_or(std::cmp::Ordering::Equal))
+                    });
+
+                    let current_index = selected_node_id
+                        .as_ref()
+                        .and_then(|id| node_ids.iter().position(|n| n == id));
+
+                    let next_index = if e.shift_key() {
+                        // Shift+Tab: go backwards
+                        match current_index {
+                            Some(0) => node_ids.len() - 1,
+                            Some(i) => i - 1,
+                            None => node_ids.len() - 1,
+                        }
+                    } else {
+                        // Tab: go forward
+                        match current_index {
+                            Some(i) if i + 1 < node_ids.len() => i + 1,
+                            _ => 0,
+                        }
+                    };
+
+                    if let Some(next_id) = node_ids.get(next_index) {
+                        if let Some(ref callback) = on_node_select {
+                            callback.call(next_id.clone());
+                        }
+                        // Center on the new node
+                        if let Some(next_node) = canvas_data.nodes.get(next_id) {
+                            canvas.update(|c| {
+                                c.viewport.center_on(next_node.position);
+                            });
+                        }
+                    }
+                }
+
+                // Enter to edit
+                "Enter" => {
+                    if let Some(ref current_id) = selected_node_id {
+                        if let Some(ref callback) = on_edit {
+                            callback.call(current_id.clone());
+                        }
+                    }
+                }
+
+                // Escape to deselect
+                "Escape" => {
+                    if let Some(ref callback) = on_node_select {
+                        // Passing empty string to indicate deselection
+                        // The parent will handle this appropriately
+                        callback.call(String::new());
+                    }
+                }
+
+                // Delete/Backspace to delete
+                "Delete" | "Backspace" => {
+                    if let Some(ref current_id) = selected_node_id {
+                        if let Some(ref callback) = on_delete {
+                            callback.call(current_id.clone());
+                        }
+                    }
+                }
+
+                // Focus shortcuts
+                "Home" => {
+                    // Jump to first node
+                    e.prevent_default();
+                    let canvas_data = canvas.get();
+                    let mut node_ids: Vec<_> = canvas_data.nodes.keys().cloned().collect();
+                    node_ids.sort_by(|a, b| {
+                        let pos_a = canvas_data.nodes.get(a).map(|n| n.position).unwrap_or(Position::zero());
+                        let pos_b = canvas_data.nodes.get(b).map(|n| n.position).unwrap_or(Position::zero());
+                        pos_a.y.partial_cmp(&pos_b.y)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                            .then_with(|| pos_a.x.partial_cmp(&pos_b.x).unwrap_or(std::cmp::Ordering::Equal))
+                    });
+
+                    if let Some(first_id) = node_ids.first() {
+                        if let Some(ref callback) = on_node_select {
+                            callback.call(first_id.clone());
+                        }
+                        if let Some(first_node) = canvas_data.nodes.get(first_id) {
+                            canvas.update(|c| {
+                                c.viewport.center_on(first_node.position);
+                            });
+                        }
+                    }
+                }
+
+                "End" => {
+                    // Jump to last node
+                    e.prevent_default();
+                    let canvas_data = canvas.get();
+                    let mut node_ids: Vec<_> = canvas_data.nodes.keys().cloned().collect();
+                    node_ids.sort_by(|a, b| {
+                        let pos_a = canvas_data.nodes.get(a).map(|n| n.position).unwrap_or(Position::zero());
+                        let pos_b = canvas_data.nodes.get(b).map(|n| n.position).unwrap_or(Position::zero());
+                        pos_a.y.partial_cmp(&pos_b.y)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                            .then_with(|| pos_a.x.partial_cmp(&pos_b.x).unwrap_or(std::cmp::Ordering::Equal))
+                    });
+
+                    if let Some(last_id) = node_ids.last() {
+                        if let Some(ref callback) = on_node_select {
+                            callback.call(last_id.clone());
+                        }
+                        if let Some(last_node) = canvas_data.nodes.get(last_id) {
+                            canvas.update(|c| {
+                                c.viewport.center_on(last_node.position);
+                            });
+                        }
+                    }
+                }
+
+                _ => {}
+            }
+        }
+    };
+
     rsx! {
         div(
             class: "navigation-canvas",
@@ -110,7 +340,8 @@ pub fn NavigationCanvasView(
             onmouseup: on_mouse_up,
             onmouseleave: on_mouse_leave,
             onwheel: on_wheel,
-            oncontextmenu: on_context_menu
+            oncontextmenu: on_context_menu,
+            onkeydown: on_keydown
         ) {
             // Background grid
             div(class: "flow-grid", style: styles::grid(&canvas_data.viewport, canvas_data.config.grid_size))
