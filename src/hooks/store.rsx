@@ -224,6 +224,57 @@ impl StudioStore {
         });
     }
 
+    /// Duplicate a preset.
+    pub fn duplicate_preset(&self, workflow_id: &str, context_id: &str, preset_id: &str) -> Option<String> {
+        let inner = self.inner.get();
+        let workflow = inner.workflows.iter().find(|w| w.id == workflow_id)?;
+        let context = workflow.contexts.get(context_id)?;
+        let preset = context.presets.get(preset_id)?;
+
+        let mut new_preset = preset.clone();
+        new_preset.id = uuid::Uuid::new_v4().to_string();
+        new_preset.name = format!("{} (Copy)", preset.name);
+
+        let new_id = new_preset.id.clone();
+        drop(inner);
+        self.inner.update(|s| {
+            if let Some(workflow) = s.workflows.iter_mut().find(|w| w.id == workflow_id) {
+                if let Some(context) = workflow.contexts.get_mut(context_id) {
+                    context.presets.insert(new_preset.id.clone(), new_preset);
+                }
+            }
+        });
+        Some(new_id)
+    }
+
+    /// Duplicate a context.
+    pub fn duplicate_context(&self, workflow_id: &str, context_id: &str) -> Option<String> {
+        let inner = self.inner.get();
+        let workflow = inner.workflows.iter().find(|w| w.id == workflow_id)?;
+        let context = workflow.contexts.get(context_id)?;
+
+        let mut new_context = context.clone();
+        new_context.id = uuid::Uuid::new_v4().to_string();
+        new_context.name = format!("{} (Copy)", context.name);
+        // Update all preset IDs in the duplicated context
+        let mut new_presets = indexmap::IndexMap::new();
+        for (_, preset) in &new_context.presets {
+            let mut new_preset = preset.clone();
+            new_preset.id = uuid::Uuid::new_v4().to_string();
+            new_presets.insert(new_preset.id.clone(), new_preset);
+        }
+        new_context.presets = new_presets;
+
+        let new_id = new_context.id.clone();
+        drop(inner);
+        self.inner.update(|s| {
+            if let Some(workflow) = s.workflows.iter_mut().find(|w| w.id == workflow_id) {
+                workflow.contexts.insert(new_context.id.clone(), new_context);
+            }
+        });
+        Some(new_id)
+    }
+
     /// Get the design tokens.
     pub fn design_tokens(&self) -> Signal<DesignTokens> {
         let tokens = self.inner.get().design_tokens.clone();

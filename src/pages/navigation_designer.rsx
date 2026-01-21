@@ -23,6 +23,7 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
     let zoom_level = use_signal(|| 100);
     let show_delete_modal = use_signal(|| false);
     let delete_target = use_signal::<Option<(String, EntityType)>>(|| None);
+    let search_query = use_signal(String::new);
 
     // Helper to reload canvas
     let reload_canvas = {
@@ -79,6 +80,22 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
         });
     };
 
+    // Zoom to selected node
+    let on_zoom_to_selection = {
+        let canvas = canvas.clone();
+        let selected_node = selected_node.clone();
+        move |_| {
+            if let Some(ref node_id) = selected_node.get() {
+                canvas.update(|c| {
+                    if let Some(node) = c.nodes.get(node_id) {
+                        c.viewport.center_on(node.position);
+                        c.viewport.zoom = 1.5;
+                    }
+                });
+            }
+        }
+    };
+
     // Delete confirmation handler
     let on_confirm_delete = {
         let store = store.clone();
@@ -118,6 +135,23 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
             }
             show_delete_modal.set(false);
             delete_target.set(None);
+        }
+    };
+
+    // Search handler
+    let filtered_nodes: Vec<String> = {
+        let query = search_query.get().to_lowercase();
+        if query.is_empty() {
+            vec![]
+        } else {
+            canvas.get().nodes.iter()
+                .filter(|(_, node)| {
+                    node.data.as_ref()
+                        .map(|d| d.label.to_lowercase().contains(&query))
+                        .unwrap_or(false)
+                })
+                .map(|(id, _)| id.clone())
+                .collect()
         }
     };
 
@@ -161,9 +195,81 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
                     }
 
                     ToolbarButton {
+                        icon: "target".to_string(),
+                        label: Some("Zoom to Selection".to_string()),
+                        onclick: on_zoom_to_selection,
+                        disabled: selected_node.get().is_none(),
+                    }
+
+                    ToolbarButton {
                         icon: "layout".to_string(),
                         label: Some("Auto Layout".to_string()),
                         onclick: on_auto_layout,
+                    }
+                }
+
+                ToolbarDivider {}
+
+                // Search box
+                ToolbarGroup {
+                    div(style: styles::search_container()) {
+                        Icon { name: "search".to_string(), size: 16 }
+                        input(
+                            r#type: "text",
+                            placeholder: "Search nodes...",
+                            style: styles::search_input(),
+                            value: search_query.get().clone(),
+                            oninput: move |e: FormEvent| {
+                                search_query.set(e.value.clone());
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Search results dropdown
+            if !filtered_nodes.is_empty() {
+                div(class: "search-results", style: styles::search_results()) {
+                    for node_id in filtered_nodes {
+                        {
+                            let canvas_value = canvas.get();
+                            let node = canvas_value.nodes.get(&node_id);
+                            if let Some(node) = node {
+                                let label = node.data.as_ref().map(|d| d.label.clone()).unwrap_or_default();
+                                let entity_type = node.data.as_ref().map(|d| d.entity_type);
+                                rsx! {
+                                    div(
+                                        class: "search-result-item",
+                                        style: styles::search_result_item(),
+                                        onclick: {
+                                            let node_id = node_id.clone();
+                                            let selected_node = selected_node.clone();
+                                            let search_query = search_query.clone();
+                                            let canvas = canvas.clone();
+                                            move |_| {
+                                                selected_node.set(Some(node_id.clone()));
+                                                search_query.set(String::new());
+                                                // Center on node
+                                                canvas.update(|c| {
+                                                    if let Some(n) = c.nodes.get(&node_id) {
+                                                        c.viewport.center_on(n.position);
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    ) {
+                                        if let Some(et) = entity_type {
+                                            span(style: styles::type_badge_small(et)) {
+                                                { format!("{:?}", et) }
+                                            }
+                                        }
+                                        span { { label } }
+                                    }
+                                }
+                            } else {
+                                rsx! {}
+                            }
+                        }
                     }
                 }
             }
@@ -241,8 +347,28 @@ pub fn NavigationDesignerPage(store: StudioStore) -> Element {
                     on_duplicate: {
                         let store = store.clone();
                         let reload_canvas = reload_canvas.clone();
-                        move |id: String| {
-                            store.duplicate_workflow(&id);
+                        move |(id, entity_type, parent_id): (String, EntityType, Option<String>)| {
+                            match entity_type {
+                                EntityType::Workflow => {
+                                    store.duplicate_workflow(&id);
+                                }
+                                EntityType::Context => {
+                                    if let Some(wf_id) = parent_id {
+                                        store.duplicate_context(&wf_id, &id);
+                                    }
+                                }
+                                EntityType::Preset => {
+                                    // Find workflow and context
+                                    for workflow in store.workflows() {
+                                        for (ctx_id, context) in &workflow.contexts {
+                                            if context.presets.contains_key(&id) {
+                                                store.duplicate_preset(&workflow.id, ctx_id, &id);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             reload_canvas();
                         }
                     },
@@ -319,7 +445,7 @@ fn NodeDetailsPanel(
     on_update: Callback<()>,
     on_add_context: Callback<String>,
     on_add_preset: Callback<(String, String)>,
-    on_duplicate: Callback<String>,
+    on_duplicate: Callback<(String, EntityType, Option<String>)>,
 ) -> Element {
     let canvas_value = canvas.get();
     let node = canvas_value.nodes.get(&node_id);
@@ -504,19 +630,6 @@ fn NodeDetailsPanel(
                             Icon { name: "plus".to_string() }
                             "Add Context"
                         }
-
-                        Button {
-                            variant: ButtonVariant::Secondary,
-                            size: ButtonSize::Sm,
-                            onclick: {
-                                let on_duplicate = on_duplicate.clone();
-                                let entity_id = entity_id.clone();
-                                move |_| on_duplicate.call(entity_id.clone())
-                            },
-                        } {
-                            Icon { name: "copy".to_string() }
-                            "Duplicate"
-                        }
                     }
 
                     // Context-specific actions
@@ -536,6 +649,21 @@ fn NodeDetailsPanel(
                                 "Add Preset"
                             }
                         }
+                    }
+
+                    // Duplicate button (for all types)
+                    Button {
+                        variant: ButtonVariant::Secondary,
+                        size: ButtonSize::Sm,
+                        onclick: {
+                            let on_duplicate = on_duplicate.clone();
+                            let entity_id = entity_id.clone();
+                            let parent_id = parent_id.clone();
+                            move |_| on_duplicate.call((entity_id.clone(), entity_type, parent_id.clone()))
+                        },
+                    } {
+                        Icon { name: "copy".to_string() }
+                        "Duplicate"
                     }
 
                     // Delete button (available for all types)
@@ -583,6 +711,75 @@ mod styles {
             font-size: var(--font-size-sm);
             color: var(--color-text-secondary);
         "#
+    }
+
+    pub fn search_container() -> &'static str {
+        r#"
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+        "#
+    }
+
+    pub fn search_input() -> &'static str {
+        r#"
+            border: none;
+            background: transparent;
+            outline: none;
+            font-size: var(--font-size-sm);
+            width: 150px;
+        "#
+    }
+
+    pub fn search_results() -> &'static str {
+        r#"
+            position: absolute;
+            top: 48px;
+            right: var(--spacing-md);
+            width: 250px;
+            max-height: 300px;
+            overflow-y: auto;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            z-index: 100;
+        "#
+    }
+
+    pub fn search_result_item() -> &'static str {
+        r#"
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-sm) var(--spacing-md);
+            cursor: pointer;
+            transition: background 0.15s ease;
+        "#
+    }
+
+    pub fn type_badge_small(entity_type: EntityType) -> String {
+        let color = match entity_type {
+            EntityType::Workflow => "var(--color-primary)",
+            EntityType::Context => "var(--color-secondary)",
+            EntityType::Preset => "var(--color-accent)",
+        };
+        format!(
+            r#"
+                display: inline-block;
+                padding: 1px 6px;
+                border-radius: var(--radius-xs);
+                font-size: 10px;
+                font-weight: var(--font-weight-medium);
+                background: {};
+                color: white;
+            "#,
+            color
+        )
     }
 
     pub fn empty_state() -> &'static str {
