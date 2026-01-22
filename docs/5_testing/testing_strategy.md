@@ -14,26 +14,56 @@ crates/<domain>/<crate>/
     ├── <crate>_int_test.rs            # Integration tests
     ├── <crate>_stress_test.rs         # Stress tests
     ├── <crate>_perf_test.rs           # Performance tests
-    └── <crate>_load_test.rs           # Load tests
+    ├── <crate>_load_test.rs           # Load tests
+    ├── <crate>_e2e_test.rs            # End-to-end tests
+    └── <crate>_security_test.rs       # Security tests
 ```
 
 ### Test Categories
 
 | Category | File Pattern | Purpose | Characteristics |
 |----------|-------------|---------|-----------------|
-| **Unit** | `src/*.rs` (inline) | Test individual functions/methods in isolation | Fast, no I/O, mocked dependencies |
+| **Unit** | `src/*.rs` (inline) | Test a single function/method in complete isolation | Fast, mocked dependencies, pure logic |
+| **Feature** | `src/*.rs` (inline) | Test module capabilities by exercising multiple internal functions together | Fast, no I/O, co-located with code |
 | **Integration** | `tests/<crate>_int_test.rs` | Test public API and module interactions | Uses real dependencies, tests contracts |
 | **Stress** | `tests/<crate>_stress_test.rs` | Test edge cases and boundary conditions | Deep nesting, complex patterns, corner cases |
 | **Performance** | `tests/<crate>_perf_test.rs` | Measure and guard against regressions | Compilation time, output size, scaling |
 | **Load** | `tests/<crate>_load_test.rs` | Test behavior under heavy load | Concurrency, sustained throughput, memory stability |
+| **E2E** | `tests/<crate>_e2e_test.rs` | Test full user workflows in real browser | Browser automation, UI interactions, full stack |
+| **Security** | `tests/<crate>_security_test.rs` | Test security properties and vulnerabilities | Input validation, injection, auth, OWASP checks |
 
 ### Category Details
 
 #### Unit Tests
 - Located inline within source files using `#[cfg(test)]` modules
-- Test individual functions and methods in isolation
+- Test a single function/method in complete isolation
+- Mock all dependencies
+- Focus on pure logic and edge cases of one function
+
+```rust
+// src/math.rs
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn add_positive_numbers() {
+        assert_eq!(add(2, 3), 5);
+    }
+
+    #[test]
+    fn add_handles_overflow() {
+        assert_eq!(add(i32::MAX, 1), i32::MIN); // or error
+    }
+}
+```
+
+#### Feature Tests
+- Located inline within source files using `#[cfg(test)]` modules
+- Test module capabilities by exercising multiple internal functions together
+- Verify a feature works end-to-end within the module
 - Should be fast and have no external dependencies
-- Mock external services and I/O
+- Co-located with the code they test
 
 ```rust
 // src/parser.rs
@@ -42,8 +72,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_simple_expression() {
-        // ...
+    fn parse_nested_expression() {
+        // Exercises tokenize() -> parse_expr() -> build_ast()
+        let input = "(1 + (2 * 3))";
+        let ast = parse(input).unwrap();
+        assert_eq!(ast.evaluate(), 7);
     }
 }
 ```
@@ -113,6 +146,65 @@ fn load_sustained_throughput() {
 }
 ```
 
+#### E2E Tests (`*_e2e_test.rs`)
+- Test complete user workflows in a real browser
+- Use `rsc-test/browser` module for browser automation
+- Verify UI interactions, navigation, and visual rendering
+- Test full stack from UI to backend
+
+```rust
+// tests/studio_e2e_test.rs
+#[tokio::test]
+async fn e2e_user_login_flow() {
+    let ctx = BrowserTestContext::new_default().await?;
+    ctx.goto("/login").await?;
+    ctx.fill("#username", "testuser").await?;
+    ctx.fill("#password", "password").await?;
+    ctx.click("button[type=submit]").await?;
+    ctx.wait_for("#dashboard").await?;
+    ctx.assert_url_contains("/dashboard").await?;
+}
+
+#[tokio::test]
+async fn e2e_create_workflow() {
+    let ctx = BrowserTestContext::new_default().await?;
+    ctx.goto("/workflows").await?;
+    ctx.click("#new-workflow").await?;
+    ctx.assert_element_exists(".workflow-canvas").await?;
+}
+```
+
+#### Security Tests (`*_security_test.rs`)
+- Test input validation and sanitization
+- Check for injection vulnerabilities (XSS, SQL, command)
+- Verify authentication and authorization
+- Test OWASP Top 10 vulnerabilities
+- Validate cryptographic implementations
+
+```rust
+// tests/parser_security_test.rs
+#[test]
+fn security_reject_script_injection() {
+    let malicious = "<script>alert('xss')</script>";
+    let result = parse_input(malicious);
+    assert!(result.is_err() || !result.unwrap().contains("<script>"));
+}
+
+#[test]
+fn security_path_traversal_blocked() {
+    let malicious = "../../../etc/passwd";
+    let result = resolve_path(malicious);
+    assert!(result.is_err());
+}
+
+#[test]
+fn security_input_length_limits() {
+    let oversized = "A".repeat(1_000_000);
+    let result = parse_input(&oversized);
+    assert!(result.is_err());
+}
+```
+
 ### Running Tests
 
 ```bash
@@ -124,10 +216,15 @@ cargo test -p <crate> --test <crate>_int_test
 cargo test -p <crate> --test <crate>_stress_test
 cargo test -p <crate> --test <crate>_perf_test
 cargo test -p <crate> --test <crate>_load_test
+cargo test -p <crate> --test <crate>_e2e_test
+cargo test -p <crate> --test <crate>_security_test
 
 # Run with release optimizations (recommended for perf/load tests)
 cargo test --release -p <crate> --test <crate>_perf_test
 cargo test --release -p <crate> --test <crate>_load_test
+
+# Run E2E tests (requires browser)
+cargo test -p <crate> --test <crate>_e2e_test --features browser
 
 # Run all tests in workspace
 cargo test --workspace
@@ -138,7 +235,7 @@ cargo test --workspace
 ```
 crates/compiler/codegen/
 ├── src/
-│   └── wasm.rs                        # 158 unit tests
+│   └── wasm.rs                        # 158 feature tests
 └── tests/
     ├── codegen_int_test.rs            # 150 integration tests
     ├── codegen_stress_test.rs         # 5 stress tests
@@ -150,16 +247,23 @@ crates/compiler/codegen/
 
 ### Guidelines
 
-1. **Unit tests** should be fast (<100ms each) and run frequently during development
-2. **Integration tests** verify the public contract; update when API changes
-3. **Stress tests** catch edge cases; add new ones when bugs are found in complex scenarios
-4. **Performance tests** set reasonable bounds; adjust thresholds if optimization changes expectations
-5. **Load tests** run with `--release` for accurate measurements; may take longer than other tests
+1. **Unit tests** test one function in isolation; mock dependencies; focus on edge cases
+2. **Feature tests** should be fast (<100ms each) and run frequently during development
+3. **Integration tests** verify the public contract; update when API changes
+4. **Stress tests** catch edge cases; add new ones when bugs are found in complex scenarios
+5. **Performance tests** set reasonable bounds; adjust thresholds if optimization changes expectations
+6. **Load tests** run with `--release` for accurate measurements; may take longer than other tests
+7. **E2E tests** require browser setup; run in CI with headless Chrome; use retries for flaky tests
+8. **Security tests** should cover OWASP Top 10; run on every PR; block merge on failures
 
 ### Naming Conventions
 
 - Test functions: `test_<what_is_being_tested>` or `<category>_<description>`
+- Unit: `<function>_<scenario>` (e.g., `add_handles_overflow`)
+- Feature: `<feature>_<behavior>` (e.g., `parse_nested_expression`)
 - Integration: `compile_*`, `parse_*`, `validate_*`
 - Stress: `stress_test_*`
 - Performance: `perf_*`
 - Load: `load_*`
+- E2E: `e2e_*`
+- Security: `security_*`
