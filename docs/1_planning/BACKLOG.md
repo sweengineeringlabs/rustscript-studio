@@ -128,12 +128,16 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | [x] | Panel component (scaffold) | 2026-01-21 | 2026-01-21 |
 | [x] | Tabs component (scaffold) | 2026-01-21 | 2026-01-21 |
 | [x] | Toolbar component (scaffold) | 2026-01-21 | 2026-01-21 |
-| [x] | Input component | 2026-01-21 | 2026-01-21 |
-| [x] | Select component | 2026-01-21 | 2026-01-21 |
-| [x] | Checkbox component | 2026-01-21 | 2026-01-21 |
-| [x] | Modal/Dialog component | 2026-01-21 | 2026-01-21 |
-| [x] | Tooltip component | 2026-01-21 | 2026-01-21 |
-| [x] | Context menu component | 2026-01-21 | 2026-01-21 |
+| [x] | Input component (scaffold) | 2026-01-21 | 2026-01-21 |
+| [x] | Select component (scaffold) | 2026-01-21 | 2026-01-21 |
+| [x] | Checkbox component (scaffold) | 2026-01-21 | 2026-01-21 |
+| [x] | Modal/Dialog component (scaffold) | 2026-01-21 | 2026-01-21 |
+| [x] | Tooltip component (scaffold) | 2026-01-21 | 2026-01-21 |
+| [x] | Context menu component (scaffold) | 2026-01-21 | 2026-01-21 |
+| [ ] | Implement Button click handlers | 2026-01-21 | |
+| [ ] | Implement Input two-way binding | 2026-01-21 | |
+| [ ] | Implement Select dropdown | 2026-01-21 | |
+| [ ] | Implement Modal open/close | 2026-01-21 | |
 
 ### 2.3 Flow Components
 
@@ -142,127 +146,153 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | [x] | FlowCanvas component (scaffold) | 2026-01-21 | 2026-01-21 |
 | [x] | FlowNode component (scaffold) | 2026-01-21 | 2026-01-21 |
 | [x] | FlowEdge component (scaffold) | 2026-01-21 | 2026-01-21 |
-| [x] | Implement canvas pan/zoom gestures | 2026-01-21 | 2026-01-21 |
-| [x] | Implement node drag with snap-to-grid | 2026-01-21 | 2026-01-21 |
-| [x] | Implement edge creation by dragging | 2026-01-21 | 2026-01-21 |
-| [x] | Implement node selection (single/multi) | 2026-01-21 | 2026-01-21 |
-| [x] | Implement edge selection | 2026-01-21 | 2026-01-21 |
-| [x] | Implement minimap | 2026-01-21 | 2026-01-21 |
-| [x] | Implement zoom controls | 2026-01-21 | 2026-01-21 |
-| [x] | Implement fit-to-view | 2026-01-21 | 2026-01-21 |
+| [ ] | Implement canvas pan/zoom gestures | 2026-01-21 | |
+| [ ] | Implement node drag with snap-to-grid | 2026-01-21 | |
+| [ ] | Implement edge creation by dragging | 2026-01-21 | |
+| [ ] | Implement node selection (single/multi) | 2026-01-21 | |
+| [ ] | Implement edge selection | 2026-01-21 | |
+| [x] | Minimap component (scaffold) | 2026-01-21 | 2026-01-21 |
+| [x] | Zoom controls component (scaffold) | 2026-01-21 | 2026-01-21 |
+| [ ] | Implement minimap interactivity | 2026-01-21 | |
+| [ ] | Implement zoom controls interactivity | 2026-01-21 | |
+| [ ] | Implement fit-to-view | 2026-01-21 | |
 
 ### 2.4 Token Editor Components
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
 | [x] | TokenEditor component (scaffold) | 2026-01-21 | 2026-01-21 |
-| [x] | ColorPicker component | 2026-01-21 | 2026-01-21 |
-| [x] | SpacingEditor component | 2026-01-21 | 2026-01-21 |
-| [x] | ShadowEditor component | 2026-01-21 | 2026-01-21 |
-| [x] | TypographyEditor component | 2026-01-21 | 2026-01-21 |
-| [x] | Token preview with live updates | 2026-01-21 | 2026-01-21 |
+| [x] | ColorPicker component (scaffold) | 2026-01-21 | 2026-01-21 |
+| [x] | SpacingEditor component (scaffold) | 2026-01-21 | 2026-01-21 |
+| [x] | ShadowEditor component (scaffold) | 2026-01-21 | 2026-01-21 |
+| [x] | TypographyEditor component (scaffold) | 2026-01-21 | 2026-01-21 |
+| [ ] | Implement ColorPicker interactivity | 2026-01-21 | |
+| [ ] | Implement SpacingEditor interactivity | 2026-01-21 | |
+| [ ] | Implement ShadowEditor interactivity | 2026-01-21 | |
+| [ ] | Implement TypographyEditor interactivity | 2026-01-21 | |
+| [ ] | Token preview with live updates | 2026-01-21 | |
 
 ---
 
 ## Phase 3: Navigation Designer
 
+> **Note:** Core logic implemented in `rsc-studio` Rust crate. RSX UI integration pending.
+
 ### 3.1 Workflow Management
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
-| [x] | Create new workflow | 2026-01-21 | |
-| [x] | Edit workflow properties (name, icon, description) | 2026-01-21 | |
-| [x] | Delete workflow with confirmation | 2026-01-21 | |
-| [x] | Duplicate workflow | 2026-01-21 | |
-| [x] | Reorder workflows | 2026-01-21 | |
+| [x] | Workflow data model (Rust) | 2026-01-21 | 2026-01-21 |
+| [ ] | Create new workflow (RSX UI) | 2026-01-21 | |
+| [ ] | Edit workflow properties (RSX UI) | 2026-01-21 | |
+| [ ] | Delete workflow with confirmation (RSX UI) | 2026-01-21 | |
+| [ ] | Duplicate workflow (RSX UI) | 2026-01-21 | |
+| [ ] | Reorder workflows (RSX UI) | 2026-01-21 | |
 
 ### 3.2 Context Management
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
-| [x] | Create new context within workflow | 2026-01-21 | |
-| [x] | Edit context properties | 2026-01-21 | |
-| [x] | Delete context | 2026-01-21 | |
-| [x] | Drag context between workflows | 2026-01-21 | 2026-01-21 |
-| [x] | Visual context node rendering | 2026-01-21 | |
+| [x] | Context data model (Rust) | 2026-01-21 | 2026-01-21 |
+| [ ] | Create new context within workflow (RSX UI) | 2026-01-21 | |
+| [ ] | Edit context properties (RSX UI) | 2026-01-21 | |
+| [ ] | Delete context (RSX UI) | 2026-01-21 | |
+| [ ] | Drag context between workflows (RSX UI) | 2026-01-21 | |
+| [ ] | Visual context node rendering (RSX UI) | 2026-01-21 | |
 
 ### 3.3 Preset Management
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
-| [x] | Create new preset within context | 2026-01-21 | 2026-01-21 |
-| [x] | Edit preset properties | 2026-01-21 | 2026-01-21 |
-| [x] | Configure preset layout (activity bar, sidebar, panels) | 2026-01-21 | 2026-01-21 |
-| [x] | Delete preset | 2026-01-21 | 2026-01-21 |
-| [x] | Duplicate preset | 2026-01-21 | 2026-01-21 |
-| [x] | Visual preset node rendering | 2026-01-21 | 2026-01-21 |
+| [x] | Preset data model (Rust) | 2026-01-21 | 2026-01-21 |
+| [x] | Built-in templates (IDE, Minimal, Focus, Review) | 2026-01-21 | 2026-01-21 |
+| [ ] | Create new preset within context (RSX UI) | 2026-01-21 | |
+| [ ] | Edit preset properties (RSX UI) | 2026-01-21 | |
+| [ ] | Configure preset layout (RSX UI) | 2026-01-21 | |
+| [ ] | Delete preset (RSX UI) | 2026-01-21 | |
+| [ ] | Duplicate preset (RSX UI) | 2026-01-21 | |
+| [ ] | Visual preset node rendering (RSX UI) | 2026-01-21 | |
 
 ### 3.4 Visual Flow Editor
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
-| [x] | Render workflow hierarchy as flow graph | 2026-01-21 | 2026-01-21 |
-| [x] | Auto-layout on structure change | 2026-01-21 | 2026-01-21 |
-| [x] | Manual node positioning with persistence | 2026-01-21 | 2026-01-21 |
-| [x] | Edge routing (bezier curves) | 2026-01-21 | 2026-01-21 |
-| [x] | Zoom to selection | 2026-01-21 | 2026-01-21 |
-| [x] | Search/filter nodes | 2026-01-21 | 2026-01-21 |
-| [x] | Keyboard navigation | 2026-01-21 | 2026-01-21 |
+| [x] | Hierarchical layout algorithm (Rust) | 2026-01-21 | 2026-01-21 |
+| [x] | Edge routing logic (Rust) | 2026-01-21 | 2026-01-21 |
+| [ ] | Render workflow hierarchy as flow graph (RSX UI) | 2026-01-21 | |
+| [ ] | Auto-layout on structure change (RSX UI) | 2026-01-21 | |
+| [ ] | Manual node positioning with persistence (RSX UI) | 2026-01-21 | |
+| [ ] | Zoom to selection (RSX UI) | 2026-01-21 | |
+| [ ] | Search/filter nodes (RSX UI) | 2026-01-21 | |
+| [ ] | Keyboard navigation (RSX UI) | 2026-01-21 | |
 
 ### 3.5 Navigation Preview
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
-| [x] | Preview navigation flow | 2026-01-21 | 2026-01-21 |
-| [x] | Simulate context switching | 2026-01-21 | 2026-01-21 |
-| [x] | Preview preset layouts | 2026-01-21 | 2026-01-21 |
-| [x] | Hot reload preview on changes | 2026-01-21 | 2026-01-21 |
+| [ ] | Preview navigation flow | 2026-01-21 | |
+| [ ] | Simulate context switching | 2026-01-21 | |
+| [ ] | Preview preset layouts | 2026-01-21 | |
+| [ ] | Hot reload preview on changes | 2026-01-21 | |
 
 ---
 
 ## Phase 4: CSS Designer
 
+> **Note:** Core logic implemented in `rsc-studio` Rust crate. RSX UI integration pending.
+
 ### 4.1 Token Categories
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
-| [x] | Colors editor with color picker | 2026-01-21 | 2026-01-21 |
-| [x] | Spacing editor with visual scale | 2026-01-21 | 2026-01-21 |
-| [x] | Border radius editor | 2026-01-21 | 2026-01-21 |
-| [x] | Shadow editor with visual preview | 2026-01-21 | 2026-01-21 |
-| [x] | Typography editor (fonts, sizes, weights) | 2026-01-21 | 2026-01-21 |
-| [x] | Transitions/animations editor | 2026-01-21 | 2026-01-21 |
-| [x] | Z-index scale editor | 2026-01-21 | 2026-01-21 |
+| [x] | Token data models (Rust) | 2026-01-21 | 2026-01-21 |
+| [x] | Token panel scaffold (RSX) | 2026-01-21 | 2026-01-21 |
+| [ ] | Colors editor with color picker (RSX UI) | 2026-01-21 | |
+| [ ] | Spacing editor with visual scale (RSX UI) | 2026-01-21 | |
+| [ ] | Border radius editor (RSX UI) | 2026-01-21 | |
+| [ ] | Shadow editor with visual preview (RSX UI) | 2026-01-21 | |
+| [ ] | Typography editor (RSX UI) | 2026-01-21 | |
+| [ ] | Transitions/animations editor (RSX UI) | 2026-01-21 | |
+| [ ] | Z-index scale editor (RSX UI) | 2026-01-21 | |
 
 ### 4.2 Adaptive Theming
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
-| [x] | Light/dark mode toggle | 2026-01-21 | 2026-01-21 |
-| [x] | Side-by-side theme preview | 2026-01-21 | 2026-01-21 |
-| [x] | Adaptive token editing (light + dark values) | 2026-01-21 | 2026-01-21 |
-| [x] | System theme detection | 2026-01-21 | 2026-01-21 |
-| [x] | Theme export (CSS variables, SCSS, JSON, Tailwind) | 2026-01-21 | 2026-01-21 |
+| [x] | Theme data model (Rust) | 2026-01-21 | 2026-01-21 |
+| [x] | Multi-format export logic (Rust) | 2026-01-21 | 2026-01-21 |
+| [ ] | Light/dark mode toggle (RSX UI) | 2026-01-21 | |
+| [ ] | Side-by-side theme preview (RSX UI) | 2026-01-21 | |
+| [ ] | Adaptive token editing (RSX UI) | 2026-01-21 | |
+| [ ] | System theme detection (RSX UI) | 2026-01-21 | |
+| [ ] | Theme export UI (RSX UI) | 2026-01-21 | |
 
 ### 4.3 Component Styles
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
-| [x] | Visual style editor for components | 2026-01-21 | 2026-01-21 |
-| [x] | State variants (hover, active, focus, disabled) | 2026-01-21 | 2026-01-21 |
-| [x] | Responsive breakpoint support | 2026-01-21 | 2026-01-21 |
-| [x] | Style inheritance visualization | 2026-01-21 | 2026-01-21 |
-| [x] | CSS output preview | 2026-01-21 | 2026-01-21 |
+| [x] | Component style data model (Rust) | 2026-01-21 | 2026-01-21 |
+| [x] | State variants model (Rust) | 2026-01-21 | 2026-01-21 |
+| [x] | Responsive breakpoint model (Rust) | 2026-01-21 | 2026-01-21 |
+| [ ] | Visual style editor (RSX UI) | 2026-01-21 | |
+| [ ] | State variants UI (RSX UI) | 2026-01-21 | |
+| [ ] | Responsive breakpoint UI (RSX UI) | 2026-01-21 | |
+| [ ] | Style inheritance visualization (RSX UI) | 2026-01-21 | |
+| [x] | CSS output preview scaffold (RSX) | 2026-01-21 | 2026-01-21 |
 
 ### 4.4 Design Token Management
 
 | Status | Task | Created | Completed |
 |--------|------|---------|-----------|
-| [x] | Import tokens from YAML/JSON | 2026-01-21 | 2026-01-21 |
-| [x] | Export tokens to multiple formats | 2026-01-21 | 2026-01-21 |
-| [x] | Token validation | 2026-01-21 | 2026-01-21 |
-| [x] | Unused token detection | 2026-01-21 | 2026-01-21 |
-| [x] | Token dependency graph | 2026-01-21 | 2026-01-21 |
+| [x] | YAML/JSON import logic (Rust) | 2026-01-21 | 2026-01-21 |
+| [x] | Multi-format export logic (Rust) | 2026-01-21 | 2026-01-21 |
+| [x] | Token validation logic (Rust) | 2026-01-21 | 2026-01-21 |
+| [x] | Token dependency graph (Rust) | 2026-01-21 | 2026-01-21 |
+| [ ] | Import tokens UI (RSX UI) | 2026-01-21 | |
+| [ ] | Export tokens UI (RSX UI) | 2026-01-21 | |
+| [ ] | Validation UI (RSX UI) | 2026-01-21 | |
+| [ ] | Unused token detection UI (RSX UI) | 2026-01-21 | |
+| [ ] | Dependency graph visualization (RSX UI) | 2026-01-21 | |
 
 ---
 
@@ -428,49 +458,40 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | Phase | Total | Done | Progress |
 |-------|-------|------|----------|
 | Phase 1: Foundation | 35 | 35 | 100% |
-| Phase 2: UI Components | 28 | 28 | 100% |
-| Phase 3: Navigation | 19 | 19 | 100% |
-| Phase 4: CSS Designer | 22 | 22 | 100% |
+| Phase 2: UI Components | 38 | 16 | 42% |
+| Phase 3: Navigation | 28 | 4 | 14% |
+| Phase 4: CSS Designer | 31 | 11 | 35% |
 | Phase 5: Integration | 14 | 0 | 0% |
 | Phase 6: Advanced | 18 | 0 | 0% |
 | Phase 7: Testing | 13 | 3 | 23% |
 | Phase 8: Polish | 14 | 0 | 0% |
-| **Total** | **163** | **107** | **66%** |
+| **Total** | **191** | **69** | **36%** |
 
 ---
 
 ## Current Sprint
 
-**Focus:** Phase 2 Complete - Starting Phase 3
+**Focus:** Phase 2.1 - Implementing UI Interactivity
 
-**Phase 2 Completed:**
-- [x] Implement canvas pan/zoom gestures (2026-01-21)
-- [x] Implement node drag with snap-to-grid (2026-01-21)
-- [x] Input component (2026-01-21)
-- [x] ColorPicker component (2026-01-21)
-- [x] Select component (2026-01-21)
-- [x] Checkbox component (2026-01-21)
-- [x] SpacingEditor component (2026-01-21)
-- [x] Implement edge creation by dragging (2026-01-21)
-- [x] Modal/Dialog component (2026-01-21)
-- [x] Tooltip component (2026-01-21)
-- [x] Context menu component (2026-01-21)
-- [x] Implement node selection (single/multi) (2026-01-21)
-- [x] Implement edge selection (2026-01-21)
-- [x] Implement minimap (2026-01-21)
-- [x] Implement zoom controls (2026-01-21)
-- [x] Implement fit-to-view (2026-01-21)
-- [x] ShadowEditor component (2026-01-21)
-- [x] TypographyEditor component (2026-01-21)
-- [x] Token preview with live updates (2026-01-21)
+**What's Actually Done:**
+- [x] Project structure and Rust crates (Phase 1)
+- [x] RSX component scaffolds (static HTML with data-testid)
+- [x] Rust data models and algorithms
+- [x] Unit tests for Rust crates (18 passing)
+
+**What's NOT Done (marked incorrectly before):**
+- [ ] All RSX interactivity (click handlers, state management)
+- [ ] Canvas interactions (pan, zoom, drag)
+- [ ] Form inputs (two-way binding)
+- [ ] Navigation between pages
 
 **Next Tasks:**
 | Task | Assignee | Started |
 |------|----------|---------|
-| Create new workflow | - | - |
-| Edit workflow properties | - | - |
-| Create new context within workflow | - | - |
-| Visual context node rendering | - | - |
+| Implement ActivityBar interactivity | - | - |
+| Implement Sidebar content switching | - | - |
+| Implement page visibility toggling | - | - |
+| Run e2e tests to verify | - | - |
 
 ---
 
@@ -480,3 +501,21 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 - Uses signal-based reactivity (similar to SolidJS)
 - RSX files are compiled by RustScript compiler, not cargo
 - Three Rust crates provide core logic, UI is in RSX
+- **Important:** "Scaffold" means static HTML only - interactivity must be added separately
+
+## Known Compiler Limitations (Blocking)
+
+The following RSX features are **documented but not yet implemented in codegen**:
+
+| Feature | Parser | Codegen | Status |
+|---------|--------|---------|--------|
+| `signal()` | ✅ | ❌ | Fails with "type mismatch" |
+| `on:click={...}` | ✅ | ❌ | Fails with "MissingFunction" |
+| `@if condition { }` | ✅ | ❌ | Fails with "binop on Infer" |
+| `class:active={...}` | ✅ | ❌ | Not implemented |
+| `@for item in items { }` | ✅ | ❌ | Not tested |
+
+**Impact:** All RSX interactivity is blocked until these codegen features are implemented.
+The RSX app can only render static HTML. 7/37 e2e tests pass (basic rendering), 30 fail (require interaction).
+
+**Workaround:** None available. Waiting on RustScript compiler updates.

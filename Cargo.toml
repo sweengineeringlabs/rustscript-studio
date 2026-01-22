@@ -1,3 +1,20 @@
+[package]
+name = "rustscript-studio"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dev-dependencies]
+rsc-test.workspace = true
+tokio.workspace = true
+chrono.workspace = true
+urlencoding.workspace = true
+serde_json.workspace = true
+
+[[test]]
+name = "e2e"
+path = "tests/e2e.rs"
+
 [workspace]
 resolver = "2"
 members = [
@@ -28,3 +45,10 @@ serde_yaml = "0.9"
 indexmap = { version = "2.0", features = ["serde"] }
 uuid = { version = "1.6", features = ["v4", "serde"] }
 thiserror = "2.0"
+
+# Testing (browser automation via rsc-test abstraction)
+# Note: Requires Chrome browser installed on the system
+rsc-test = { path = "../rustscript/crates/tools/test", features = ["browser"] }
+tokio = { version = "1.0", features = ["full", "test-util"] }
+chrono = "0.4"
+urlencoding = "2.1"

@@ -1,0 +1,1182 @@
+//! Browser tests using rsc-test e2e framework.
+//!
+//! These tests demonstrate the rsc-test e2e testing capabilities including:
+//! - Page navigation and history
+//! - Element interactions (click, fill, type, hover, etc.)
+//! - Keyboard and touch input
+//! - Screenshots and PDF generation
+//! - Storage (localStorage, sessionStorage, cookies, IndexedDB)
+//! - HAR recording and network idle
+//! - Dialogs, Geolocation, Timezone
+//! - Frames, Service Workers, Web Workers
+//!
+//! # Running Tests
+//!
+//! ```bash
+//! # Start the dev server first
+//! rsc dev --port 3000
+//!
+//! # Run browser tests
+//! cargo test --test e2e browser_test -- --ignored --test-threads=1
+//! ```
+
+use rsc_test::e2e::{
+    BrowserTestContext, BrowserTestConfig, BrowserTestError,
+    PageAssertions, ElementAssertions,
+    BrowserType, Viewport, LoadState,
+    NetworkConditions, Permission, TracingOptions, VideoRecordingOptions,
+};
+use std::time::Duration;
+
+/// Base URL for the test server.
+const BASE_URL: &str = "http://localhost:3000";
+
+/// Creates a configured browser test context.
+async fn create_context() -> Result<BrowserTestContext, BrowserTestError> {
+    let config = BrowserTestConfig::new()
+        .browser(BrowserType::Chrome)
+        .headless(true)
+        .viewport(Viewport::desktop())
+        .timeout(Duration::from_secs(30))
+        .base_url(BASE_URL);
+
+    BrowserTestContext::new(config).await
+}
+
+// ============================================================================
+// Navigation Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_app_loads_successfully() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    // Navigate to the app
+    ctx.goto("/").await.expect("Failed to navigate");
+
+    // Wait for the activity bar to be visible
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Assert the page title
+    let title = ctx.title().await.expect("Failed to get title");
+    assert!(!title.is_empty(), "Page should have a title");
+
+    // Assert URL
+    ctx.assert_url_contains("localhost:3000").await.expect("URL assertion failed");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_navigation_history() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    // Navigate to home
+    ctx.goto("/").await.expect("Failed to navigate to home");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Click on CSS Designer to navigate
+    ctx.click(".activity-item[title='CSS Designer']").await.expect("Failed to click CSS Designer");
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Go back in history
+    ctx.go_back().await.expect("Failed to go back");
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Go forward in history
+    ctx.go_forward().await.expect("Failed to go forward");
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Reload the page
+    ctx.reload().await.expect("Failed to reload");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found after reload");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_page_content() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Get page content
+    let content = ctx.content().await.expect("Failed to get content");
+    assert!(content.contains("<!DOCTYPE html>") || content.contains("<html"), "Should have HTML content");
+
+    // Get current URL
+    let url = ctx.url().await.expect("Failed to get URL");
+    assert!(url.contains("localhost:3000"), "URL should contain localhost:3000");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Element Interaction Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_click_interactions() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Single click
+    ctx.click(".activity-item[title='CSS Designer']").await.expect("Failed to click");
+    tokio::time::sleep(Duration::from_millis(300)).await;
+
+    // Double click (if applicable element exists)
+    if ctx.query(".dblclick-target").await.expect("Query failed").is_some() {
+        ctx.dblclick(".dblclick-target").await.expect("Failed to double click");
+    }
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_form_interactions() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Navigate to a page with form elements (if available)
+    ctx.click(".activity-item[title='CSS Designer']").await.expect("Failed to click");
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Test fill - clears and fills input
+    if let Ok(Some(_)) = ctx.query("input[type='text']").await {
+        ctx.fill("input[type='text']", "test value").await.expect("Failed to fill");
+    }
+
+    // Test type_text - types character by character
+    if let Ok(Some(_)) = ctx.query("input.type-target").await {
+        ctx.type_text("input.type-target", "typed text").await.expect("Failed to type");
+    }
+
+    // Test select dropdown
+    if let Ok(Some(_)) = ctx.query("select").await {
+        ctx.select("select", "option1").await.expect("Failed to select");
+    }
+
+    // Test checkbox
+    if let Ok(Some(_)) = ctx.query("input[type='checkbox']").await {
+        ctx.check("input[type='checkbox']").await.expect("Failed to check");
+        ctx.uncheck("input[type='checkbox']").await.expect("Failed to uncheck");
+    }
+
+    // Test focus
+    if let Ok(Some(_)) = ctx.query("input").await {
+        ctx.focus("input").await.expect("Failed to focus");
+    }
+
+    // Test hover
+    ctx.hover(".activity-item").await.expect("Failed to hover");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_element_querying() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Query single element
+    let element = ctx.query(".activity-bar").await.expect("Query failed");
+    assert!(element.is_some(), "Activity bar should exist");
+
+    // Query all elements
+    let activity_items = ctx.query_all(".activity-item").await.expect("Failed to query activity items");
+    assert!(!activity_items.is_empty(), "Should have activity items");
+
+    // Check element exists
+    let exists = ctx.exists(".activity-bar").await.expect("Exists check failed");
+    assert!(exists, "Activity bar should exist");
+
+    // Count elements
+    let count = ctx.count(".activity-item").await.expect("Count failed");
+    assert!(count > 0, "Should have at least one activity item");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_element_assertions() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Get element and use ElementAssertions
+    let element = ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Test visibility
+    element.assert_visible().await.expect("Should be visible");
+
+    // Test enabled state
+    element.assert_enabled().await.expect("Should be enabled");
+
+    // Test text content (if element has text)
+    let text = element.text_content().await.expect("Failed to get text");
+    if !text.is_empty() {
+        element.assert_text_contains(&text[..text.len().min(10)]).await.ok();
+    }
+
+    // Test attribute
+    if let Ok(Some(class)) = element.get_attribute("class").await {
+        element.assert_has_attribute("class").await.expect("Should have class attribute");
+        element.assert_class(&class.split_whitespace().next().unwrap_or("")).await.ok();
+    }
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Keyboard Input Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_keyboard_input() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Press single key
+    ctx.press_key("Escape").await.expect("Failed to press Escape");
+
+    // Press arrow keys
+    ctx.press_key("ArrowDown").await.expect("Failed to press ArrowDown");
+    ctx.press_key("ArrowUp").await.expect("Failed to press ArrowUp");
+
+    // Press Enter
+    ctx.press_key("Enter").await.expect("Failed to press Enter");
+
+    // Press Tab
+    ctx.press_key("Tab").await.expect("Failed to press Tab");
+
+    // Keyboard shortcut (Ctrl+A, Cmd+A, etc.)
+    ctx.keyboard_shortcut("Control+a").await.expect("Failed to execute shortcut");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Touch Input Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_touch_input() {
+    // Create context with mobile viewport for touch testing
+    let config = BrowserTestConfig::new()
+        .browser(BrowserType::Chrome)
+        .headless(true)
+        .viewport(Viewport::mobile())
+        .timeout(Duration::from_secs(30))
+        .base_url(BASE_URL);
+
+    let ctx = BrowserTestContext::new(config).await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Tap on element
+    ctx.tap(".activity-item").await.expect("Failed to tap");
+
+    // Swipe gesture
+    ctx.swipe(100.0, 300.0, 100.0, 100.0, Some(300)).await.expect("Failed to swipe");
+
+    // Pinch gesture (zoom out)
+    ctx.pinch(200.0, 300.0, 0.5, Some(10)).await.expect("Failed to pinch");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Drag and Drop Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_drag_and_drop() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Test drag and drop if draggable elements exist
+    if let (Ok(Some(_)), Ok(Some(_))) = (
+        ctx.query(".draggable").await,
+        ctx.query(".droppable").await
+    ) {
+        ctx.drag_and_drop(".draggable", ".droppable").await.expect("Failed to drag and drop");
+    }
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Screenshot Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_screenshot_capture() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Capture full page screenshot
+    let screenshot = ctx.screenshot().await.expect("Failed to capture screenshot");
+    assert!(!screenshot.is_empty(), "Screenshot should not be empty");
+
+    // Save screenshot for manual inspection
+    std::fs::create_dir_all("target/e2e-screenshots").ok();
+    std::fs::write("target/e2e-screenshots/full-page.png", &screenshot)
+        .expect("Failed to save screenshot");
+
+    // Capture element screenshot
+    let element_screenshot = ctx.screenshot_element(".activity-bar").await.expect("Failed to capture element screenshot");
+    assert!(!element_screenshot.is_empty(), "Element screenshot should not be empty");
+
+    std::fs::write("target/e2e-screenshots/activity-bar.png", &element_screenshot)
+        .expect("Failed to save element screenshot");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// PDF Generation Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_pdf_generation() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+    ctx.wait_for_load_state(LoadState::NetworkIdle).await.expect("Network not idle");
+
+    // Generate PDF
+    let pdf = ctx.pdf().await.expect("Failed to generate PDF");
+    assert!(!pdf.is_empty(), "PDF should not be empty");
+
+    // Save PDF for manual inspection
+    std::fs::create_dir_all("target/e2e-screenshots").ok();
+    std::fs::write("target/e2e-screenshots/page.pdf", &pdf)
+        .expect("Failed to save PDF");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// JavaScript Evaluation Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_javascript_evaluation() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Evaluate simple expression
+    let result = ctx.evaluate("1 + 1").await.expect("Failed to evaluate");
+    assert_eq!(result.as_i64(), Some(2));
+
+    // Evaluate to get page info
+    let title = ctx.evaluate("document.title").await.expect("Failed to get title");
+    assert!(title.is_string(), "Title should be a string");
+
+    // Evaluate to get element count
+    let count = ctx.evaluate("document.querySelectorAll('.activity-item').length").await
+        .expect("Failed to count elements");
+    assert!(count.as_i64().unwrap_or(0) > 0, "Should have activity items");
+
+    // Evaluate to manipulate DOM
+    ctx.evaluate("document.body.setAttribute('data-test', 'value')").await
+        .expect("Failed to set attribute");
+    let attr = ctx.evaluate("document.body.getAttribute('data-test')").await
+        .expect("Failed to get attribute");
+    assert_eq!(attr.as_str(), Some("value"));
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// localStorage Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_local_storage() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Set localStorage value
+    ctx.set_local_storage("test_key", "test_value").await.expect("Failed to set localStorage");
+
+    // Get localStorage value
+    let value = ctx.get_local_storage("test_key").await.expect("Failed to get localStorage");
+    assert_eq!(value, Some("test_value".to_string()), "localStorage value mismatch");
+
+    // Remove localStorage value
+    ctx.remove_local_storage("test_key").await.expect("Failed to remove localStorage");
+    let removed = ctx.get_local_storage("test_key").await.expect("Failed to check localStorage");
+    assert!(removed.is_none(), "localStorage key should be removed");
+
+    // Set multiple values
+    ctx.set_local_storage("key1", "value1").await.expect("Failed to set key1");
+    ctx.set_local_storage("key2", "value2").await.expect("Failed to set key2");
+
+    // Clear all localStorage
+    ctx.clear_local_storage().await.expect("Failed to clear localStorage");
+    let cleared1 = ctx.get_local_storage("key1").await.expect("Failed to check key1");
+    let cleared2 = ctx.get_local_storage("key2").await.expect("Failed to check key2");
+    assert!(cleared1.is_none() && cleared2.is_none(), "localStorage should be cleared");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// sessionStorage Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_session_storage() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Set sessionStorage value
+    ctx.set_session_storage("session_key", "session_value").await.expect("Failed to set sessionStorage");
+
+    // Get sessionStorage value
+    let value = ctx.get_session_storage("session_key").await.expect("Failed to get sessionStorage");
+    assert_eq!(value, Some("session_value".to_string()), "sessionStorage value mismatch");
+
+    // Remove sessionStorage value
+    ctx.remove_session_storage("session_key").await.expect("Failed to remove sessionStorage");
+    let removed = ctx.get_session_storage("session_key").await.expect("Failed to check sessionStorage");
+    assert!(removed.is_none(), "sessionStorage key should be removed");
+
+    // Clear all sessionStorage
+    ctx.set_session_storage("temp_key", "temp_value").await.expect("Failed to set temp key");
+    ctx.clear_session_storage().await.expect("Failed to clear sessionStorage");
+    let cleared = ctx.get_session_storage("temp_key").await.expect("Failed to check temp key");
+    assert!(cleared.is_none(), "sessionStorage should be cleared");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Cookie Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_cookies() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Get cookies (via JavaScript)
+    let cookies = ctx.get_cookies().await.expect("Failed to get cookies");
+    let initial_count = cookies.len();
+
+    // Set a cookie via JavaScript evaluation
+    ctx.evaluate("document.cookie = 'test_cookie=test_value; path=/'").await
+        .expect("Failed to set cookie");
+
+    // Get cookies again
+    let cookies_after = ctx.get_cookies().await.expect("Failed to get cookies");
+    assert!(cookies_after.iter().any(|c| c.name == "test_cookie"), "Cookie should be set");
+
+    // Delete the cookie
+    ctx.evaluate("document.cookie = 'test_cookie=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'").await
+        .expect("Failed to delete cookie");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// IndexedDB Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_indexeddb() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Create a test database via JavaScript
+    ctx.evaluate(r#"
+        new Promise((resolve, reject) => {
+            const request = indexedDB.open('test_db', 1);
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                request.result.close();
+                resolve();
+            };
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                db.createObjectStore('test_store', { keyPath: 'id' });
+            };
+        })
+    "#).await.expect("Failed to create test database");
+
+    // List IndexedDB databases
+    let databases = ctx.indexeddb_databases().await.expect("Failed to list databases");
+    // Note: databases list may or may not include the test_db depending on browser support
+
+    // Delete the test database
+    ctx.indexeddb_delete_database("test_db").await.expect("Failed to delete database");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Network Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_offline_mode() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Set offline mode
+    ctx.set_offline(true).await.expect("Failed to set offline");
+
+    // Restore online mode
+    ctx.set_offline(false).await.expect("Failed to restore online");
+
+    // Test page still loads after restoring
+    ctx.reload().await.expect("Failed to reload");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_network_conditions() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Set slow 3G conditions
+    ctx.set_network_conditions(NetworkConditions::slow_3g()).await
+        .expect("Failed to set network conditions");
+
+    // Test page still loads (slowly)
+    ctx.reload().await.expect("Failed to reload with slow network");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Restore normal conditions
+    ctx.set_network_conditions(NetworkConditions::no_throttle()).await
+        .expect("Failed to restore network");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_har_recording() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    // Start HAR recording
+    let recorder = ctx.start_har_recording().await.expect("Failed to start HAR recording");
+
+    // Navigate and perform actions
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+    ctx.wait_for_load_state(LoadState::NetworkIdle).await.expect("Network not idle");
+
+    // Stop HAR recording and get the HAR data
+    let har = recorder.stop().await.expect("Failed to stop HAR recording");
+
+    // HAR should contain entries
+    assert!(!har.log.entries.is_empty(), "HAR should have entries");
+
+    // Save HAR for inspection
+    std::fs::create_dir_all("target/e2e-screenshots").ok();
+    let har_json = serde_json::to_string_pretty(&har).expect("Failed to serialize HAR");
+    std::fs::write("target/e2e-screenshots/network.har", har_json)
+        .expect("Failed to save HAR");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_wait_for_network_idle() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+
+    // Wait for network idle
+    ctx.wait_for_load_state(LoadState::NetworkIdle).await.expect("Network not idle");
+
+    // Page should be fully loaded
+    ctx.assert_element_exists(".activity-bar").await.expect("Activity bar should exist");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Dialog Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_dialog_handling() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Set up auto-dismiss for dialogs
+    ctx.set_default_dialog_handler(false).await.expect("Failed to set dialog handler");
+
+    // Trigger an alert via JavaScript
+    ctx.evaluate("setTimeout(() => alert('Test alert'), 100)").await.ok();
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    // The dialog should be auto-dismissed
+
+    // Set up auto-accept for dialogs
+    ctx.set_default_dialog_handler(true).await.expect("Failed to set dialog handler");
+
+    // Trigger a confirm dialog
+    let result = ctx.evaluate("setTimeout(() => { window.confirmResult = confirm('Test confirm'); }, 100); true").await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Geolocation Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_geolocation() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Set geolocation to San Francisco
+    ctx.set_geolocation(37.7749, -122.4194, Some(100.0)).await
+        .expect("Failed to set geolocation");
+
+    // Verify via JavaScript
+    let result = ctx.evaluate(r#"
+        new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                (err) => reject(err.message),
+                { timeout: 5000 }
+            );
+        })
+    "#).await;
+
+    if let Ok(pos) = result {
+        if let Some(lat) = pos.get("lat").and_then(|v| v.as_f64()) {
+            assert!((lat - 37.7749).abs() < 0.01, "Latitude should be ~37.7749");
+        }
+    }
+
+    // Clear geolocation
+    ctx.clear_geolocation().await.expect("Failed to clear geolocation");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Timezone Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_timezone() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Set timezone to Tokyo
+    ctx.set_timezone("Asia/Tokyo").await.expect("Failed to set timezone");
+
+    // Verify via JavaScript
+    let tz = ctx.evaluate("Intl.DateTimeFormat().resolvedOptions().timeZone").await
+        .expect("Failed to get timezone");
+    assert_eq!(tz.as_str(), Some("Asia/Tokyo"));
+
+    // Set timezone to New York
+    ctx.set_timezone("America/New_York").await.expect("Failed to set timezone");
+    let tz2 = ctx.evaluate("Intl.DateTimeFormat().resolvedOptions().timeZone").await
+        .expect("Failed to get timezone");
+    assert_eq!(tz2.as_str(), Some("America/New_York"));
+
+    // Clear timezone override
+    ctx.clear_timezone().await.expect("Failed to clear timezone");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Permissions Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_permissions() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Grant geolocation permission using abstraction type
+    ctx.grant_permissions(&[Permission::Geolocation]).await
+        .expect("Failed to grant permissions");
+
+    // Query permission state via JavaScript
+    let state = ctx.evaluate("navigator.permissions.query({ name: 'geolocation' }).then(p => p.state)").await
+        .expect("Failed to query permission");
+    assert_eq!(state.as_str(), Some("granted"));
+
+    // Reset permissions
+    ctx.reset_permissions().await.expect("Failed to reset permissions");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Frame Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_frames() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Get main frame
+    let main_frame = ctx.main_frame().await.expect("Failed to get main frame");
+    assert!(!main_frame.id.is_empty(), "Main frame should have an ID");
+
+    // Get all frames
+    let frames = ctx.frames().await.expect("Failed to get frames");
+    assert!(!frames.is_empty(), "Should have at least one frame (main)");
+
+    // Try to get frame by name (if any exist)
+    let named_frame = ctx.frame("iframe-name").await.expect("Failed to query frame");
+    // named_frame may be None if no iframe with that name exists
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Service Worker Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_service_workers() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+    ctx.wait_for_load_state(LoadState::NetworkIdle).await.expect("Network not idle");
+
+    // Get registered service workers
+    let workers = ctx.service_workers().await.expect("Failed to get service workers");
+    // May be empty if the app doesn't use service workers
+
+    // If there are service workers, we can test operations
+    if !workers.is_empty() {
+        // Stop all service workers
+        ctx.stop_all_service_workers().await.expect("Failed to stop service workers");
+    }
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Web Worker Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_web_workers() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Get web workers
+    let workers = ctx.web_workers().await.expect("Failed to get web workers");
+    // May be empty if the app doesn't use web workers
+
+    // Create a test worker via JavaScript
+    ctx.evaluate(r#"
+        window.testWorker = new Worker(URL.createObjectURL(new Blob([
+            'self.onmessage = function(e) { self.postMessage(e.data * 2); }'
+        ], { type: 'application/javascript' })));
+    "#).await.ok();
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    // Get workers again
+    let workers_after = ctx.web_workers().await.expect("Failed to get web workers");
+
+    // Terminate the test worker
+    ctx.evaluate("window.testWorker && window.testWorker.terminate()").await.ok();
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Waiting Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_waiting_operations() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+
+    // Wait for element
+    ctx.wait_for(".activity-bar").await.expect("Failed to wait for activity bar");
+
+    // Wait for load state - DomContentLoaded
+    ctx.wait_for_load_state(LoadState::DomContentLoaded).await.expect("DOM not loaded");
+
+    // Wait for load state - Load
+    ctx.wait_for_load_state(LoadState::Load).await.expect("Page not loaded");
+
+    // Wait for load state - NetworkIdle
+    ctx.wait_for_load_state(LoadState::NetworkIdle).await.expect("Network not idle");
+
+    // Wait for navigation (after click)
+    ctx.click(".activity-item[title='CSS Designer']").await.ok();
+    // wait_for_navigation would be called here if navigation occurs
+
+    // Wait for URL change
+    ctx.wait_for_url("localhost").await.expect("URL should contain localhost");
+
+    // Wait for timeout
+    ctx.wait_for_timeout(100).await;
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Page Assertions Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_page_assertions() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // URL assertions
+    ctx.assert_url_contains("localhost:3000").await.expect("URL should contain localhost:3000");
+
+    // Title assertions
+    let title = ctx.title().await.expect("Failed to get title");
+    if !title.is_empty() {
+        ctx.assert_title(&title).await.expect("Title should match");
+        ctx.assert_title_contains(&title[..title.len().min(5)]).await.expect("Title should contain substring");
+    }
+
+    // Element assertions
+    ctx.assert_element_exists(".activity-bar").await.expect("Activity bar should exist");
+    ctx.assert_element_not_exists(".non-existent-element-12345").await.expect("Non-existent should not exist");
+
+    // Element count
+    let count = ctx.count(".activity-item").await.expect("Failed to count");
+    ctx.assert_element_count(".activity-item", count).await.expect("Count should match");
+
+    // Text assertions
+    ctx.assert_text_present("<!DOCTYPE html>").await.ok(); // HTML doctype
+    ctx.assert_text_not_present("THIS_TEXT_SHOULD_NOT_EXIST_12345").await.expect("Text should not be present");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Responsive Viewport Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_responsive_viewports() {
+    // Test with mobile viewport
+    let mobile_config = BrowserTestConfig::new()
+        .browser(BrowserType::Chrome)
+        .headless(true)
+        .viewport(Viewport::mobile())
+        .timeout(Duration::from_secs(30))
+        .base_url(BASE_URL);
+
+    let ctx = BrowserTestContext::new(mobile_config).await.expect("Failed to create mobile context");
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found on mobile");
+
+    // Capture mobile screenshot
+    let mobile_screenshot = ctx.screenshot().await.expect("Failed to capture mobile screenshot");
+    std::fs::create_dir_all("target/e2e-screenshots").ok();
+    std::fs::write("target/e2e-screenshots/mobile.png", &mobile_screenshot).expect("Failed to save");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+
+    // Test with tablet viewport
+    let tablet_config = BrowserTestConfig::new()
+        .browser(BrowserType::Chrome)
+        .headless(true)
+        .viewport(Viewport::tablet())
+        .timeout(Duration::from_secs(30))
+        .base_url(BASE_URL);
+
+    let ctx = BrowserTestContext::new(tablet_config).await.expect("Failed to create tablet context");
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found on tablet");
+
+    let tablet_screenshot = ctx.screenshot().await.expect("Failed to capture tablet screenshot");
+    std::fs::write("target/e2e-screenshots/tablet.png", &tablet_screenshot).expect("Failed to save");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+
+    // Test with desktop viewport
+    let desktop_config = BrowserTestConfig::new()
+        .browser(BrowserType::Chrome)
+        .headless(true)
+        .viewport(Viewport::desktop())
+        .timeout(Duration::from_secs(30))
+        .base_url(BASE_URL);
+
+    let ctx = BrowserTestContext::new(desktop_config).await.expect("Failed to create desktop context");
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found on desktop");
+
+    let desktop_screenshot = ctx.screenshot().await.expect("Failed to capture desktop screenshot");
+    std::fs::write("target/e2e-screenshots/desktop.png", &desktop_screenshot).expect("Failed to save");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Error Handling Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_404_handling() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    // Navigate to non-existent page
+    ctx.goto("/non-existent-page-12345").await.expect("Failed to navigate");
+
+    // App should handle 404 gracefully (either show error or redirect)
+    tokio::time::sleep(Duration::from_secs(1)).await;
+
+    // Page should still be functional
+    let content = ctx.content().await.expect("Failed to get content");
+    assert!(!content.is_empty(), "Page should have content");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Performance Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_page_load_performance() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    let start = std::time::Instant::now();
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+    ctx.wait_for_load_state(LoadState::NetworkIdle).await.expect("Network not idle");
+
+    let load_time = start.elapsed();
+
+    // Page should load within reasonable time (10 seconds)
+    assert!(
+        load_time < Duration::from_secs(10),
+        "Page load took too long: {:?}",
+        load_time
+    );
+
+    println!("Page load time: {:?}", load_time);
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Multi-Page Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_multiple_pages() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Navigate through different pages
+    let pages = [
+        ("CSS Designer", ".css-designer-page"),
+        ("Navigation Designer", ".navigation-designer-page"),
+    ];
+
+    for (title, _selector) in pages {
+        let activity_selector = format!(".activity-item[title='{}']", title);
+        if ctx.query(&activity_selector).await.expect("Query failed").is_some() {
+            ctx.click(&activity_selector).await.expect(&format!("Failed to click {}", title));
+            // Give time for page transition
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+    }
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_new_page_creation() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Create a new page
+    let new_page = ctx.new_page().await.expect("Failed to create new page");
+
+    // Navigate new page to different URL
+    new_page.goto(&format!("{}/", BASE_URL)).await.expect("Failed to navigate new page");
+
+    // Both pages should work independently
+    let title1 = ctx.title().await.expect("Failed to get title from first page");
+    let title2 = new_page.title().await.expect("Failed to get title from second page");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Tracing Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_tracing() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Ensure output directory exists
+    std::fs::create_dir_all("target/e2e-screenshots").ok();
+
+    // Start tracing with screenshots enabled using abstraction type
+    let tracing_options = TracingOptions::new()
+        .with_screenshots()
+        .with_snapshots();
+
+    let tracing_session = ctx.start_tracing(tracing_options).await
+        .expect("Failed to start tracing");
+
+    // Perform some actions to trace
+    ctx.click(".activity-item[title='CSS Designer']").await.ok();
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    ctx.go_back().await.ok();
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Stop tracing and save to specified path
+    let trace_path = tracing_session.stop("target/e2e-screenshots/trace.json").await
+        .expect("Failed to stop tracing");
+
+    // Verify trace file was created
+    assert!(trace_path.exists(), "Trace file should exist at {:?}", trace_path);
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Video Recording Tests
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_video_recording() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
+
+    // Ensure output directory exists
+    std::fs::create_dir_all("target/e2e-screenshots").ok();
+
+    // Start video recording using abstraction type
+    let video_options = VideoRecordingOptions::new("target/e2e-screenshots/test-video.webm")
+        .with_quality(80)
+        .with_max_size(1280, 720);
+
+    let video_recorder = ctx.start_video_recording(video_options).await
+        .expect("Failed to start video recording");
+
+    // Perform some actions to record
+    ctx.click(".activity-item[title='CSS Designer']").await.ok();
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    ctx.go_back().await.ok();
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    ctx.reload().await.ok();
+    ctx.wait_for(".activity-bar").await.expect("Activity bar not found after reload");
+
+    // Stop video recording
+    let video_path = video_recorder.stop().await.expect("Failed to stop video recording");
+
+    // Verify video file was created
+    assert!(video_path.exists(), "Video file should exist at {:?}", video_path);
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}

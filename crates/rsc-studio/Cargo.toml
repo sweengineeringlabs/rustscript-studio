@@ -16,3 +16,6 @@ uuid = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+tokio = { workspace = true }
+chrono = { workspace = true }
+urlencoding = { workspace = true }
