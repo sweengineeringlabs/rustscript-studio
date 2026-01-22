@@ -453,6 +453,76 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 
 ---
 
+## Phase 9: Observability & Instrumentation
+
+Production monitoring, error tracking, and analytics infrastructure.
+
+### 9.1 Telemetry Foundation
+
+| Status | Task | Created | Completed |
+|--------|------|---------|-----------|
+| [ ] | Integrate OpenTelemetry SDK for Rust/WASM | 2026-01-22 | |
+| [ ] | Configure trace context propagation | 2026-01-22 | |
+| [ ] | Set up metrics collector (Prometheus format) | 2026-01-22 | |
+| [ ] | Implement structured logging (tracing crate) | 2026-01-22 | |
+| [ ] | Add log levels and filtering configuration | 2026-01-22 | |
+| [ ] | Create telemetry abstraction layer | 2026-01-22 | |
+
+### 9.2 Error Tracking
+
+| Status | Task | Created | Completed |
+|--------|------|---------|-----------|
+| [ ] | Implement error boundary components | 2026-01-22 | |
+| [ ] | Add panic hook for uncaught errors | 2026-01-22 | |
+| [ ] | Capture stack traces and source maps | 2026-01-22 | |
+| [ ] | Error aggregation and deduplication | 2026-01-22 | |
+| [ ] | Sentry/Bugsnag integration (optional backend) | 2026-01-22 | |
+| [ ] | User context attachment (session, route) | 2026-01-22 | |
+
+### 9.3 Performance Monitoring
+
+| Status | Task | Created | Completed |
+|--------|------|---------|-----------|
+| [ ] | Web Vitals collection (LCP, FID, CLS) | 2026-01-22 | |
+| [ ] | Custom performance marks and measures | 2026-01-22 | |
+| [ ] | Canvas render time tracking | 2026-01-22 | |
+| [ ] | Memory usage monitoring | 2026-01-22 | |
+| [ ] | Long task detection (>50ms) | 2026-01-22 | |
+| [ ] | Network request timing | 2026-01-22 | |
+
+### 9.4 User Analytics
+
+| Status | Task | Created | Completed |
+|--------|------|---------|-----------|
+| [ ] | Page view tracking | 2026-01-22 | |
+| [ ] | Feature usage events (designer tools used) | 2026-01-22 | |
+| [ ] | User journey/funnel tracking | 2026-01-22 | |
+| [ ] | Session duration and engagement | 2026-01-22 | |
+| [ ] | Privacy-compliant data collection | 2026-01-22 | |
+| [ ] | Opt-out mechanism | 2026-01-22 | |
+
+### 9.5 Dashboards & Alerting
+
+| Status | Task | Created | Completed |
+|--------|------|---------|-----------|
+| [ ] | Grafana dashboard templates | 2026-01-22 | |
+| [ ] | Error rate alerting rules | 2026-01-22 | |
+| [ ] | Performance degradation alerts | 2026-01-22 | |
+| [ ] | Health check endpoints | 2026-01-22 | |
+| [ ] | Status page integration | 2026-01-22 | |
+
+### 9.6 Development Tools
+
+| Status | Task | Created | Completed |
+|--------|------|---------|-----------|
+| [ ] | Debug mode with verbose logging | 2026-01-22 | |
+| [ ] | Performance profiler overlay (dev only) | 2026-01-22 | |
+| [ ] | Network request inspector | 2026-01-22 | |
+| [ ] | State inspection tools | 2026-01-22 | |
+| [ ] | Feature flags for instrumentation | 2026-01-22 | |
+
+---
+
 ## Metrics
 
 | Phase | Total | Done | Progress |
@@ -465,7 +535,8 @@ Visual IDE for RustScript - Design navigation flows and CSS visually.
 | Phase 6: Advanced | 18 | 0 | 0% |
 | Phase 7: Testing | 13 | 3 | 23% |
 | Phase 8: Polish | 14 | 0 | 0% |
-| **Total** | **191** | **69** | **36%** |
+| Phase 9: Observability | 34 | 0 | 0% |
+| **Total** | **225** | **69** | **31%** |
 
 ---
 
