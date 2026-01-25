@@ -12,23 +12,66 @@
 //! # Run e2e tests (in another terminal)
 //! cargo test -p rsc-studio --test e2e -- --ignored
 //! ```
+//!
+//! # Parallel Execution with Multiple Ports
+//!
+//! ```bash
+//! # Start multiple dev servers
+//! rsc dev --port 3000 &
+//! rsc dev --port 3001 &
+//! rsc dev --port 3002 &
+//! rsc dev --port 3003 &
+//!
+//! # Run tests in parallel with sharding
+//! RSC_TEST_SHARD_INDEX=0 RSC_TEST_PORT=3000 cargo test --test e2e -- --ignored &
+//! RSC_TEST_SHARD_INDEX=1 RSC_TEST_PORT=3001 cargo test --test e2e -- --ignored &
+//! RSC_TEST_SHARD_INDEX=2 RSC_TEST_PORT=3002 cargo test --test e2e -- --ignored &
+//! RSC_TEST_SHARD_INDEX=3 RSC_TEST_PORT=3003 cargo test --test e2e -- --ignored &
+//! wait
+//! ```
+//!
+//! # Environment Variables
+//!
+//! - `RSC_TEST_PORT`: Port number (default: 3000)
+//! - `RSC_TEST_BASE_URL`: Full base URL (overrides port)
+//! - `RSC_TEST_HEADLESS`: Run headless (default: true)
+//! - `RSC_TEST_SHARD_INDEX`: Current shard (0-based)
+//! - `RSC_TEST_SHARD_TOTAL`: Total number of shards
 
 pub mod app_test;
 pub mod browser_test;
 pub mod css_designer_test;
 pub mod navigation_designer_test;
+pub mod harness;
 
 use rsc_test::e2e::{
     BrowserTestContext, BrowserTestConfig, BrowserElement, BrowserTestError,
-    BrowserType, Viewport,
+    BrowserType, Viewport, ShardConfig,
 };
 use std::time::Duration;
 
-/// Default test server URL.
+/// Gets the base URL from environment or defaults to localhost:3000.
+pub fn base_url() -> String {
+    std::env::var("RSC_TEST_BASE_URL")
+        .or_else(|_| std::env::var("RSC_TEST_PORT").map(|p| format!("http://localhost:{}", p)))
+        .unwrap_or_else(|_| "http://localhost:3000".to_string())
+}
+
+/// Default test server URL (for backward compatibility).
 pub const BASE_URL: &str = "http://localhost:3000";
 
 /// Default timeout for browser operations.
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Gets the shard configuration from environment.
+pub fn shard_config() -> ShardConfig {
+    ShardConfig::from_env()
+}
+
+/// Checks if a test should run on this shard.
+pub fn should_run(test_name: &str) -> bool {
+    shard_config().should_run(test_name)
+}
 
 /// Test configuration for browser tests.
 pub struct TestConfig {
@@ -40,28 +83,59 @@ pub struct TestConfig {
 
 impl Default for TestConfig {
     fn default() -> Self {
-        TestConfig {
-            base_url: BASE_URL.to_string(),
-            headless: true,
-            viewport: Viewport::desktop(),
-            timeout: DEFAULT_TIMEOUT,
-        }
+        Self::from_env()
     }
 }
 
 impl TestConfig {
+    /// Creates configuration from environment variables.
+    pub fn from_env() -> Self {
+        let base_url = base_url();
+
+        let headless = std::env::var("RSC_TEST_HEADLESS")
+            .map(|v| v != "false" && v != "0")
+            .unwrap_or(true);
+
+        let timeout_secs = std::env::var("RSC_TEST_TIMEOUT")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(30);
+
+        TestConfig {
+            base_url,
+            headless,
+            viewport: Viewport::desktop(),
+            timeout: Duration::from_secs(timeout_secs),
+        }
+    }
+
+    /// Sets the base URL.
     pub fn with_base_url(mut self, url: &str) -> Self {
         self.base_url = url.to_string();
         self
     }
 
+    /// Sets headless mode.
     pub fn headless(mut self, headless: bool) -> Self {
         self.headless = headless;
         self
     }
 
+    /// Sets the viewport dimensions.
     pub fn viewport(mut self, width: u32, height: u32) -> Self {
         self.viewport = Viewport::new(width, height);
+        self
+    }
+
+    /// Sets the timeout.
+    pub fn timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
+    }
+
+    /// Creates configuration for a specific port.
+    pub fn with_port(mut self, port: u16) -> Self {
+        self.base_url = format!("http://localhost:{}", port);
         self
     }
 }

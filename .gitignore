@@ -40,3 +40,6 @@ lcov.info
 # Temporary files
 *.tmp
 *.temp
+
+# Local binaries
+rsc

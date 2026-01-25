@@ -1,0 +1,41 @@
+# RustScript Test Configuration
+# This file configures e2e browser tests.
+# Environment variables override these settings.
+
+[e2e]
+# Base URL for tests (overridden by RSC_TEST_BASE_URL or RSC_TEST_PORT)
+base_url = "http://localhost:3000"
+
+# Run browser in headless mode (overridden by RSC_TEST_HEADLESS)
+headless = true
+
+# Default timeout in seconds (overridden by RSC_TEST_TIMEOUT)
+timeout = 30
+
+# Slow motion delay in ms for debugging (overridden by RSC_TEST_SLOW_MO)
+slow_mo = 0
+
+# Browser type: chrome, firefox, webkit, chrome-headless-shell
+browser = "chrome"
+
+[e2e.pool]
+# Maximum number of browsers to keep in the pool
+max_browsers = 4
+
+# Reuse browsers across tests (creates new pages instead of browsers)
+reuse = true
+
+[e2e.sharding]
+# Enable test sharding for CI parallelization
+enabled = false
+
+# Total number of shards (workers)
+# Set RSC_TEST_SHARD_INDEX=N to specify which shard this worker runs
+total = 4
+
+[e2e.ports]
+# Base port for dev servers
+base = 3000
+
+# Number of ports to allocate (3000, 3001, 3002, 3003)
+count = 4

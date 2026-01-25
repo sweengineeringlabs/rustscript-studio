@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Test</title>
+    <script src="dist/rustscript-runtime.js"></script>
+</head>
+<body>
+    <div id="app"></div>
+    <div id="log" style="font-family: monospace; white-space: pre; margin-top: 20px; padding: 10px; background: #f0f0f0;"></div>
+    <script>
+        const logDiv = document.getElementById('log');
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const originalConsoleWarn = console.warn;
+
+        function log(type, ...args) {
+            const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+            logDiv.textContent += `[${type}] ${msg}\n`;
+            originalConsoleLog.apply(console, args);
+        }
+
+        console.log = (...args) => log('LOG', ...args);
+        console.error = (...args) => log('ERROR', ...args);
+        console.warn = (...args) => log('WARN', ...args);
+
+        async function runTest() {
+            log('INFO', 'Starting test...');
+            log('INFO', 'App div exists:', !!document.getElementById('app'));
+            log('INFO', 'App div parent:', document.getElementById('app')?.parentNode?.nodeName);
+
+            try {
+                log('INFO', 'Calling loadApp...');
+                const app = await RustScript.loadApp('dist/project.wasm', 'app');
+                log('INFO', 'loadApp succeeded!');
+                log('INFO', 'App div after load:', document.getElementById('app')?.innerHTML?.substring(0, 200));
+            } catch (e) {
+                log('ERROR', 'loadApp failed:', e.message);
+                log('ERROR', 'Stack:', e.stack);
+            }
+        }
+
+        // Run test immediately (simulating module script)
+        runTest();
+    </script>
+</body>
+</html>

@@ -33,9 +33,14 @@ const BASE_URL: &str = "http://localhost:3000";
 
 /// Creates a configured browser test context.
 async fn create_context() -> Result<BrowserTestContext, BrowserTestError> {
+    // Check if we should run headless (default true unless RSC_TEST_HEADLESS=false)
+    let headless = std::env::var("RSC_TEST_HEADLESS")
+        .map(|v| v != "false" && v != "0")
+        .unwrap_or(true);
+
     let config = BrowserTestConfig::new()
         .browser(BrowserType::Chrome)
-        .headless(true)
+        .headless(headless)
         .viewport(Viewport::desktop())
         .timeout(Duration::from_secs(30))
         .base_url(BASE_URL);
@@ -54,6 +59,54 @@ async fn test_app_loads_successfully() {
 
     // Navigate to the app
     ctx.goto("/").await.expect("Failed to navigate");
+
+    // Give time for WASM to load and mount
+    tokio::time::sleep(Duration::from_secs(3)).await;
+
+    // Debug: check what's in the DOM and any errors
+    let app_div = ctx.evaluate("!!document.getElementById('app')").await
+        .expect("Failed to check app div");
+    let activity_bar = ctx.evaluate("!!document.querySelector('.activity-bar')").await
+        .expect("Failed to check activity bar");
+    let body_html = ctx.evaluate("document.body ? document.body.innerHTML.substring(0, 500) : 'NO BODY'").await
+        .expect("Failed to get body");
+    println!("After 3s wait: app_div={:?}, activity_bar={:?}, body={:?}", app_div, activity_bar, body_html);
+
+    // Check if RustScript is defined and if loadApp was called
+    let rs_check = ctx.evaluate(r#"
+        (function() {
+            if (typeof RustScript === 'undefined') return 'RustScript undefined';
+            if (typeof RustScript.loadApp !== 'function') return 'loadApp not a function';
+            // Check if __rustscript_app was set (from the HTML's module script)
+            if (window.__rustscript_app) return 'RustScript available, app already loaded';
+            return 'RustScript available but app not loaded';
+        })()
+    "#).await.expect("Failed to check RustScript");
+    println!("RustScript check: {:?}", rs_check);
+
+    // Check for errors from the module script
+    let load_error = ctx.evaluate("window.__rustscript_error || 'No error recorded'").await
+        .expect("Failed to check error");
+    println!("Load error: {:?}", load_error);
+
+    // Try manually loading the app
+    let manual_result = ctx.evaluate(r#"
+        (async function() {
+            try {
+                const app = await RustScript.loadApp('/__rsc__/wasm', 'app');
+                return 'Manual load success: ' + Object.keys(app.instance.exports).length + ' exports';
+            } catch (e) {
+                return 'Manual load error: ' + e.message;
+            }
+        })()
+    "#).await.expect("Failed to manually load");
+    println!("Manual load: {:?}", manual_result);
+
+    // Check DOM again after manual load
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let activity_bar_after = ctx.evaluate("!!document.querySelector('.activity-bar')").await
+        .expect("Failed to check activity bar after");
+    println!("Activity bar after manual load: {:?}", activity_bar_after);
 
     // Wait for the activity bar to be visible
     ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
@@ -1179,4 +1232,323 @@ async fn test_video_recording() {
     assert!(video_path.exists(), "Video file should exist at {:?}", video_path);
 
     ctx.browser().close().await.expect("Failed to close browser");
+}
+
+// ============================================================================
+// Debug Test for @if Conditional Rendering
+// ============================================================================
+
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_debug_conditional_rendering() {
+    let ctx = create_context().await.expect("Failed to create context");
+
+    // Navigate to the app, but check response immediately
+    ctx.goto("/").await.expect("Failed to navigate");
+
+    // Get the DOM state IMMEDIATELY after goto returns with a SINGLE evaluate call
+    // Also intercept removeChild to capture the stack trace
+    let immediate_state = ctx.evaluate(r#"
+        (function() {
+            const result = {
+                bodyStart: document.body ? document.body.outerHTML.substring(0, 300) : 'NO BODY',
+                divCount: document.querySelectorAll('div').length,
+                appExists: !!document.getElementById('app'),
+                timestamp: Date.now()
+            };
+
+            // Intercept various ways to remove elements
+            window.__removalLog = [];
+
+            // Intercept Node.prototype.removeChild (the base method)
+            const originalNodeRemoveChild = Node.prototype.removeChild;
+            Node.prototype.removeChild = function(child) {
+                const stack = new Error().stack;
+                if (child && child.id === 'app') {
+                    window.__removalLog.push({
+                        method: 'Node.prototype.removeChild',
+                        parent: this.nodeName + (this.id ? '#' + this.id : ''),
+                        child: child.nodeName + (child.id ? '#' + child.id : ''),
+                        timestamp: Date.now(),
+                        stack: stack
+                    });
+                }
+                return originalNodeRemoveChild.call(this, child);
+            };
+
+            // Intercept Element.prototype.remove
+            const originalRemove = Element.prototype.remove;
+            Element.prototype.remove = function() {
+                const stack = new Error().stack;
+                if (this.id === 'app') {
+                    window.__removalLog.push({
+                        method: 'Element.remove',
+                        element: this.nodeName + (this.id ? '#' + this.id : ''),
+                        timestamp: Date.now(),
+                        stack: stack
+                    });
+                }
+                return originalRemove.call(this);
+            };
+
+            // Intercept document.write which could replace the body
+            const originalDocWrite = document.write.bind(document);
+            document.write = function(html) {
+                window.__removalLog.push({
+                    method: 'document.write',
+                    htmlStart: html.substring(0, 100),
+                    timestamp: Date.now(),
+                    stack: new Error().stack
+                });
+                return originalDocWrite(html);
+            };
+
+            // Monitor for location changes
+            window.__originalLocation = window.location.href;
+
+            // Intercept innerHTML setter on body
+            const bodyDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+            if (bodyDescriptor && bodyDescriptor.set) {
+                const originalSetter = bodyDescriptor.set;
+                Object.defineProperty(document.body, 'innerHTML', {
+                    set: function(value) {
+                        window.__removalLog.push({
+                            method: 'body.innerHTML setter',
+                            valueStart: value.substring(0, 100),
+                            timestamp: Date.now(),
+                            stack: new Error().stack
+                        });
+                        return originalSetter.call(this, value);
+                    },
+                    get: bodyDescriptor.get
+                });
+            }
+
+            // Intercept replaceChildren
+            const originalReplaceChildren = Element.prototype.replaceChildren;
+            Element.prototype.replaceChildren = function(...nodes) {
+                if (this === document.body) {
+                    window.__removalLog.push({
+                        method: 'body.replaceChildren',
+                        nodeCount: nodes.length,
+                        timestamp: Date.now(),
+                        stack: new Error().stack
+                    });
+                }
+                return originalReplaceChildren.apply(this, nodes);
+            };
+
+            // Set up mutation observer in the same call
+            window.__mutationLog = [];
+            const appDivForObserver = document.getElementById('app');
+            if (appDivForObserver) {
+                const observer = new MutationObserver((mutations) => {
+                    for (const m of mutations) {
+                        window.__mutationLog.push({
+                            type: m.type,
+                            target: m.target.tagName + (m.target.id ? '#' + m.target.id : ''),
+                            removed: Array.from(m.removedNodes).map(n => n.nodeName + (n.id ? '#' + n.id : '')),
+                            added: Array.from(m.addedNodes).map(n => n.nodeName + (n.id ? '#' + n.id : '')),
+                            timestamp: Date.now()
+                        });
+                    }
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
+                window.__appDivObserver = observer;
+            }
+
+            result.observerAttached = !!appDivForObserver;
+            return JSON.stringify(result);
+        })()
+    "#).await.expect("Failed to get immediate state");
+    println!("IMMEDIATE state (single call): {:?}", immediate_state);
+
+    // Check the actual URL we navigated to
+    let current_url = ctx.url().await.expect("Failed to get URL");
+    println!("Current URL: {:?}", current_url);
+
+    // Check SUPER IMMEDIATELY (10ms)
+    tokio::time::sleep(Duration::from_millis(10)).await;
+    let div_at_10ms = ctx.evaluate("!!document.getElementById('app')").await
+        .expect("Failed to check div at 10ms");
+    println!("App div exists at 10ms: {:?}", div_at_10ms);
+
+    // Check at 50ms
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    let div_at_50ms = ctx.evaluate("!!document.getElementById('app')").await
+        .expect("Failed to check div at 50ms");
+    println!("App div exists at 50ms: {:?}", div_at_50ms);
+
+    // Check at 100ms
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
+    // Check the mutation log
+    let mutation_log = ctx.evaluate("JSON.stringify(window.__mutationLog || [], null, 2)").await
+        .expect("Failed to get mutation log");
+    println!("Mutation log:\n{}", mutation_log);
+
+    // Check the removal log with stack traces
+    let removal_log = ctx.evaluate("JSON.stringify(window.__removalLog || [], null, 2)").await
+        .expect("Failed to get removal log");
+    println!("Removal log:\n{}", removal_log);
+
+    // Get the full page source (original HTML from server)
+    let page_content = ctx.content().await.expect("Failed to get content");
+    let has_app_div_in_source = page_content.contains(r#"id="app""#);
+    println!("Page source (ctx.content) contains 'id=\"app\"': {}", has_app_div_in_source);
+
+    // Try fetching the HTML directly via JS to see what the server returns
+    let fetch_result = ctx.evaluate(r#"
+        (async function() {
+            const response = await fetch('/');
+            const text = await response.text();
+            return text.includes('id="app"') ? 'HAS_APP_DIV' : 'NO_APP_DIV_BODY=' + text.substring(text.indexOf('<body>'), text.indexOf('<body>') + 200);
+        })()
+    "#).await.expect("Failed to fetch via JS");
+    println!("Direct fetch contains 'id=\"app\"': {:?}", fetch_result);
+
+    // Print the first 1000 chars of body content
+    if let Some(body_start) = page_content.find("<body>") {
+        let body_portion = &page_content[body_start..body_start.saturating_add(800).min(page_content.len())];
+        println!("ctx.content() body start:\n{}", body_portion);
+    }
+
+    // Get the DOM body
+    let initial_body = ctx.evaluate("document.body.outerHTML.substring(0, 500)").await
+        .expect("Failed to get initial body");
+    println!("INITIAL body (100ms): {:?}", initial_body);
+
+    // Now wait for scripts to execute
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
+    // Check if RustScript global exists
+    let has_rustscript = ctx.evaluate("typeof RustScript !== 'undefined'").await
+        .expect("Failed to check RustScript");
+    println!("RustScript global exists: {:?}", has_rustscript);
+
+    // Check what RustScript contains
+    let rustscript_keys = ctx.evaluate("typeof RustScript !== 'undefined' ? Object.keys(RustScript) : 'not defined'").await
+        .expect("Failed to get RustScript keys");
+    println!("RustScript keys: {:?}", rustscript_keys);
+
+    // Check if loadApp function exists
+    let has_load_app = ctx.evaluate("typeof RustScript.loadApp === 'function'").await
+        .expect("Failed to check loadApp");
+    println!("Has loadApp: {:?}", has_load_app);
+
+    // Check what divs exist
+    let all_divs = ctx.evaluate("Array.from(document.querySelectorAll('div')).map(d => d.id || d.className || 'no-id-or-class').join(', ')").await
+        .expect("Failed to get divs");
+    println!("All divs: {:?}", all_divs);
+
+    // Check the full document body children
+    let body_children = ctx.evaluate("Array.from(document.body.children).map(c => c.tagName + (c.id ? '#' + c.id : '')).join(', ')").await
+        .expect("Failed to get body children");
+    println!("Body children: {:?}", body_children);
+
+    // Check if there's an element with ID "app"
+    let app_element = ctx.evaluate("document.getElementById('app') !== null").await
+        .expect("Failed to check app element");
+    println!("App element exists: {:?}", app_element);
+
+    // Try loading the app manually and capture any errors
+    let load_error = ctx.evaluate(r#"
+        (function() {
+            try {
+                if (typeof RustScript === 'undefined') {
+                    return 'RustScript not defined';
+                }
+                if (typeof RustScript.loadApp !== 'function') {
+                    return 'loadApp not a function: ' + typeof RustScript.loadApp;
+                }
+                return 'loadApp is available';
+            } catch (e) {
+                return 'Error: ' + e.message;
+            }
+        })()
+    "#).await.expect("Failed to check loadApp");
+    println!("LoadApp check: {:?}", load_error);
+
+    // Try to manually trigger WASM load and await with a Promise wrapper
+    let _ = ctx.evaluate(r#"
+        window.__loadTestResult = 'loading...';
+        RustScript.loadApp('/__rsc__/wasm', 'app').then(app => {
+            window.__loadTestResult = 'success: ' + Object.keys(app.instance.exports).length + ' exports';
+            window.__rustscript_app = app;
+        }).catch(e => {
+            window.__loadTestResult = 'error: ' + e.message + '\n' + e.stack;
+        });
+    "#).await;
+
+    // Wait for the load to complete
+    tokio::time::sleep(Duration::from_secs(3)).await;
+
+    // Check the result
+    let load_result = ctx.evaluate("window.__loadTestResult").await
+        .expect("Failed to get load result");
+    println!("Manual load result: {:?}", load_result);
+
+    // Wait a bit more after manual load
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Get the body HTML to see what was rendered
+    let body_html = ctx.evaluate("document.body.innerHTML").await
+        .expect("Failed to get body innerHTML");
+    println!("Body HTML length: {}", body_html.to_string().len());
+    println!("Body HTML (truncated): {:?}", &body_html.to_string()[..500.min(body_html.to_string().len())]);
+
+    // Get the app div content
+    let app_html = ctx.evaluate("document.getElementById('app')?.innerHTML || 'app element not found'").await
+        .expect("Failed to get app innerHTML");
+    println!("App HTML: {:?}", app_html);
+
+    // Check for any JS errors stored in window
+    ctx.evaluate(r#"
+        window.__jsErrors = [];
+        window.onerror = function(msg, url, line, col, error) {
+            window.__jsErrors.push({msg, url, line, col, error: error?.message});
+            return false;
+        };
+    "#).await.ok();
+
+    // Try to get the RustScript app state
+    let app_state = ctx.evaluate(r#"
+        (function() {
+            const app = window.__rustscript_app;
+            if (!app) return { error: 'No __rustscript_app found' };
+            return {
+                hasInstance: !!app.instance,
+                hasMemory: !!app.memory,
+                exports: app.instance ? Object.keys(app.instance.exports) : [],
+            };
+        })()
+    "#).await.expect("Failed to get app state");
+    println!("App state: {:?}", app_state);
+
+    // Check the element count
+    let element_count = ctx.evaluate("document.querySelectorAll('*').length").await
+        .expect("Failed to count elements");
+    println!("Total elements: {:?}", element_count);
+
+    // Check for activity bar
+    let has_activity_bar = ctx.evaluate("!!document.querySelector('.activity-bar')").await
+        .expect("Failed to check activity bar");
+    println!("Has activity bar: {:?}", has_activity_bar);
+
+    // Check for sidebar
+    let has_sidebar = ctx.evaluate("!!document.querySelector('.sidebar')").await
+        .expect("Failed to check sidebar");
+    println!("Has sidebar: {:?}", has_sidebar);
+
+    // Take a screenshot for visual inspection
+    std::fs::create_dir_all("target/e2e-screenshots").ok();
+    let screenshot = ctx.screenshot().await.expect("Failed to capture screenshot");
+    std::fs::write("target/e2e-screenshots/debug-conditional.png", &screenshot)
+        .expect("Failed to save screenshot");
+    println!("Screenshot saved to target/e2e-screenshots/debug-conditional.png");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+
+    // Assert that rendering happened
+    assert!(has_activity_bar.as_bool().unwrap_or(false), "Activity bar should be rendered");
 }
