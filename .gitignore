@@ -34,7 +34,7 @@ npm-debug.log*
 # Test coverage
 *.profraw
 *.profdata
-coverage/
+/coverage/
 lcov.info
 
 # Temporary files

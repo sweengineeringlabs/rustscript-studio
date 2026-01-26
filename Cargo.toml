@@ -21,6 +21,7 @@ members = [
     "crates/rsc-flow",
     "crates/rsc-dnd",
     "crates/rsc-studio",
+    "crates/devtools/coverage",
 ]
 
 [workspace.package]
@@ -35,6 +36,7 @@ authors = ["SWE Engineering Labs <aden@sweengineeringlabs.com>"]
 rsc-flow = { path = "crates/rsc-flow" }
 rsc-dnd = { path = "crates/rsc-dnd" }
 rsc-studio = { path = "crates/rsc-studio" }
+rsc-coverage = { path = "crates/devtools/coverage" }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
