@@ -30,9 +30,10 @@ use std::time::Duration;
 
 /// Gets the base URL from environment or defaults to localhost.
 fn base_url() -> String {
-    std::env::var("RSC_TEST_&base_url()")
+    std::env::var("BASE_URL")
+        .or_else(|_| std::env::var("RSC_TEST_BASE_URL"))
         .or_else(|_| std::env::var("RSC_TEST_PORT").map(|p| format!("http://localhost:{}", p)))
-        .unwrap_or_else(|_| "http://localhost".to_string())
+        .unwrap_or_else(|_| "http://localhost:3000".to_string())
 }
 
 /// Creates a configured browser test context.
