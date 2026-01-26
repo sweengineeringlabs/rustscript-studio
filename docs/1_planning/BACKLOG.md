@@ -574,19 +574,54 @@ Production monitoring, error tracking, and analytics infrastructure.
 - Three Rust crates provide core logic, UI is in RSX
 - **Important:** "Scaffold" means static HTML only - interactivity must be added separately
 
-## Known Compiler Limitations (Blocking)
+## Known Compiler Limitations
 
-The following RSX features are **documented but not yet implemented in codegen**:
+### Fixed (2026-01-26): Closure Capture Analysis
 
-| Feature | Parser | Codegen | Status |
-|---------|--------|---------|--------|
-| `signal()` | ✅ | ❌ | Fails with "type mismatch" |
-| `on:click={...}` | ✅ | ❌ | Fails with "MissingFunction" |
-| `@if condition { }` | ✅ | ❌ | Fails with "binop on Infer" |
-| `class:active={...}` | ✅ | ❌ | Not implemented |
-| `@for item in items { }` | ✅ | ❌ | Not tested |
+Implemented closure capture analysis in HIR lowering (`hir/src/lower.rs`):
+- Added `analyze_captures()` to walk expression trees and find free variables
+- Updated closure lowering to populate the `captures` field correctly
+- Removed broken MIR workaround that pre-registered all locals
+- Added `signal_types` propagation to closure contexts
 
-**Impact:** All RSX interactivity is blocked until these codegen features are implemented.
-The RSX app can only render static HTML. 7/37 e2e tests pass (basic rendering), 30 fail (require interaction).
+### Current Status (Verified 2026-01-26)
 
-**Workaround:** None available. Waiting on RustScript compiler updates.
+| Feature | Parser | HIR | MIR | Codegen | E2E Tested |
+|---------|--------|-----|-----|---------|------------|
+| `signal()` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `on:click={closure}` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `@if condition { }` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `class:active={...}` | ✅ | ✅ | ⚠️ | ⚠️ | ❌ |
+| `@for item in items { }` | ✅ | ⚠️ | ⚠️ | ⚠️ | ❌ |
+| `derived()` | ✅ | ✅ | ⚠️ | ⚠️ | ❌ |
+| Multi-line closures | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `<` in closures | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ❌ |
+| `\|self` modifier | ✅ | ⚠️ | ⚠️ | ⚠️ | ❌ |
+| `state { }` block | ❓ | ❓ | ❓ | ❓ | ❌ |
+
+**Legend:** ✅ Working | ⚠️ Untested | ❌ Not done | ❓ Unknown
+
+### Verification Details
+
+Diagnostic tests added to `codegen_int_test.rs`:
+- `test_closure_capture_diagnostic` - Simple signal + on:click ✅
+- `test_conditional_closure_diagnostic` - @if with signal + on:click ✅
+
+Both tests verify:
+1. HIR closures have captures populated (e.g., "Closure with 1 captures - count")
+2. MIR lowering produces correct bodies
+3. Valid WASM is generated
+
+### Known Issue: WASM Table Entry Count
+
+Test `test_conditional_with_event_handlers` fails expecting 2 table entries but gets 1.
+This is a pre-existing codegen issue (not related to closure captures) where event
+handler closures aren't added as separate WASM table entries.
+
+### Next Steps
+
+1. ~~Add E2E tests for basic interactivity~~ ✅ Done
+2. Test `<` comparison operator in closures
+3. Test `class:active={}` binding
+4. Test `derived()` expressions
+5. Incrementally add interactivity to main.rsx
