@@ -437,7 +437,7 @@ async fn test_touch_input() {
     let config = BrowserTestConfig::new()
         .browser(BrowserType::Chrome)
         .headless(true)
-        .viewport(Viewport::mobile())
+        .viewport(Viewport::iphone_14_pro())
         .timeout(Duration::from_secs(30))
         .base_url(&base_url());
 
@@ -1050,7 +1050,7 @@ async fn test_waiting_operations() {
     ctx.wait_for_url("localhost").await.expect("URL should contain localhost");
 
     // Wait for timeout
-    ctx.wait_for_timeout(100).await;
+    ctx.wait_ms(100).await;
 
     ctx.browser().close().await.expect("Failed to close browser");
 }
@@ -1103,7 +1103,7 @@ async fn test_responsive_viewports() {
     let mobile_config = BrowserTestConfig::new()
         .browser(BrowserType::Chrome)
         .headless(true)
-        .viewport(Viewport::mobile())
+        .viewport(Viewport::iphone_14_pro())
         .timeout(Duration::from_secs(30))
         .base_url(&base_url());
 
@@ -1272,8 +1272,8 @@ async fn test_tracing() {
 
     // Start tracing with screenshots enabled using abstraction type
     let tracing_options = TracingOptions::new()
-        .with_screenshots()
-        .with_snapshots();
+        .screenshots(true)
+        .snapshots(true);
 
     let tracing_session = ctx.start_tracing(tracing_options).await
         .expect("Failed to start tracing");
@@ -1311,8 +1311,8 @@ async fn test_video_recording() {
 
     // Start video recording using abstraction type
     let video_options = VideoRecordingOptions::new("target/e2e-screenshots/test-video.webm")
-        .with_quality(80)
-        .with_max_size(1280, 720);
+        .quality(80)
+        .size(1280, 720);
 
     let video_recorder = ctx.start_video_recording(video_options).await
         .expect("Failed to start video recording");

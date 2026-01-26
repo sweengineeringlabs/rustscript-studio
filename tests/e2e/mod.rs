@@ -242,6 +242,11 @@ impl TestContext {
     pub async fn wait_for(&self, selector: &str) -> Result<BrowserElement, BrowserTestError> {
         self.ctx.wait_for(selector).await
     }
+
+    /// Evaluates JavaScript in the page context.
+    pub async fn evaluate(&self, expression: &str) -> Result<serde_json::Value, BrowserTestError> {
+        self.ctx.evaluate(expression).await
+    }
 }
 
 /// Helper macro for creating browser tests.

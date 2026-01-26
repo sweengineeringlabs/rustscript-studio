@@ -319,6 +319,73 @@ async fn test_derived_page_title() {
     ctx.close().await.expect("Failed to close browser");
 }
 
+/// Debug test to trace conditional rendering issues.
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_debug_conditional_trace() {
+    let ctx = TestContext::new().await.expect("Failed to create test context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for_app().await.expect("App did not load");
+
+    // Wait a bit for all rendering to complete
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Get the sidebar HTML to see what's actually rendered
+    let sidebar_html = ctx.evaluate(r#"
+        const sidebar = document.querySelector('[data-testid="sidebar"]');
+        sidebar ? sidebar.outerHTML : 'SIDEBAR NOT FOUND';
+    "#).await.expect("Failed to evaluate");
+    println!("Sidebar HTML: {:?}", sidebar_html);
+
+    // Check conditional 2's state
+    let cond2_info = ctx.evaluate(r#"
+        try {
+            // Try to trigger an update manually for condition 2
+            // to see what happens
+            var result = {
+                navSidebar: !!document.querySelector('[data-testid="navigation-sidebar"]'),
+                cssSidebar: !!document.querySelector('[data-testid="css-sidebar"]'),
+                settingsSidebar: !!document.querySelector('[data-testid="settings-sidebar"]'),
+                pageTitle: document.querySelector('[data-testid="page-title"]')?.textContent,
+                mainAreaHTML: document.querySelector('.main-area')?.innerHTML?.substring(0, 500)
+            };
+            JSON.stringify(result, null, 2);
+        } catch(e) {
+            'Error: ' + e.message;
+        }
+    "#).await.expect("Failed to get cond2 info");
+    println!("Conditional 2 info: {:?}", cond2_info);
+
+    // Check if there were any WASM errors
+    let errors = ctx.evaluate(r#"
+        window.__rustscript_error || 'No error'
+    "#).await.expect("Failed to get errors");
+    println!("WASM errors: {:?}", errors);
+
+    // Click CSS button and check if sidebar content changes
+    ctx.click("[data-testid='activity-item-css']").await.expect("Failed to click CSS");
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Check sidebar and main area after CSS click
+    let after_css = ctx.evaluate(r#"
+        try {
+            var result = {
+                pageTitle: document.querySelector('[data-testid="page-title"]')?.textContent,
+                sidebarHTML: document.querySelector('[data-testid="sidebar"]')?.innerHTML?.substring(0, 200),
+                mainAreaNav: !!document.querySelector('.navigation-designer-page'),
+                mainAreaCSS: !!document.querySelector('.css-designer-page')
+            };
+            JSON.stringify(result, null, 2);
+        } catch(e) {
+            'Error: ' + e.message;
+        }
+    "#).await.expect("Failed to get state after CSS click");
+    println!("After CSS click: {:?}", after_css);
+
+    ctx.close().await.expect("Failed to close browser");
+}
+
 /// Tests conditional rendering with @if directive.
 #[tokio::test]
 #[ignore = "requires browser and dev server"]
