@@ -1664,3 +1664,177 @@ async fn test_debug_conditional_rendering() {
     // Assert that rendering happened
     assert!(has_activity_bar.as_bool().unwrap_or(false), "Activity bar should be rendered");
 }
+
+// ============================================================================
+// Mount Guard Tests
+// ============================================================================
+
+/// Tests that double-mounting is prevented at the framework level.
+/// The WASM mount function should return 1 (already mounted) on second call.
+#[tokio::test]
+#[ignore] // Requires browser and dev server
+async fn test_mount_guard_prevents_double_mount() {
+    let ctx = create_context().await.expect("Failed to create browser context");
+    ctx.goto("/").await.expect("Failed to navigate");
+
+    // Wait for initial app load
+    tokio::time::sleep(Duration::from_secs(3)).await;
+
+    // Verify app is loaded
+    let app_loaded = ctx.evaluate("!!window.__rustscript_app").await
+        .expect("Failed to check app");
+    assert!(app_loaded.as_bool().unwrap_or(false), "App should be loaded initially");
+
+    // Try to call mount again directly through WASM
+    let mount_result = ctx.evaluate(r#"
+        (() => {
+            const app = window.__rustscript_app;
+            if (!app || !app.instance || !app.instance.exports.mount) {
+                return -999; // Error code for no app
+            }
+
+            // Get memory and write 'app' string (the root ID)
+            const memory = app.instance.exports.memory;
+            const encoder = new TextEncoder();
+            const rootIdBytes = encoder.encode('app');
+            const rootIdPtr = 65536; // Same scratch buffer offset as runtime
+            const rootIdLen = rootIdBytes.length;
+
+            // Write the string to memory
+            const view = new Uint8Array(memory.buffer, rootIdPtr, rootIdLen);
+            view.set(rootIdBytes);
+
+            // Call mount - should return 1 (already mounted)
+            return app.instance.exports.mount(rootIdPtr, rootIdLen);
+        })()
+    "#).await.expect("Failed to call mount");
+
+    println!("Mount guard test result: {:?}", mount_result);
+
+    let code = mount_result.as_i64().expect("mountResult should be i64");
+    assert_ne!(code, -999, "App instance or mount function not found");
+    assert_eq!(code, 1, "Second mount call should return 1 (already mounted)");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+/// Tests that unmount resets the mount guard, allowing re-mounting.
+#[tokio::test]
+#[ignore] // Requires browser and dev server
+async fn test_unmount_resets_mount_guard() {
+    let ctx = create_context().await.expect("Failed to create browser context");
+    ctx.goto("/").await.expect("Failed to navigate");
+
+    // Wait for initial app load
+    tokio::time::sleep(Duration::from_secs(3)).await;
+
+    // Verify app is loaded
+    let app_loaded = ctx.evaluate("!!window.__rustscript_app").await
+        .expect("Failed to check app");
+    assert!(app_loaded.as_bool().unwrap_or(false), "App should be loaded initially");
+
+    // Call unmount to reset the guard
+    let unmount_result = ctx.evaluate(r#"
+        (() => {
+            const app = window.__rustscript_app;
+            if (!app || !app.instance || !app.instance.exports.unmount) {
+                return false;
+            }
+            app.instance.exports.unmount();
+            return true;
+        })()
+    "#).await.expect("Failed to call unmount");
+
+    println!("Unmount result: {:?}", unmount_result);
+    assert!(unmount_result.as_bool().unwrap_or(false), "Unmount should succeed");
+
+    // Now call mount again - should return 0 (success) since guard was reset
+    let remount_result = ctx.evaluate(r#"
+        (() => {
+            const app = window.__rustscript_app;
+            if (!app || !app.instance || !app.instance.exports.mount) {
+                return -999;
+            }
+
+            const memory = app.instance.exports.memory;
+            const encoder = new TextEncoder();
+            const rootIdBytes = encoder.encode('app');
+            const rootIdPtr = 65536;
+            const rootIdLen = rootIdBytes.length;
+
+            const view = new Uint8Array(memory.buffer, rootIdPtr, rootIdLen);
+            view.set(rootIdBytes);
+
+            // Call mount - should return 0 (success) after unmount
+            return app.instance.exports.mount(rootIdPtr, rootIdLen);
+        })()
+    "#).await.expect("Failed to remount");
+
+    println!("Remount result: {:?}", remount_result);
+
+    let code = remount_result.as_i64().expect("remountResult should be i64");
+    assert_ne!(code, -999, "App instance or mount function not found");
+    assert_eq!(code, 0, "Mount after unmount should return 0 (success)");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
+
+/// Tests that the JS-level cache returns existing instance on double loadApp call.
+#[tokio::test]
+#[ignore] // Requires browser and dev server
+async fn test_js_cache_returns_existing_instance() {
+    let ctx = create_context().await.expect("Failed to create browser context");
+    ctx.goto("/").await.expect("Failed to navigate");
+
+    // Wait for initial app load
+    tokio::time::sleep(Duration::from_secs(3)).await;
+
+    // Call loadApp again - should return the cached instance
+    // We need to use evaluate_async for async code
+    let result = ctx.evaluate(r#"
+        (() => {
+            const originalApp = window.__rustscript_app;
+            if (!originalApp) {
+                return 'no_original_app';
+            }
+
+            // Store reference to original for comparison
+            window.__originalAppRef = originalApp;
+
+            // Call loadApp again synchronously via promise
+            RustScript.loadApp('/__rsc__/wasm', 'app').then(secondApp => {
+                window.__cacheTestResult = {
+                    sameInstance: window.__originalAppRef.instance === secondApp.instance,
+                    sameMemory: window.__originalAppRef.memory === secondApp.memory,
+                    done: true
+                };
+            }).catch(err => {
+                window.__cacheTestResult = { error: err.message, done: true };
+            });
+
+            return 'started';
+        })()
+    "#).await.expect("Failed to start JS cache test");
+
+    println!("JS cache test start: {:?}", result);
+
+    // Wait for the async operation to complete
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Get the result
+    let result = ctx.evaluate(r#"
+        (() => {
+            const r = window.__cacheTestResult;
+            if (!r) return 'not_ready';
+            if (r.error) return 'error:' + r.error;
+            return r.sameInstance && r.sameMemory ? 'same' : 'different';
+        })()
+    "#).await.expect("Failed to get JS cache test result");
+
+    println!("JS cache test result: {:?}", result);
+
+    let result_str = result.as_str().unwrap_or("unknown");
+    assert_eq!(result_str, "same", "Second loadApp should return same cached instance");
+
+    ctx.browser().close().await.expect("Failed to close browser");
+}
