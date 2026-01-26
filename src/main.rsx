@@ -22,7 +22,7 @@ component App {
                     class:active={active_designer.get() == "navigation"}
                     title="Navigation Designer"
                     data-testid="activity-item-navigation"
-                    on:click={|_| active_designer.set("navigation")}
+                    on:click={active_designer.set("navigation")}
                 >
                     "Nav"
                 </button>
@@ -31,7 +31,7 @@ component App {
                     class:active={active_designer.get() == "css"}
                     title="CSS Designer"
                     data-testid="activity-item-css"
-                    on:click={|_| active_designer.set("css")}
+                    on:click={active_designer.set("css")}
                 >
                     "CSS"
                 </button>
@@ -40,14 +40,14 @@ component App {
                     class:active={active_designer.get() == "settings"}
                     title="Settings"
                     data-testid="activity-item-settings"
-                    on:click={|_| active_designer.set("settings")}
+                    on:click={active_designer.set("settings")}
                 >
                     "Set"
                 </button>
                 <button
                     title="Toggle Sidebar"
                     data-testid="toggle-sidebar"
-                    on:click={|_| sidebar_visible.set(!sidebar_visible.get())}
+                    on:click={sidebar_visible.set(!sidebar_visible.get())}
                 >
                     "Toggle"
                 </button>
@@ -61,7 +61,7 @@ component App {
                             <h3>"Workflows"</h3>
                             <button
                                 data-testid="add-workflow"
-                                on:click={|_| show_modal.set(true)}
+                                on:click={show_modal.set(true)}
                             >
                                 "+ Add Workflow"
                             </button>
@@ -70,7 +70,7 @@ component App {
                                     class="workflow-item"
                                     class:selected={selected_workflow.get() == "main"}
                                     data-testid="workflow-item"
-                                    on:click={|_| selected_workflow.set("main")}
+                                    on:click={selected_workflow.set("main")}
                                 >
                                     <span class="workflow-name">"Main Flow"</span>
                                     <span class="workflow-meta">"2 contexts"</span>
@@ -79,7 +79,7 @@ component App {
                                     class="workflow-item"
                                     class:selected={selected_workflow.get() == "auth"}
                                     data-testid="workflow-item"
-                                    on:click={|_| selected_workflow.set("auth")}
+                                    on:click={selected_workflow.set("auth")}
                                 >
                                     <span class="workflow-name">"Auth Flow"</span>
                                     <span class="workflow-meta">"1 context"</span>
@@ -93,14 +93,14 @@ component App {
                             <button
                                 class:active={selected_category.get() == "colors"}
                                 data-testid="category-colors"
-                                on:click={|_| selected_category.set("colors")}
+                                on:click={selected_category.set("colors")}
                             >
                                 "Colors"
                             </button>
                             <button
                                 class:active={selected_category.get() == "spacing"}
                                 data-testid="category-spacing"
-                                on:click={|_| selected_category.set("spacing")}
+                                on:click={selected_category.set("spacing")}
                             >
                                 "Spacing"
                             </button>
@@ -128,7 +128,7 @@ component App {
                             <div data-testid="zoom-controls" class="zoom-controls">
                                 <button
                                     class="zoom-out"
-                                    on:click={|_| {
+                                    on:click={{
                                         let z = canvas_zoom.get();
                                         if z > 50 {
                                             canvas_zoom.set(z - 10);
@@ -137,12 +137,12 @@ component App {
                                 >
                                     "-"
                                 </button>
-                                <button class="zoom-reset" on:click={|_| canvas_zoom.set(100)}>
+                                <button class="zoom-reset" on:click={canvas_zoom.set(100)}>
                                     {canvas_zoom.get()}"%"
                                 </button>
                                 <button
                                     class="zoom-in"
-                                    on:click={|_| {
+                                    on:click={{
                                         let z = canvas_zoom.get();
                                         if z < 200 {
                                             canvas_zoom.set(z + 10);
@@ -181,7 +181,7 @@ component App {
                 <div
                     class="modal-overlay"
                     data-testid="add-workflow-modal"
-                    on:click={|_| show_modal.set(false)}
+                    on:click={show_modal.set(false)}
                 >
                     <div class="modal-content">
                         <h2>"Add Workflow"</h2>
@@ -196,14 +196,14 @@ component App {
                         <div class="modal-actions">
                             <button
                                 class="button-secondary"
-                                on:click={|_| show_modal.set(false)}
+                                on:click={show_modal.set(false)}
                             >
                                 "Cancel"
                             </button>
                             <button
                                 class="button-primary"
                                 data-testid="submit-workflow"
-                                on:click={|_| show_modal.set(false)}
+                                on:click={show_modal.set(false)}
                             >
                                 "Add"
                             </button>
