@@ -54,9 +54,9 @@ component App {
             </div>
 
             // Sidebar - conditionally rendered
-            @if sidebar_visible.get() {
+            if sidebar_visible.get() {
                 <div class="sidebar" data-testid="sidebar">
-                    @if active_designer.get() == "navigation" {
+                    if active_designer.get() == "navigation" {
                         <div class="navigation-sidebar" data-testid="navigation-sidebar">
                             <h3>"Workflows"</h3>
                             <button
@@ -87,7 +87,7 @@ component App {
                             </div>
                         </div>
                     }
-                    @if active_designer.get() == "css" {
+                    if active_designer.get() == "css" {
                         <div class="css-sidebar" data-testid="css-sidebar">
                             <h3>"Categories"</h3>
                             <button
@@ -106,7 +106,7 @@ component App {
                             </button>
                         </div>
                     }
-                    @if active_designer.get() == "settings" {
+                    if active_designer.get() == "settings" {
                         <div class="settings-sidebar" data-testid="settings-sidebar">
                             <h3>"Settings"</h3>
                             <div class="settings-menu">
@@ -120,7 +120,7 @@ component App {
 
             // Main Area
             <div class="main-area" data-testid="main-area">
-                @if active_designer.get() == "navigation" {
+                if active_designer.get() == "navigation" {
                     <h1 data-testid="page-title">"Navigation Designer"</h1>
                     <div class="navigation-designer-page">
                         <div data-testid="toolbar" class="toolbar">
@@ -160,7 +160,7 @@ component App {
                         </div>
                     </div>
                 }
-                @if active_designer.get() == "css" {
+                if active_designer.get() == "css" {
                     <h1 data-testid="page-title">"CSS Designer"</h1>
                     <div class="css-designer-page" data-testid="css-designer-page">
                         <div data-testid="token-panel" class="token-panel">
@@ -168,7 +168,7 @@ component App {
                         </div>
                     </div>
                 }
-                @if active_designer.get() == "settings" {
+                if active_designer.get() == "settings" {
                     <h1 data-testid="page-title">"Settings"</h1>
                     <div class="settings-page">
                         <h2>"Settings"</h2>
@@ -177,7 +177,7 @@ component App {
             </div>
 
             // Add Workflow Modal
-            @if show_modal.get() {
+            if show_modal.get() {
                 <div
                     class="modal-overlay"
                     data-testid="add-workflow-modal"
