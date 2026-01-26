@@ -218,4 +218,199 @@ mod tests {
         assert!(store.get_workflow("w1").is_none());
         assert!(store.selected_workflow.is_none());
     }
+
+    #[test]
+    fn test_store_default_state() {
+        let store = StudioStore::new();
+
+        // Default state should have no selection
+        assert!(store.selected_workflow.is_none());
+        assert!(store.selected_context.is_none());
+        assert!(store.selected_preset.is_none());
+
+        // Default UI state
+        assert!(store.ui.sidebar_visible);
+        assert!(!store.ui.bottom_panel_visible);
+        assert_eq!(store.ui.active_designer, Designer::Navigation);
+        assert_eq!(store.ui.canvas.zoom, 1.0);
+    }
+
+    #[test]
+    fn test_designer_switching() {
+        let store = StudioStore::new();
+
+        // Default should be Navigation
+        assert_eq!(store.ui.active_designer, Designer::Navigation);
+
+        // Test that all designer variants exist
+        let designers = [Designer::Navigation, Designer::Css, Designer::Component];
+        for d in designers {
+            assert!(matches!(d, Designer::Navigation | Designer::Css | Designer::Component));
+        }
+    }
+
+    #[test]
+    fn test_sidebar_toggle() {
+        let mut store = StudioStore::new();
+
+        // Initially visible
+        assert!(store.ui.sidebar_visible);
+
+        // Toggle off
+        store.ui.sidebar_visible = false;
+        assert!(!store.ui.sidebar_visible);
+
+        // Toggle on
+        store.ui.sidebar_visible = true;
+        assert!(store.ui.sidebar_visible);
+    }
+
+    #[test]
+    fn test_canvas_zoom_state() {
+        let mut store = StudioStore::new();
+
+        // Default zoom is 1.0
+        assert_eq!(store.ui.canvas.zoom, 1.0);
+
+        // Zoom in
+        store.ui.canvas.zoom = 1.1;
+        assert_eq!(store.ui.canvas.zoom, 1.1);
+
+        // Zoom out
+        store.ui.canvas.zoom = 0.9;
+        assert_eq!(store.ui.canvas.zoom, 0.9);
+
+        // Reset
+        store.ui.canvas.zoom = 1.0;
+        assert_eq!(store.ui.canvas.zoom, 1.0);
+    }
+
+    #[test]
+    fn test_workflow_with_contexts() {
+        let mut store = StudioStore::new();
+
+        let mut workflow = Workflow::new("Main").with_id("w1");
+        workflow.add_context(Context::new("Code").with_id("c1"));
+        workflow.add_context(Context::new("Review").with_id("c2"));
+        store.add_workflow(workflow);
+
+        let w = store.get_workflow("w1").unwrap();
+        assert_eq!(w.contexts.len(), 2);
+        assert!(w.contexts.contains_key("c1"));
+        assert!(w.contexts.contains_key("c2"));
+    }
+
+    #[test]
+    fn test_context_selection() {
+        let mut store = StudioStore::new();
+
+        let mut workflow = Workflow::new("Main").with_id("w1");
+        workflow.add_context(Context::new("Code").with_id("c1"));
+        store.add_workflow(workflow);
+
+        // Select context
+        store.select_context("w1", "c1");
+        assert_eq!(store.selected_workflow, Some("w1".to_string()));
+        assert_eq!(store.selected_context, Some("c1".to_string()));
+
+        // Selecting non-existent context should not change state
+        store.select_context("w1", "nonexistent");
+        assert_eq!(store.selected_context, Some("c1".to_string()));
+    }
+
+    #[test]
+    fn test_preset_selection() {
+        let mut store = StudioStore::new();
+
+        let mut workflow = Workflow::new("Main").with_id("w1");
+        let mut context = Context::new("Code").with_id("c1");
+        context.add_preset(Preset::new("Default").with_id("p1"));
+        workflow.add_context(context);
+        store.add_workflow(workflow);
+
+        // Select preset
+        store.select_preset("w1", "c1", "p1");
+        assert_eq!(store.selected_workflow, Some("w1".to_string()));
+        assert_eq!(store.selected_context, Some("c1".to_string()));
+        assert_eq!(store.selected_preset, Some("p1".to_string()));
+    }
+
+    #[test]
+    fn test_current_selection_getters() {
+        let mut store = StudioStore::new();
+
+        let mut workflow = Workflow::new("Main").with_id("w1");
+        let mut context = Context::new("Code").with_id("c1");
+        context.add_preset(Preset::new("Default").with_id("p1"));
+        workflow.add_context(context);
+        store.add_workflow(workflow);
+
+        // No selection initially
+        assert!(store.current_workflow().is_none());
+        assert!(store.current_context().is_none());
+        assert!(store.current_preset().is_none());
+
+        // After selection
+        store.select_preset("w1", "c1", "p1");
+        assert!(store.current_workflow().is_some());
+        assert!(store.current_context().is_some());
+        assert!(store.current_preset().is_some());
+
+        assert_eq!(store.current_workflow().unwrap().name, "Main");
+        assert_eq!(store.current_context().unwrap().name, "Code");
+        assert_eq!(store.current_preset().unwrap().name, "Default");
+    }
+
+    #[test]
+    fn test_draft_operations() {
+        let mut store = StudioStore::new();
+
+        // Initially no drafts
+        assert!(!store.has_unsaved_changes());
+
+        // Set draft workflow
+        store.set_draft_workflow(Workflow::new("Draft"));
+        assert!(store.has_unsaved_changes());
+
+        // Clear drafts
+        store.clear_drafts();
+        assert!(!store.has_unsaved_changes());
+    }
+
+    #[test]
+    fn test_multiple_workflows() {
+        let mut store = StudioStore::new();
+
+        store.add_workflow(Workflow::new("Flow 1").with_id("f1"));
+        store.add_workflow(Workflow::new("Flow 2").with_id("f2"));
+        store.add_workflow(Workflow::new("Flow 3").with_id("f3"));
+
+        assert_eq!(store.workflows.len(), 3);
+
+        // Iteration order should be preserved (IndexMap)
+        let keys: Vec<_> = store.workflows.keys().collect();
+        assert_eq!(keys, vec!["f1", "f2", "f3"]);
+    }
+
+    #[test]
+    fn test_workflow_removal_clears_selection() {
+        let mut store = StudioStore::new();
+
+        let mut workflow = Workflow::new("Main").with_id("w1");
+        let mut context = Context::new("Code").with_id("c1");
+        context.add_preset(Preset::new("Default").with_id("p1"));
+        workflow.add_context(context);
+        store.add_workflow(workflow);
+
+        // Select everything
+        store.select_preset("w1", "c1", "p1");
+
+        // Remove workflow
+        store.remove_workflow("w1");
+
+        // All selections should be cleared
+        assert!(store.selected_workflow.is_none());
+        assert!(store.selected_context.is_none());
+        assert!(store.selected_preset.is_none());
+    }
 }

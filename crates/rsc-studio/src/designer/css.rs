@@ -1164,4 +1164,321 @@ mod tests {
         assert!(css.contains("--color-primary: #3b82f6"));
         assert!(css.contains("--spacing-md: 1rem"));
     }
+
+    #[test]
+    fn test_designer_default_state() {
+        let designer = CssDesigner::new();
+
+        assert_eq!(designer.selected_category, TokenCategory::Colors);
+        assert!(designer.selected_token.is_none());
+        assert_eq!(designer.preview_mode, PreviewMode::Light);
+    }
+
+    #[test]
+    fn test_token_category_selection() {
+        let mut designer = CssDesigner::new();
+
+        // Default is Colors
+        assert_eq!(designer.selected_category, TokenCategory::Colors);
+
+        // Switch to Spacing
+        designer.selected_category = TokenCategory::Spacing;
+        assert_eq!(designer.selected_category, TokenCategory::Spacing);
+
+        // All categories should be valid
+        let categories = [
+            TokenCategory::Colors,
+            TokenCategory::Spacing,
+            TokenCategory::Radius,
+            TokenCategory::Shadows,
+            TokenCategory::Typography,
+            TokenCategory::Transitions,
+            TokenCategory::ZIndex,
+        ];
+        for cat in categories {
+            designer.selected_category = cat;
+            assert_eq!(designer.selected_category, cat);
+        }
+    }
+
+    #[test]
+    fn test_preview_mode_toggle() {
+        let mut designer = CssDesigner::new();
+
+        assert_eq!(designer.preview_mode, PreviewMode::Light);
+
+        designer.preview_mode = PreviewMode::Dark;
+        assert_eq!(designer.preview_mode, PreviewMode::Dark);
+
+        designer.preview_mode = PreviewMode::Both;
+        assert_eq!(designer.preview_mode, PreviewMode::Both);
+
+        designer.preview_mode = PreviewMode::Light;
+        assert_eq!(designer.preview_mode, PreviewMode::Light);
+    }
+
+    #[test]
+    fn test_set_token() {
+        let mut designer = CssDesigner::new();
+
+        // Set a color token
+        designer.set_token("colors.primary", TokenValue::Simple("#ff0000".to_string()));
+        let value = designer.get_token("colors.primary").unwrap();
+        assert!(matches!(value, TokenValue::Simple(v) if v == "#ff0000"));
+
+        // Set a spacing token
+        designer.set_token("spacing.lg", TokenValue::Simple("2rem".to_string()));
+        let value = designer.get_token("spacing.lg").unwrap();
+        assert!(matches!(value, TokenValue::Simple(v) if v == "2rem"));
+    }
+
+    #[test]
+    fn test_get_token() {
+        let mut designer = CssDesigner::new();
+        designer.tokens.colors.insert(
+            "accent".to_string(),
+            TokenValue::Simple("#9333ea".to_string()),
+        );
+
+        let value = designer.get_token("colors.accent");
+        assert!(value.is_some());
+
+        let value = designer.get_token("colors.nonexistent");
+        assert!(value.is_none());
+    }
+
+    #[test]
+    fn test_token_value_types() {
+        let mut designer = CssDesigner::new();
+
+        // Simple value
+        designer.tokens.colors.insert(
+            "simple".to_string(),
+            TokenValue::Simple("#000".to_string()),
+        );
+
+        // Adaptive value
+        designer.tokens.colors.insert(
+            "adaptive".to_string(),
+            TokenValue::Adaptive {
+                light: "#fff".to_string(),
+                dark: "#000".to_string(),
+            },
+        );
+
+        // Scale value
+        let mut scale = IndexMap::new();
+        scale.insert("100".to_string(), "#f5f5f5".to_string());
+        scale.insert("500".to_string(), "#737373".to_string());
+        scale.insert("900".to_string(), "#171717".to_string());
+        designer.tokens.colors.insert(
+            "gray".to_string(),
+            TokenValue::Scale(scale),
+        );
+
+        // Verify all types are stored correctly
+        assert!(designer.get_token("colors.simple").is_some());
+        assert!(designer.get_token("colors.adaptive").is_some());
+        assert!(designer.get_token("colors.gray").is_some());
+    }
+
+    #[test]
+    fn test_css_output_updates() {
+        let mut designer = CssDesigner::new();
+
+        // Initial CSS
+        let css1 = designer.generate_css();
+
+        // Add a token
+        designer.set_token("colors.new", TokenValue::Simple("#123456".to_string()));
+
+        // CSS should update
+        let css2 = designer.generate_css();
+        assert!(css2.contains("--color-new: #123456"));
+        assert_ne!(css1, css2);
+    }
+
+    #[test]
+    fn test_design_tokens_json_export() {
+        let mut tokens = DesignTokens::default();
+        tokens.colors.insert("primary".to_string(), TokenValue::Simple("#000".to_string()));
+
+        let json = tokens.to_json();
+        assert!(json.is_ok());
+        let json_str = json.unwrap();
+        assert!(json_str.contains("primary") || json_str.contains("colors"));
+    }
+
+    #[test]
+    fn test_design_tokens_yaml_export() {
+        let mut tokens = DesignTokens::default();
+        tokens.colors.insert("primary".to_string(), TokenValue::Simple("#000".to_string()));
+
+        let yaml = tokens.to_yaml();
+        assert!(yaml.is_ok());
+    }
+
+    #[test]
+    fn test_token_validation_valid_hex() {
+        let tokens = DesignTokens::default();
+        let mut designer = CssDesigner::new();
+        designer.tokens.colors.insert(
+            "valid".to_string(),
+            TokenValue::Simple("#3b82f6".to_string()),
+        );
+
+        let errors = designer.tokens.validate();
+        let color_errors: Vec<_> = errors.iter()
+            .filter(|e| e.path.contains("valid"))
+            .collect();
+        assert!(color_errors.is_empty(), "Valid hex color should not produce errors");
+    }
+
+    #[test]
+    fn test_token_validation_invalid_hex() {
+        let mut designer = CssDesigner::new();
+        designer.tokens.colors.insert(
+            "invalid".to_string(),
+            TokenValue::Simple("#xyz".to_string()),
+        );
+
+        let errors = designer.tokens.validate();
+        let has_error = errors.iter().any(|e| e.path.contains("invalid"));
+        assert!(has_error, "Invalid hex color should produce error");
+    }
+
+    #[test]
+    fn test_token_paths() {
+        let mut tokens = DesignTokens::default();
+        tokens.colors.insert("primary".to_string(), TokenValue::Simple("#000".to_string()));
+        tokens.spacing.insert("sm".to_string(), TokenValue::Simple("0.5rem".to_string()));
+        tokens.radius.insert("md".to_string(), TokenValue::Simple("0.5rem".to_string()));
+
+        let paths = tokens.all_paths();
+        assert!(paths.contains(&"colors.primary".to_string()));
+        assert!(paths.contains(&"spacing.sm".to_string()));
+        assert!(paths.contains(&"radius.md".to_string()));
+    }
+
+    #[test]
+    fn test_token_count() {
+        let mut tokens = DesignTokens::default();
+        assert_eq!(tokens.count(), 0);
+
+        tokens.colors.insert("a".to_string(), TokenValue::Simple("".to_string()));
+        tokens.colors.insert("b".to_string(), TokenValue::Simple("".to_string()));
+        tokens.spacing.insert("c".to_string(), TokenValue::Simple("".to_string()));
+
+        assert_eq!(tokens.count(), 3);
+    }
+
+    #[test]
+    fn test_token_dependencies() {
+        let mut tokens = DesignTokens::default();
+        tokens.colors.insert(
+            "primary".to_string(),
+            TokenValue::Simple("#3b82f6".to_string()),
+        );
+        tokens.colors.insert(
+            "button-bg".to_string(),
+            TokenValue::Simple("var(--color-primary)".to_string()),
+        );
+
+        let deps = tokens.find_dependencies();
+        assert!(deps.contains_key("colors.button-bg"));
+        let button_deps = deps.get("colors.button-bg").unwrap();
+        assert!(button_deps.contains(&"colors.primary".to_string()));
+    }
+
+    #[test]
+    fn test_component_styles_css_generation() {
+        let mut styles = ComponentStyles::new();
+        let mut button_style = ComponentStyle::default();
+        button_style.base.background_color = Some("var(--color-primary)".to_string());
+        button_style.base.padding = Some("0.5rem 1rem".to_string());
+        styles.set("button".to_string(), button_style);
+
+        let css = styles.generate_css();
+        assert!(css.contains(".button"));
+        assert!(css.contains("background-color"));
+        assert!(css.contains("padding"));
+    }
+
+    #[test]
+    fn test_state_variant_css_selectors() {
+        assert_eq!(StateVariant::Default.css_selector(), "");
+        assert_eq!(StateVariant::Hover.css_selector(), ":hover");
+        assert_eq!(StateVariant::Active.css_selector(), ":active");
+        assert_eq!(StateVariant::Focus.css_selector(), ":focus");
+        assert_eq!(StateVariant::Disabled.css_selector(), ":disabled");
+    }
+
+    #[test]
+    fn test_breakpoint_min_widths() {
+        assert_eq!(Breakpoint::Base.min_width(), None);
+        assert_eq!(Breakpoint::Sm.min_width(), Some(640));
+        assert_eq!(Breakpoint::Md.min_width(), Some(768));
+        assert_eq!(Breakpoint::Lg.min_width(), Some(1024));
+        assert_eq!(Breakpoint::Xl.min_width(), Some(1280));
+        assert_eq!(Breakpoint::Xxl.min_width(), Some(1536));
+    }
+
+    #[test]
+    fn test_selected_token_tracking() {
+        let mut designer = CssDesigner::new();
+
+        // Initially no token selected
+        assert!(designer.selected_token.is_none());
+
+        // Select a token
+        designer.selected_token = Some("colors.primary".to_string());
+        assert_eq!(designer.selected_token, Some("colors.primary".to_string()));
+
+        // Deselect
+        designer.selected_token = None;
+        assert!(designer.selected_token.is_none());
+    }
+
+    #[test]
+    fn test_token_usage_tracker() {
+        let mut tracker = TokenUsageTracker::new();
+
+        tracker.mark_used("colors.primary");
+        tracker.mark_used("spacing.md");
+
+        assert!(tracker.used.contains("colors.primary"));
+        assert!(tracker.used.contains("spacing.md"));
+        assert!(!tracker.used.contains("colors.secondary"));
+    }
+
+    #[test]
+    fn test_token_usage_from_css() {
+        let mut tracker = TokenUsageTracker::new();
+
+        let css = r#"
+            .button {
+                background: var(--color-primary);
+                padding: var(--spacing-md);
+            }
+        "#;
+
+        tracker.mark_from_css(css);
+
+        assert!(tracker.used.contains("colors.primary"));
+        assert!(tracker.used.contains("spacing.md"));
+    }
+
+    #[test]
+    fn test_find_unused_tokens() {
+        let mut tokens = DesignTokens::default();
+        tokens.colors.insert("used".to_string(), TokenValue::Simple("#000".to_string()));
+        tokens.colors.insert("unused".to_string(), TokenValue::Simple("#fff".to_string()));
+
+        let mut tracker = TokenUsageTracker::new();
+        tracker.mark_used("colors.used");
+
+        let unused = tracker.find_unused(&tokens);
+        assert!(unused.contains(&"colors.unused".to_string()));
+        assert!(!unused.contains(&"colors.used".to_string()));
+    }
 }

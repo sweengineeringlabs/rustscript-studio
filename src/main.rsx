@@ -1,137 +1,115 @@
 //! RustScript Studio - Visual IDE for RustScript
 //!
-//! NOTE: Debugging circular reference error in @if conditional rendering:
-//! - RS-151: @if works but runtime has "circular reference" error during mount
-//! - Root cause investigation in progress - see debug_test.html for testing
-//! - Component props aren't shared between parent and child components
-//!
-//! Debug logging added to runtime:
-//! - getElementById, createElement, appendChild - track handles
-//! - HandleManager.alloc - detect duplicate allocations
-//! - conditionals.create/update - track parent handles
-//! - renderBranch - track insertion targets
-//!
-//! Fixed issues:
-//! - Event handler format: changed "on{}" to "on:{}" in HIR lowering (lower.rs:1059)
-//! - Added parent element tracking for @if (lower.rs:859-871, wasm.rs:2162-2164)
+//! Working version without @if blocks (conditional rendering is broken in runtime).
+//! All UI elements are always visible. Once the runtime bug is fixed, we can
+//! add conditional rendering back.
 
 use rsc::prelude::*;
 
 component App {
+    // Core navigation state (signals work, but @if does not)
+    let active_designer = signal("navigation");
+    let canvas_zoom = signal(100);
+
     render {
         <div class="app" data-testid="app-root">
-            <ActivityBar />
-            <Sidebar />
-            <MainArea />
-        </div>
-    }
-}
-
-component ActivityBar {
-    render {
-        <div class="activity-bar" data-testid="activity-bar">
-            <button class="activity-item" title="Navigation Designer" data-testid="activity-item-navigation">"Nav"</button>
-            <button class="activity-item" title="CSS Designer" data-testid="activity-item-css">"CSS"</button>
-            <button class="activity-item" title="Settings" data-testid="activity-item-settings">"Set"</button>
-            <button title="Toggle Sidebar" data-testid="toggle-sidebar">"Toggle"</button>
-        </div>
-    }
-}
-
-component Sidebar {
-    render {
-        <div class="sidebar" data-testid="sidebar">
-            @if true {
-                <span>"Hello"</span>
-            }
-            <NavigationSidebar />
-        </div>
-    }
-}
-
-component MainArea {
-    render {
-        <div class="main-area" data-testid="main-area">
-            <h1 data-testid="page-title">"Navigation Designer"</h1>
-            <NavigationDesignerPage />
-        </div>
-    }
-}
-
-component NavigationSidebar {
-    render {
-        <div class="navigation-sidebar" data-testid="navigation-sidebar">
-            <h3>"Workflows"</h3>
-            <button data-testid="add-workflow">"+ Add Workflow"</button>
-            <div data-testid="workflow-list">
-                <div data-testid="workflow-item">"Main Flow"</div>
-                <div data-testid="workflow-item">"Auth Flow"</div>
+            // Activity Bar
+            <div class="activity-bar" data-testid="activity-bar">
+                <button
+                    class="activity-item"
+                    class:active={active_designer.get() == "navigation"}
+                    title="Navigation Designer"
+                    data-testid="activity-item-navigation"
+                    on:click={|_| active_designer.set("navigation")}
+                >
+                    "Nav"
+                </button>
+                <button
+                    class="activity-item"
+                    class:active={active_designer.get() == "css"}
+                    title="CSS Designer"
+                    data-testid="activity-item-css"
+                    on:click={|_| active_designer.set("css")}
+                >
+                    "CSS"
+                </button>
+                <button
+                    class="activity-item"
+                    class:active={active_designer.get() == "settings"}
+                    title="Settings"
+                    data-testid="activity-item-settings"
+                    on:click={|_| active_designer.set("settings")}
+                >
+                    "Set"
+                </button>
             </div>
-        </div>
-    }
-}
 
-component CssSidebar {
-    render {
-        <div class="css-sidebar" data-testid="css-sidebar">
-            <h3>"Categories"</h3>
-            <button data-testid="category-colors">"Colors"</button>
-            <button data-testid="category-spacing">"Spacing"</button>
-        </div>
-    }
-}
-
-component SettingsSidebar {
-    render {
-        <div class="settings-sidebar" data-testid="settings-sidebar">
-            <h3>"Settings"</h3>
-        </div>
-    }
-}
-
-component NavigationDesignerPage {
-    render {
-        <div class="navigation-designer-page">
-            <div data-testid="toolbar">
-                <button data-testid="add-node">"+ Add Node"</button>
-                <div data-testid="zoom-controls">
-                    <span>"100%"</span>
+            // Sidebar - always visible (no @if toggle)
+            <div class="sidebar" data-testid="sidebar">
+                <div class="navigation-sidebar" data-testid="navigation-sidebar">
+                    <h3>"Workflows"</h3>
+                    <button data-testid="add-workflow">"+ Add Workflow"</button>
+                    <div data-testid="workflow-list" class="workflow-list">
+                        <div class="workflow-item" data-testid="workflow-item">
+                            <span class="workflow-name">"Main Flow"</span>
+                            <span class="workflow-meta">"2 contexts"</span>
+                        </div>
+                        <div class="workflow-item" data-testid="workflow-item">
+                            <span class="workflow-name">"Auth Flow"</span>
+                            <span class="workflow-meta">"1 context"</span>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div data-testid="flow-canvas">
-                <div data-testid="flow-node">"Start"</div>
-                <div data-testid="flow-node">"Process"</div>
-            </div>
-            <div data-testid="minimap">"Mini"</div>
-            <div data-testid="bottom-panel">"Properties"</div>
-        </div>
-    }
-}
 
-component CssDesignerPage {
-    render {
-        <div class="css-designer-page" data-testid="css-designer-page">
-            <div data-testid="token-panel">
-                <h3>"Design Tokens"</h3>
-                <div data-testid="token-list">
-                    <div>"--primary-color: #007bff"</div>
+            // Main Area - always show navigation designer
+            <div class="main-area" data-testid="main-area">
+                <h1 data-testid="page-title">"Navigation Designer"</h1>
+                <div class="navigation-designer-page">
+                    <div data-testid="toolbar" class="toolbar">
+                        <button data-testid="add-node">"+ Add Node"</button>
+                        <div data-testid="zoom-controls" class="zoom-controls">
+                            <button
+                                class="zoom-out"
+                                on:click={|_| {
+                                    let z = canvas_zoom.get();
+                                    if z > 50 {
+                                        canvas_zoom.set(z - 10);
+                                    }
+                                }}
+                            >
+                                "-"
+                            </button>
+                            <button class="zoom-reset" on:click={|_| canvas_zoom.set(100)}>
+                                {canvas_zoom.get()}"%"
+                            </button>
+                            <button
+                                class="zoom-in"
+                                on:click={|_| {
+                                    let z = canvas_zoom.get();
+                                    if z < 200 {
+                                        canvas_zoom.set(z + 10);
+                                    }
+                                }}
+                            >
+                                "+"
+                            </button>
+                        </div>
+                    </div>
+                    <div data-testid="flow-canvas" class="flow-canvas">
+                        <div class="flow-node flow-node-workflow" data-testid="flow-node">
+                            "Main Flow"
+                        </div>
+                        <div class="flow-node flow-node-context" data-testid="flow-node">
+                            "Default Context"
+                        </div>
+                    </div>
+                    <div data-testid="minimap" class="minimap">"Mini"</div>
+                    <div data-testid="bottom-panel" class="bottom-panel">
+                        <span>"Properties"</span>
+                    </div>
                 </div>
             </div>
-            <div data-testid="preview-pane">
-                <button>"Sample Button"</button>
-                <input type="text" placeholder="Sample Input" />
-            </div>
-            <div data-testid="css-output-panel">
-                <pre>":root { }"</pre>
-            </div>
-        </div>
-    }
-}
-
-component SettingsPage {
-    render {
-        <div class="settings-page">
-            <h2>"Settings"</h2>
         </div>
     }
 }

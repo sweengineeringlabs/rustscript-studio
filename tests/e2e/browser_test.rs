@@ -28,8 +28,12 @@ use rsc_test::e2e::{
 };
 use std::time::Duration;
 
-/// Base URL for the test server.
-const BASE_URL: &str = "http://localhost:3000";
+/// Gets the base URL from environment or defaults to localhost.
+fn base_url() -> String {
+    std::env::var("RSC_TEST_&base_url()")
+        .or_else(|_| std::env::var("RSC_TEST_PORT").map(|p| format!("http://localhost:{}", p)))
+        .unwrap_or_else(|_| "http://localhost".to_string())
+}
 
 /// Creates a configured browser test context.
 async fn create_context() -> Result<BrowserTestContext, BrowserTestError> {
@@ -43,7 +47,7 @@ async fn create_context() -> Result<BrowserTestContext, BrowserTestError> {
         .headless(headless)
         .viewport(Viewport::desktop())
         .timeout(Duration::from_secs(30))
-        .base_url(BASE_URL);
+        .base_url(&base_url());
 
     BrowserTestContext::new(config).await
 }
@@ -60,6 +64,31 @@ async fn test_app_loads_successfully() {
     // Navigate to the app
     ctx.goto("/").await.expect("Failed to navigate");
 
+    // Inject error handlers IMMEDIATELY to catch async errors
+    ctx.evaluate(r#"
+        window.__errors = [];
+        window.onerror = function(msg, src, line, col, err) {
+            window.__errors.push('onerror: ' + msg + ' at ' + src + ':' + line);
+            return false;
+        };
+        window.addEventListener('unhandledrejection', function(e) {
+            window.__errors.push('unhandled rejection: ' + (e.reason ? e.reason.message || e.reason : 'unknown'));
+        });
+        // Also intercept console.error
+        const origError = console.error;
+        console.error = function() {
+            window.__errors.push('console.error: ' + Array.from(arguments).join(' '));
+            origError.apply(console, arguments);
+        };
+    "#).await.expect("Failed to inject error handlers");
+
+    // Check immediately before WASM loads
+    let app_div_before = ctx.evaluate("!!document.getElementById('app')").await
+        .expect("Failed to check app div");
+    let body_before = ctx.evaluate("document.body.innerHTML.substring(0, 300)").await
+        .expect("Failed to get body");
+    println!("BEFORE WASM: app_div={:?}, body={:?}", app_div_before, body_before);
+
     // Give time for WASM to load and mount
     tokio::time::sleep(Duration::from_secs(3)).await;
 
@@ -71,6 +100,55 @@ async fn test_app_loads_successfully() {
     let body_html = ctx.evaluate("document.body ? document.body.innerHTML.substring(0, 500) : 'NO BODY'").await
         .expect("Failed to get body");
     println!("After 3s wait: app_div={:?}, activity_bar={:?}, body={:?}", app_div, activity_bar, body_html);
+
+    // Check for captured errors
+    let errors = ctx.evaluate("JSON.stringify(window.__errors || [])").await
+        .expect("Failed to get errors");
+    println!("Captured errors: {:?}", errors);
+
+    // Try to manually call mount and see the result
+    let manual_mount = ctx.evaluate(r#"
+        (async function() {
+            try {
+                // Check if WASM is available
+                const resp = await fetch('/__rsc__/wasm');
+                if (!resp.ok) return 'WASM fetch failed: ' + resp.status;
+                const bytes = await resp.arrayBuffer();
+
+                // Instantiate manually with RustScript imports
+                const imports = RustScript.createImports();
+                const { instance } = await WebAssembly.instantiate(bytes, imports);
+
+                // Check exports
+                const exports = Object.keys(instance.exports).join(', ');
+
+                // Initialize
+                RustScript.initialize(instance, instance.exports.memory);
+
+                // Check if app element exists
+                const appEl = document.getElementById('app');
+                if (!appEl) return 'ERROR: No app element in DOM';
+
+                // Call mount
+                const SCRATCH = 65536;
+                const encoder = new TextEncoder();
+                const rootIdBytes = encoder.encode('app');
+                const view = new Uint8Array(instance.exports.memory.buffer, SCRATCH, rootIdBytes.length);
+                view.set(rootIdBytes);
+
+                const result = instance.exports.mount(SCRATCH, rootIdBytes.length);
+
+                // Check what's in app element now
+                const appInner = appEl.innerHTML;
+                const appChildren = appEl.children.length;
+
+                return 'mount returned: ' + result + ', app innerHTML length: ' + appInner.length + ', children: ' + appChildren + ', innerHTML: ' + appInner.substring(0, 200);
+            } catch (e) {
+                return 'ERROR: ' + e.message + ' at ' + e.stack;
+            }
+        })()
+    "#).await.expect("Failed to manual mount");
+    println!("Manual mount test: {:?}", manual_mount);
 
     // Check if RustScript is defined and if loadApp was called
     let rs_check = ctx.evaluate(r#"
@@ -137,7 +215,7 @@ async fn test_app_loads_successfully() {
     assert!(!title.is_empty(), "Page should have a title");
 
     // Assert URL
-    ctx.assert_url_contains("localhost:3000").await.expect("URL assertion failed");
+    ctx.assert_url_contains("localhost").await.expect("URL assertion failed");
 
     ctx.browser().close().await.expect("Failed to close browser");
 }
@@ -184,7 +262,7 @@ async fn test_page_content() {
 
     // Get current URL
     let url = ctx.url().await.expect("Failed to get URL");
-    assert!(url.contains("localhost:3000"), "URL should contain localhost:3000");
+    assert!(url.contains("localhost"), "URL should contain localhost");
 
     ctx.browser().close().await.expect("Failed to close browser");
 }
@@ -360,7 +438,7 @@ async fn test_touch_input() {
         .headless(true)
         .viewport(Viewport::mobile())
         .timeout(Duration::from_secs(30))
-        .base_url(BASE_URL);
+        .base_url(&base_url());
 
     let ctx = BrowserTestContext::new(config).await.expect("Failed to create context");
 
@@ -989,7 +1067,7 @@ async fn test_page_assertions() {
     ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
 
     // URL assertions
-    ctx.assert_url_contains("localhost:3000").await.expect("URL should contain localhost:3000");
+    ctx.assert_url_contains("localhost").await.expect("URL should contain localhost");
 
     // Title assertions
     let title = ctx.title().await.expect("Failed to get title");
@@ -1026,7 +1104,7 @@ async fn test_responsive_viewports() {
         .headless(true)
         .viewport(Viewport::mobile())
         .timeout(Duration::from_secs(30))
-        .base_url(BASE_URL);
+        .base_url(&base_url());
 
     let ctx = BrowserTestContext::new(mobile_config).await.expect("Failed to create mobile context");
     ctx.goto("/").await.expect("Failed to navigate");
@@ -1045,7 +1123,7 @@ async fn test_responsive_viewports() {
         .headless(true)
         .viewport(Viewport::tablet())
         .timeout(Duration::from_secs(30))
-        .base_url(BASE_URL);
+        .base_url(&base_url());
 
     let ctx = BrowserTestContext::new(tablet_config).await.expect("Failed to create tablet context");
     ctx.goto("/").await.expect("Failed to navigate");
@@ -1062,7 +1140,7 @@ async fn test_responsive_viewports() {
         .headless(true)
         .viewport(Viewport::desktop())
         .timeout(Duration::from_secs(30))
-        .base_url(BASE_URL);
+        .base_url(&base_url());
 
     let ctx = BrowserTestContext::new(desktop_config).await.expect("Failed to create desktop context");
     ctx.goto("/").await.expect("Failed to navigate");
@@ -1167,7 +1245,7 @@ async fn test_new_page_creation() {
     let new_page = ctx.new_page().await.expect("Failed to create new page");
 
     // Navigate new page to different URL
-    new_page.goto(&format!("{}/", BASE_URL)).await.expect("Failed to navigate new page");
+    new_page.goto(&format!("{}/", &base_url())).await.expect("Failed to navigate new page");
 
     // Both pages should work independently
     let title1 = ctx.title().await.expect("Failed to get title from first page");

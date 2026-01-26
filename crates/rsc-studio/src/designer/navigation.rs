@@ -164,4 +164,230 @@ mod tests {
         assert_eq!(designer.canvas.nodes.len(), 3); // workflow + context + preset
         assert_eq!(designer.canvas.edges.len(), 2); // w1->c1, c1->p1
     }
+
+    #[test]
+    fn test_designer_default_state() {
+        let designer = NavigationDesigner::new();
+
+        // Canvas should be empty initially
+        assert!(designer.canvas.nodes.is_empty());
+        assert!(designer.canvas.edges.is_empty());
+
+        // Layout config should have defaults
+        assert_eq!(designer.layout_config.direction, LayoutDirection::TopToBottom);
+        assert!(designer.layout_config.node_sep > 0.0);
+        assert!(designer.layout_config.rank_sep > 0.0);
+    }
+
+    #[test]
+    fn test_multiple_workflows() {
+        let mut workflow1 = Workflow::new("Flow 1").with_id("w1");
+        workflow1.add_context(Context::new("Ctx 1").with_id("c1"));
+
+        let mut workflow2 = Workflow::new("Flow 2").with_id("w2");
+        workflow2.add_context(Context::new("Ctx 2").with_id("c2"));
+
+        let mut designer = NavigationDesigner::new();
+        designer.load_workflows(&[&workflow1, &workflow2]);
+
+        // Should have 4 nodes (2 workflows + 2 contexts)
+        assert_eq!(designer.canvas.nodes.len(), 4);
+        // Should have 2 edges (w1->c1, w2->c2)
+        assert_eq!(designer.canvas.edges.len(), 2);
+    }
+
+    #[test]
+    fn test_entity_type_node_data() {
+        let mut workflow = Workflow::new("Main").with_id("w1");
+        let mut context = Context::new("Code").with_id("c1");
+        context.add_preset(Preset::new("Default").with_id("p1"));
+        workflow.add_context(context);
+
+        let mut designer = NavigationDesigner::new();
+        designer.load_workflows(&[&workflow]);
+
+        // Check workflow node data
+        let workflow_data = designer.get_entity_at("w1");
+        assert!(workflow_data.is_some());
+        assert_eq!(workflow_data.unwrap().entity_type, EntityType::Workflow);
+        assert_eq!(workflow_data.unwrap().label, "Main");
+
+        // Check context node data
+        let context_data = designer.get_entity_at("c1");
+        assert!(context_data.is_some());
+        assert_eq!(context_data.unwrap().entity_type, EntityType::Context);
+        assert_eq!(context_data.unwrap().label, "Code");
+
+        // Check preset node data
+        let preset_data = designer.get_entity_at("p1");
+        assert!(preset_data.is_some());
+        assert_eq!(preset_data.unwrap().entity_type, EntityType::Preset);
+        assert_eq!(preset_data.unwrap().label, "Default");
+    }
+
+    #[test]
+    fn test_parent_child_relationships() {
+        let mut workflow = Workflow::new("Main").with_id("w1");
+        let mut context = Context::new("Code").with_id("c1");
+        context.add_preset(Preset::new("Default").with_id("p1"));
+        workflow.add_context(context);
+
+        let mut designer = NavigationDesigner::new();
+        designer.load_workflows(&[&workflow]);
+
+        // Context should have workflow as parent
+        let context_data = designer.get_entity_at("c1").unwrap();
+        assert_eq!(context_data.parent_id, Some("w1".to_string()));
+
+        // Preset should have context as parent
+        let preset_data = designer.get_entity_at("p1").unwrap();
+        assert_eq!(preset_data.parent_id, Some("c1".to_string()));
+
+        // Workflow should have no parent
+        let workflow_data = designer.get_entity_at("w1").unwrap();
+        assert!(workflow_data.parent_id.is_none());
+    }
+
+    #[test]
+    fn test_reload_workflows() {
+        let mut designer = NavigationDesigner::new();
+
+        // Load first workflow
+        let workflow1 = Workflow::new("Flow 1").with_id("w1");
+        designer.load_workflows(&[&workflow1]);
+        assert_eq!(designer.canvas.nodes.len(), 1);
+
+        // Load new workflows (should replace old)
+        let workflow2 = Workflow::new("Flow 2").with_id("w2");
+        designer.load_workflows(&[&workflow2]);
+        assert_eq!(designer.canvas.nodes.len(), 1);
+        assert!(designer.canvas.nodes.contains_key("w2"));
+        assert!(!designer.canvas.nodes.contains_key("w1"));
+    }
+
+    #[test]
+    fn test_node_icons_and_descriptions() {
+        let mut workflow = Workflow::new("Main").with_id("w1");
+        workflow.icon = Some("home".to_string());
+        workflow.description = Some("Main workflow".to_string());
+
+        let mut context = Context::new("Code").with_id("c1");
+        context.icon = Some("code".to_string());
+        context.description = Some("Coding context".to_string());
+        workflow.add_context(context);
+
+        let mut designer = NavigationDesigner::new();
+        designer.load_workflows(&[&workflow]);
+
+        // Check workflow node has icon/description
+        let workflow_data = designer.get_entity_at("w1").unwrap();
+        assert_eq!(workflow_data.icon, Some("home".to_string()));
+        assert_eq!(workflow_data.description, Some("Main workflow".to_string()));
+
+        // Check context node has icon/description
+        let context_data = designer.get_entity_at("c1").unwrap();
+        assert_eq!(context_data.icon, Some("code".to_string()));
+        assert_eq!(context_data.description, Some("Coding context".to_string()));
+    }
+
+    #[test]
+    fn test_nonexistent_entity() {
+        let designer = NavigationDesigner::new();
+
+        let result = designer.get_entity_at("nonexistent");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_deep_hierarchy() {
+        let mut workflow = Workflow::new("Main").with_id("w1");
+        let mut context = Context::new("Code").with_id("c1");
+
+        // Add multiple presets
+        context.add_preset(Preset::new("Default").with_id("p1"));
+        context.add_preset(Preset::new("Dark").with_id("p2"));
+        context.add_preset(Preset::new("Light").with_id("p3"));
+        workflow.add_context(context);
+
+        // Add another context with presets
+        let mut context2 = Context::new("Review").with_id("c2");
+        context2.add_preset(Preset::new("Review Default").with_id("p4"));
+        workflow.add_context(context2);
+
+        let mut designer = NavigationDesigner::new();
+        designer.load_workflows(&[&workflow]);
+
+        // 1 workflow + 2 contexts + 4 presets = 7 nodes
+        assert_eq!(designer.canvas.nodes.len(), 7);
+        // w1->c1, c1->p1, c1->p2, c1->p3, w1->c2, c2->p4 = 6 edges
+        assert_eq!(designer.canvas.edges.len(), 6);
+    }
+
+    #[test]
+    fn test_apply_layout() {
+        let mut workflow = Workflow::new("Main").with_id("w1");
+        workflow.add_context(Context::new("Code").with_id("c1"));
+
+        let mut designer = NavigationDesigner::new();
+        designer.load_workflows(&[&workflow]);
+
+        // Nodes should have positions after load (auto-layout is called)
+        let workflow_node = designer.canvas.get_node("w1").unwrap();
+        let context_node = designer.canvas.get_node("c1").unwrap();
+
+        // Positions should be set (not both zero)
+        let workflow_pos = workflow_node.position;
+        let context_pos = context_node.position;
+
+        // At least one position should be non-zero after layout
+        assert!(
+            workflow_pos.x != 0.0 || workflow_pos.y != 0.0 ||
+            context_pos.x != 0.0 || context_pos.y != 0.0,
+            "Layout should set node positions"
+        );
+    }
+
+    #[test]
+    fn test_canvas_node_selection() {
+        let mut workflow = Workflow::new("Main").with_id("w1");
+        workflow.add_context(Context::new("Code").with_id("c1"));
+
+        let mut designer = NavigationDesigner::new();
+        designer.load_workflows(&[&workflow]);
+
+        // Initially no selection
+        assert!(designer.canvas.selected_nodes.is_empty());
+
+        // Select a node
+        designer.canvas.select_node("w1", false);
+        assert!(designer.canvas.selected_nodes.contains(&"w1".to_string()));
+
+        // Multi-select
+        designer.canvas.select_node("c1", true);
+        assert!(designer.canvas.selected_nodes.contains(&"w1".to_string()));
+        assert!(designer.canvas.selected_nodes.contains(&"c1".to_string()));
+
+        // Clear selection
+        designer.canvas.clear_selection();
+        assert!(designer.canvas.selected_nodes.is_empty());
+    }
+
+    #[test]
+    fn test_canvas_edges_between_nodes() {
+        let mut workflow = Workflow::new("Main").with_id("w1");
+        workflow.add_context(Context::new("Code").with_id("c1"));
+
+        let mut designer = NavigationDesigner::new();
+        designer.load_workflows(&[&workflow]);
+
+        // Get edges for workflow
+        let workflow_edges = designer.canvas.get_outgoing_edges("w1");
+        assert_eq!(workflow_edges.len(), 1);
+        assert_eq!(workflow_edges[0].target, "c1");
+
+        // Get incoming edges for context
+        let context_edges = designer.canvas.get_incoming_edges("c1");
+        assert_eq!(context_edges.len(), 1);
+        assert_eq!(context_edges[0].source, "w1");
+    }
 }

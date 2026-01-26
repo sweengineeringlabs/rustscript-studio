@@ -42,6 +42,7 @@ pub mod app_test;
 pub mod browser_test;
 pub mod css_designer_test;
 pub mod navigation_designer_test;
+pub mod interactivity_test;
 pub mod harness;
 
 use rsc_test::e2e::{
