@@ -89,24 +89,45 @@ async fn test_app_loads_successfully() {
         .expect("Failed to check error");
     println!("Load error: {:?}", load_error);
 
-    // Try manually loading the app
-    let manual_result = ctx.evaluate(r#"
-        (async function() {
-            try {
-                const app = await RustScript.loadApp('/__rsc__/wasm', 'app');
-                return 'Manual load success: ' + Object.keys(app.instance.exports).length + ' exports';
-            } catch (e) {
-                return 'Manual load error: ' + e.message;
+    // Get ALL appendChild calls to check for handle 1 being used as child
+    let appends = ctx.evaluate(r#"
+        (function() {
+            if (typeof RustScript !== 'undefined' && RustScript.debug && RustScript.debug.getTimeline) {
+                const timeline = RustScript.debug.getTimeline();
+                const appends = timeline.filter(e => {
+                    const msg = e.args.join(' ');
+                    return msg.includes('appendChild');
+                });
+                // Focus on calls involving handle 1 or 2
+                return JSON.stringify(appends.slice(0, 30), null, 2);
             }
+            return 'Debug timeline not available';
         })()
-    "#).await.expect("Failed to manually load");
-    println!("Manual load: {:?}", manual_result);
+    "#).await.expect("Failed to get appendChild calls");
+    println!("All appendChild calls:\n{}", appends);
 
-    // Check DOM again after manual load
-    tokio::time::sleep(Duration::from_millis(500)).await;
+    // Wait for the auto-loaded app (set by the HTML's module script)
+    // NOTE: Do NOT call loadApp again - it would cause duplication!
+    let wait_result = ctx.evaluate(r#"
+        (async function() {
+            // Wait up to 5 seconds for the app to be loaded
+            for (let i = 0; i < 50; i++) {
+                if (window.__rustscript_app) {
+                    const app = window.__rustscript_app;
+                    return 'Auto-load success: ' + Object.keys(app.instance.exports).length + ' exports';
+                }
+                await new Promise(r => setTimeout(r, 100));
+            }
+            return 'Timeout waiting for auto-load';
+        })()
+    "#).await.expect("Failed to wait for auto-load");
+    println!("Auto-load result: {:?}", wait_result);
+
+    // Check DOM - app should already be rendered by auto-load
+    tokio::time::sleep(Duration::from_millis(200)).await;
     let activity_bar_after = ctx.evaluate("!!document.querySelector('.activity-bar')").await
-        .expect("Failed to check activity bar after");
-    println!("Activity bar after manual load: {:?}", activity_bar_after);
+        .expect("Failed to check activity bar");
+    println!("Activity bar present: {:?}", activity_bar_after);
 
     // Wait for the activity bar to be visible
     ctx.wait_for(".activity-bar").await.expect("Activity bar not found");
@@ -1469,24 +1490,36 @@ async fn test_debug_conditional_rendering() {
     "#).await.expect("Failed to check loadApp");
     println!("LoadApp check: {:?}", load_error);
 
-    // Try to manually trigger WASM load and await with a Promise wrapper
+    // Wait for the auto-loaded app (set by the HTML's module script)
+    // NOTE: Do NOT call loadApp again - it would cause duplication!
     let _ = ctx.evaluate(r#"
-        window.__loadTestResult = 'loading...';
-        RustScript.loadApp('/__rsc__/wasm', 'app').then(app => {
-            window.__loadTestResult = 'success: ' + Object.keys(app.instance.exports).length + ' exports';
-            window.__rustscript_app = app;
-        }).catch(e => {
-            window.__loadTestResult = 'error: ' + e.message + '\n' + e.stack;
-        });
+        (async function() {
+            window.__loadTestResult = 'waiting...';
+            // Wait up to 5 seconds for the app to be loaded by the HTML's script
+            for (let i = 0; i < 50; i++) {
+                if (window.__rustscript_app) {
+                    const app = window.__rustscript_app;
+                    window.__loadTestResult = 'auto-load success: ' + Object.keys(app.instance.exports).length + ' exports';
+                    return;
+                }
+                await new Promise(r => setTimeout(r, 100));
+            }
+            // If auto-load didn't happen, check for error
+            if (window.__rustscript_error) {
+                window.__loadTestResult = 'auto-load error: ' + window.__rustscript_error;
+            } else {
+                window.__loadTestResult = 'timeout waiting for auto-load';
+            }
+        })();
     "#).await;
 
-    // Wait for the load to complete
+    // Wait for the check to complete
     tokio::time::sleep(Duration::from_secs(3)).await;
 
     // Check the result
     let load_result = ctx.evaluate("window.__loadTestResult").await
         .expect("Failed to get load result");
-    println!("Manual load result: {:?}", load_result);
+    println!("Auto-load result: {:?}", load_result);
 
     // Wait a bit more after manual load
     tokio::time::sleep(Duration::from_millis(500)).await;

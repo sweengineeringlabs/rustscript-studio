@@ -22,6 +22,14 @@ styles = "design/styles.yaml"
 port = 3000
 hot_reload = true
 
+[dev.debug]
+enabled = true
+level = "trace"
+systems = ["all"]
+show_timings = true
+record_timeline = true
+overlay = false
+
 [features]
 ssr = false
 hydration = true
