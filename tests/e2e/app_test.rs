@@ -5,6 +5,144 @@
 use super::{TestConfig, TestContext};
 use std::time::Duration;
 
+/// Debug test to understand toggle behavior
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_debug_toggle_behavior() {
+    let ctx = TestContext::new().await.expect("Failed to create test context");
+
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for_app().await.expect("App did not load");
+
+    // Check sidebar state before
+    let sidebar_before = ctx.query(".sidebar").await.expect("Query failed");
+    println!("Sidebar before: {:?}", sidebar_before.is_some());
+
+    // Get button HTML
+    let btn_html = ctx.evaluate(r#"
+        (function() {
+            const btn = document.querySelector('[title="Toggle Sidebar"]');
+            if (!btn) return 'BUTTON NOT FOUND';
+            return btn.outerHTML;
+        })()
+    "#).await.expect("Failed to get button");
+    println!("Toggle button HTML: {:?}", btn_html);
+
+    // Check all event handlers on the button
+    let event_info = ctx.evaluate(r#"
+        (function() {
+            const btn = document.querySelector('[title="Toggle Sidebar"]');
+            if (!btn) return 'BUTTON NOT FOUND';
+            // Check for listeners
+            const hasOnclick = !!btn.onclick;
+            const attrs = Array.from(btn.attributes).map(a => a.name + '=' + a.value).join('; ');
+            return 'onclick=' + hasOnclick + ', attrs: ' + attrs;
+        })()
+    "#).await.expect("Failed to get event info");
+    println!("Event info: {:?}", event_info);
+
+    // Click the toggle button using JS
+    let click_result = ctx.evaluate(r#"
+        (function() {
+            const btn = document.querySelector('[title="Toggle Sidebar"]');
+            if (!btn) return 'BUTTON NOT FOUND';
+
+            // Capture any console output
+            const logs = [];
+            const oldLog = console.log;
+            console.log = function(...args) {
+                logs.push(args.join(' '));
+                oldLog.apply(console, args);
+            };
+
+            // Click the button
+            btn.click();
+
+            // Restore console
+            console.log = oldLog;
+
+            return 'Clicked. Logs: ' + logs.join(' | ');
+        })()
+    "#).await.expect("Failed to click");
+    println!("Click result: {:?}", click_result);
+
+    // Wait a bit
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Check sidebar state after
+    let sidebar_after = ctx.query(".sidebar").await.expect("Query failed");
+    println!("Sidebar after: {:?}", sidebar_after.is_some());
+
+    // Get the full DOM for debugging
+    let dom_after = ctx.evaluate("document.querySelector('.app').innerHTML.substring(0, 500)").await.expect("Failed to get DOM");
+    println!("DOM after click: {:?}", dom_after);
+
+    // Check reactivity state
+    let reactivity_debug = ctx.evaluate(r#"
+        (function() {
+            // Check if createReactive was called
+            if (!window.__rsc_conditionals_debug) {
+                return 'No debug info (createReactive may not have been called)';
+            }
+            return JSON.stringify(window.__rsc_conditionals_debug);
+        })()
+    "#).await.expect("Failed to get reactivity debug");
+    println!("Reactivity debug: {:?}", reactivity_debug);
+
+    // Check the conditionals instances
+    let conditionals_state = ctx.evaluate(r#"
+        (function() {
+            if (typeof RustScript === 'undefined') return 'RustScript not available';
+            // Try to access internal state
+            try {
+                const runtime = RustScript;
+                // Look for any exposed conditionals state
+                return 'RustScript available, checking conditionals...';
+            } catch(e) {
+                return 'Error: ' + e.message;
+            }
+        })()
+    "#).await.expect("Failed to get conditionals state");
+    println!("Conditionals state: {:?}", conditionals_state);
+
+    // Check if there are any console errors during click
+    let all_logs = ctx.evaluate(r#"
+        (function() {
+            const logs = [];
+            const oldLog = console.log;
+            const oldError = console.error;
+            console.log = function(...args) {
+                logs.push('LOG: ' + args.join(' '));
+                oldLog.apply(console, args);
+            };
+            console.error = function(...args) {
+                logs.push('ERROR: ' + args.join(' '));
+                oldError.apply(console, args);
+            };
+
+            // Click the toggle button again
+            const btn = document.querySelector('[title="Toggle Sidebar"]');
+            if (btn) btn.click();
+
+            // Restore console
+            setTimeout(() => {
+                console.log = oldLog;
+                console.error = oldError;
+            }, 100);
+
+            return logs.join('\n');
+        })()
+    "#).await.expect("Failed to get logs");
+    println!("Console logs during second click: {:?}", all_logs);
+
+    // Wait and check sidebar again
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let sidebar_final = ctx.query(".sidebar").await.expect("Query failed");
+    println!("Sidebar final: {:?}", sidebar_final.is_some());
+
+    ctx.close().await.expect("Failed to close browser");
+}
+
 /// Tests that the app loads successfully with all main UI elements.
 #[tokio::test]
 #[ignore = "requires browser and dev server"]
@@ -570,5 +708,182 @@ async fn test_full_navigation_workflow() {
     let nav_page_restored = ctx.query("[data-testid='navigation-sidebar']").await.expect("Query failed");
     assert!(nav_page_restored.is_some(), "Should be back at Navigation Designer");
 
+    ctx.close().await.expect("Failed to close browser");
+}
+
+/// Debug test to check activity bar DOM structure
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_debug_activity_bar_dom() {
+    let ctx = TestContext::new().await.expect("Failed to create test context");
+    ctx.goto("/").await.expect("Failed to navigate");
+    ctx.wait_for_app().await.expect("App did not load");
+    
+    // Get activity bar HTML
+    let activity_bar_html = ctx.evaluate(
+        "document.querySelector('.activity-bar')?.outerHTML || 'NOT FOUND'"
+    ).await.expect("Eval failed");
+    println!("Activity bar HTML: {:?}", activity_bar_html);
+    
+    // Get class of navigation button
+    let nav_class = ctx.evaluate(
+        "document.querySelector('[data-testid=\"activity-item-navigation\"]')?.className || 'NOT FOUND'"
+    ).await.expect("Eval failed");
+    println!("Navigation button class: {:?}", nav_class);
+    
+    // Get style of navigation button
+    let nav_style = ctx.evaluate(
+        "document.querySelector('[data-testid=\"activity-item-navigation\"]')?.getAttribute('style') || 'NO STYLE'"
+    ).await.expect("Eval failed");
+    println!("Navigation button style: {:?}", nav_style);
+    
+    ctx.close().await.expect("Failed to close browser");
+}
+
+/// Debug test to check JavaScript errors
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_debug_js_errors() {
+    let ctx = TestContext::new().await.expect("Failed to create test context");
+    ctx.goto("/").await.expect("Failed to navigate");
+    
+    // Wait a bit for any errors
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    
+    // Get JavaScript errors
+    let errors = ctx.evaluate(r#"
+        (function() {
+            // Try to load WASM and return any errors
+            return new Promise(async (resolve) => {
+                try {
+                    const response = await fetch('/__rsc__/wasm');
+                    const buffer = await response.arrayBuffer();
+                    const module = await WebAssembly.compile(buffer);
+                    
+                    // Get imports required by module
+                    const imports = WebAssembly.Module.imports(module);
+                    const importMap = {};
+                    for (const imp of imports) {
+                        if (!importMap[imp.module]) importMap[imp.module] = [];
+                        importMap[imp.module].push(imp.name);
+                    }
+                    
+                    resolve(JSON.stringify({
+                        status: 'compiled',
+                        imports: importMap
+                    }));
+                } catch (e) {
+                    resolve(JSON.stringify({ error: e.toString() }));
+                }
+            });
+        })()
+    "#).await.expect("Eval failed");
+    println!("WASM imports: {:?}", errors);
+    
+    // Check console errors
+    let console_result = ctx.evaluate(r#"
+        window.__rsc_errors || 'no errors captured'
+    "#).await.expect("Eval failed");
+    println!("Console errors: {:?}", console_result);
+    
+    ctx.close().await.expect("Failed to close browser");
+}
+
+/// Debug test to check WASM instantiation
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_debug_wasm_instantiation() {
+    let ctx = TestContext::new().await.expect("Failed to create test context");
+    ctx.goto("/").await.expect("Failed to navigate");
+    
+    // Wait for runtime to load
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    
+    // Check if RustScript runtime is available and try to load
+    let result = ctx.evaluate(r#"
+        (async function() {
+            if (typeof RustScript === 'undefined') {
+                return { error: 'RustScript not defined' };
+            }
+            
+            try {
+                // Try to load the app manually
+                await RustScript.loadApp('/__rsc__/wasm', 'app');
+                return { status: 'loaded', innerHTML: document.getElementById('app').innerHTML.substring(0, 200) };
+            } catch (e) {
+                return { error: e.toString(), stack: e.stack ? e.stack.substring(0, 500) : 'no stack' };
+            }
+        })()
+    "#).await.expect("Eval failed");
+    println!("Result: {:?}", result);
+    
+    ctx.close().await.expect("Failed to close browser");
+}
+
+/// Debug test to check runtime loading
+#[tokio::test]
+#[ignore = "requires browser and dev server"]
+async fn test_debug_runtime_load() {
+    let ctx = TestContext::new().await.expect("Failed to create test context");
+    ctx.goto("/").await.expect("Failed to navigate");
+    
+    // Wait for runtime to load
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    
+    // Check runtime status
+    let runtime_check = ctx.evaluate("typeof RustScript").await.expect("Eval failed");
+    println!("RustScript type: {:?}", runtime_check);
+    
+    // Check if loadApp exists
+    let load_app_check = ctx.evaluate("typeof RustScript?.loadApp").await.expect("Eval failed");
+    println!("loadApp type: {:?}", load_app_check);
+    
+    // Wait longer
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    
+    // Check app div
+    let app_html = ctx.evaluate("document.getElementById('app')?.innerHTML?.length || 0").await.expect("Eval failed");
+    println!("App innerHTML length: {:?}", app_html);
+    
+    // Check for any global errors
+    let global_errors = ctx.evaluate(r#"
+        window.onerror = function(msg, url, line, col, error) {
+            window.__error = msg + ' at ' + line + ':' + col;
+            return false;
+        };
+        window.__error || 'no error'
+    "#).await.expect("Eval failed");
+    println!("Global errors: {:?}", global_errors);
+    
+    ctx.close().await.expect("Failed to close browser");
+}
+
+/// Debug test to check loadApp call
+#[tokio::test]
+#[ignore = "requires browser and dev server"]  
+async fn test_debug_load_app_call() {
+    let ctx = TestContext::new().await.expect("Failed to create test context");
+    ctx.goto("/").await.expect("Failed to navigate");
+    
+    // Wait for runtime
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    
+    // Try to call loadApp manually and capture error
+    let result = ctx.evaluate(r#"
+        new Promise((resolve) => {
+            window.__loadResult = 'pending';
+            RustScript.loadApp('/__rsc__/wasm', 'app')
+                .then(() => {
+                    window.__loadResult = 'success';
+                    resolve('success: ' + document.getElementById('app').innerHTML.substring(0, 200));
+                })
+                .catch(e => {
+                    window.__loadResult = 'error';
+                    resolve('error: ' + e.toString() + ' | stack: ' + (e.stack || 'none').substring(0, 300));
+                });
+        })
+    "#).await.expect("Eval failed");
+    println!("Load result: {:?}", result);
+    
     ctx.close().await.expect("Failed to close browser");
 }

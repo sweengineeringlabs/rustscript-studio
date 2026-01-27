@@ -128,12 +128,7 @@ component App {
                             <div data-testid="zoom-controls" class="zoom-controls">
                                 <button
                                     class="zoom-out"
-                                    on:click={{
-                                        let z = canvas_zoom.get();
-                                        if z > 50 {
-                                            canvas_zoom.set(z - 10);
-                                        }
-                                    }}
+                                    on:click={canvas_zoom.set(canvas_zoom.get() - 10)}
                                 >
                                     "-"
                                 </button>
@@ -142,12 +137,7 @@ component App {
                                 </button>
                                 <button
                                     class="zoom-in"
-                                    on:click={{
-                                        let z = canvas_zoom.get();
-                                        if z < 200 {
-                                            canvas_zoom.set(z + 10);
-                                        }
-                                    }}
+                                    on:click={canvas_zoom.set(canvas_zoom.get() + 10)}
                                 >
                                     "+"
                                 </button>
