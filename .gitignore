@@ -43,3 +43,12 @@ lcov.info
 
 # Local binaries
 rsc
+
+# Dependencies
+node_modules/
+
+# Test results
+test-results/
+
+# Claude local
+.claude/
